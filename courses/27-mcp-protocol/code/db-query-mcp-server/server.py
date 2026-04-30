@@ -293,11 +293,11 @@ async def main():
     # 从环境变量读取配置
     # 类比 Spring 的 @Value("${database.host}")
     db_config = DatabaseConfig(
-        host=os.getenv("DB_HOST", "172.25.0.19"),
+        host=os.getenv("DB_HOST", "localhost"),
         port=int(os.getenv("DB_PORT", "3306")),
         user=os.getenv("DB_USER", "root"),
         password=os.getenv("DB_PASSWORD", "root"),
-        database=os.getenv("DB_NAME", "ad_coin"),
+        database=os.getenv("DB_NAME", "test"),
         pool_size=int(os.getenv("DB_POOL_SIZE", "5"))
     )
 

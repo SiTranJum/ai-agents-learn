@@ -104,11 +104,11 @@ async def example1_simple_call():
             command="python",
             args=["server.py"],
             env={
-                "DB_HOST": "172.25.0.19",
+                "DB_HOST": "localhost",
                 "DB_PORT": "3306",
                 "DB_USER": "root",
                 "DB_PASSWORD": "root",
-                "DB_NAME": "ad_coin",
+                "DB_NAME": "test",
                 "LLM_API_KEY": "sk-a4ae611c3f9c4df89a133e621b2b7851",
                 "SKILLS_DIR": "./skills"
             }
@@ -156,11 +156,11 @@ async def example2_agent_with_mcp():
             command="python",
             args=["server.py"],
             env={
-                "DB_HOST": "172.25.0.19",
+                "DB_HOST": "localhost",
                 "DB_PORT": "3306",
                 "DB_USER": "root",
                 "DB_PASSWORD": "root",
-                "DB_NAME": "ad_coin",
+                "DB_NAME": "test",
                 "LLM_API_KEY": "sk-a4ae611c3f9c4df89a133e621b2b7851",
                 "SKILLS_DIR": "./skills"
             }
@@ -294,11 +294,11 @@ async def example3_manage_skills():
             command="python",
             args=["server.py"],
             env={
-                "DB_HOST": "172.25.0.19",
+                "DB_HOST": "localhost",
                 "DB_PORT": "3306",
                 "DB_USER": "root",
                 "DB_PASSWORD": "root",
-                "DB_NAME": "ad_coin",
+                "DB_NAME": "test",
                 "LLM_API_KEY": "sk-a4ae611c3f9c4df89a133e621b2b7851",
                 "SKILLS_DIR": "./skills"
             }
