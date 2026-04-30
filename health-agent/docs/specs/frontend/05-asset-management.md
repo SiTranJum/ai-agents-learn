@@ -124,9 +124,9 @@ export const Images = {
     loginHero: require('../../assets/images/illustrations/login-hero.png'),
   },
   emptyStates: {
-    diet: require('../../assets/images/empty-states/empty-diet.png'),
-    plan: require('../../assets/images/empty-states/empty-plan.png'),
-    data: require('../../assets/images/empty-states/empty-data.png'),
+    diet: require('../../assets/images/empty-states/empty-plan.png'),
+    plan: require('../../assets/images/empty-states/empty-data.png'),
+    data: require('../../assets/images/empty-states/login-hero.png'),
   },
   mockups: {
     heroPhone: require('../../assets/images/mockups/hero-phone.png'),
