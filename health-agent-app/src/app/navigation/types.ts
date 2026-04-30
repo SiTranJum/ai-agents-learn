@@ -22,7 +22,7 @@ export type TabParamList = {
 
 export type MainStackParamList = {
   Tabs: undefined;
-  DietEdit: { mealType?: string; date?: string };
+  DietEdit: { mealType?: string; date?: string; recordId?: string };
   BodyEdit: { recordType: string; recordId?: string };
   Analysis: undefined;
   PlanList: undefined;

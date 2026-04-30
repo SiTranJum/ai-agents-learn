@@ -6,6 +6,7 @@ import { theme } from '@app/styles/theme';
 
 // 占位页面（后续替换为真实页面）
 import { PlaceholderScreen } from '@shared/ui/PlaceholderScreen';
+import { DietEditScreen } from '@features/diet/screens/DietEditScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -25,8 +26,8 @@ export function MainNavigator() {
       />
       <Stack.Screen
         name="DietEdit"
-        component={PlaceholderScreen}
-        options={{ title: '编辑饮食' }}
+        component={DietEditScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="BodyEdit"
