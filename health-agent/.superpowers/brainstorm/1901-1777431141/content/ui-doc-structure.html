@@ -1,0 +1,52 @@
+<h2>V1 UI 文档拆分方案</h2>
+<p class="subtitle">目标：让 AI 能直接根据文档生成页面、组件和素材。先确认文档颗粒度。</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>总览 + 少量分页</h3>
+      <p>保留 1 份总览，再拆 5-6 份大页面文档。写得更快，但后续让 AI 逐页生成时不够精准。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>设计系统 + 组件 + 单页文档</h3>
+      <p>拆成设计系统、组件规范、每个页面单独文档、官网单独文档、素材 prompt 文档。最适合 AI 直接生成。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>先核心页，后补齐</h3>
+      <p>先生成首页、饮食页、数据页、计划页、官网页，再补其他页面。适合先快速出效果图。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>我的建议</h3>
+  <p>推荐 <strong>B</strong>。因为你的目标不是“写一份能看懂的 UI 文档”，而是“让 AI 能直接根据文档生成页面和素材”。这种目标更需要文档拆得细、结构稳定、页面边界清晰。</p>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">推荐目录结构（方案 B）</div>
+  <div class="mockup-body">
+    <pre>ui-design/
+├── 00-ui-overview.md
+├── 01-design-system.md
+├── 02-components.md
+├── 03-home-page.md
+├── 04-diet-page.md
+├── 05-diet-edit-page.md
+├── 06-data-page.md
+├── 07-body-edit-page.md
+├── 08-plan-pages.md
+├── 09-profile-pages.md
+├── 10-auth-pages.md
+├── 11-ai-dialog-pages.md
+├── 12-official-website.md
+└── 13-asset-prompts.md</pre>
+  </div>
+</div>

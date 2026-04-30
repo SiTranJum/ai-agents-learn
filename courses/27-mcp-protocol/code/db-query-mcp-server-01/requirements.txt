@@ -1,0 +1,13 @@
+# MCP Server 依赖
+
+# MCP SDK
+mcp>=1.0.0
+
+# MySQL 连接
+mysql-connector-python>=8.0.0
+
+# OpenAI SDK（用于调用通义千问）
+openai>=1.0.0
+
+# YAML 解析（如果需要配置文件）
+pyyaml>=6.0

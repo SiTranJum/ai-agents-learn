@@ -1,0 +1,8 @@
+# MCP Server 依赖
+
+# MCP SDK - Model Context Protocol 的 Python 实现
+# 提供 Server、Client、类型定义等核心功能
+mcp>=1.0.0
+
+# 如果需要使用 SSE 传输方式（远程服务），需要额外安装：
+# mcp[sse]>=1.0.0
