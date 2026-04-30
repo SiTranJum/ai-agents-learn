@@ -489,21 +489,21 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 
 ### Task 6.1: Plan 类型、Store、Mock Service
 
-- [ ] **Step 1-4: 类型 → Store → Mock → Service**
-- [ ] **Step 5: Commit**
+- [x] **Step 1-4: 类型 → Store → Mock → Service**
+- [x] **Step 5: Commit**
 
 ### Task 6.2: 计划列表与详情页
 
-- [ ] **Step 1: 实现 PlanListScreen**（计划卡片列表 + 新建入口）
-- [ ] **Step 2: 实现 PlanDetailScreen**（计划概览 + 任务列表 + 进度图表）
-- [ ] **Step 3: Commit**
+- [x] **Step 1: 实现 PlanListScreen**（计划卡片列表 + 新建入口）
+- [x] **Step 2: 实现 PlanDetailScreen**（计划概览 + 任务列表 + 进度图表）
+- [x] **Step 3: Commit**
 
 ### Task 6.3: 计划创建对话页
 
-- [ ] **Step 1: 实现 ChatMessage 组件**（用户消息 / AI 消息 / 计划摘要卡片）
-- [ ] **Step 2: 实现 PlanCreateChatScreen**（多轮对话 → 生成计划）
-- [ ] **Step 3: 验证计划创建 → 列表 → 详情完整流程**
-- [ ] **Step 4: Commit**
+- [x] **Step 1: 实现 ChatMessage 组件**（用户消息 / AI 消息 / 计划摘要卡片）
+- [x] **Step 2: 实现 PlanCreateChatScreen**（多轮对话 → 生成计划）
+- [x] **Step 3: 验证计划创建 → 列表 → 详情完整流程**
+- [x] **Step 4: Commit**
 
 ---
 
@@ -588,8 +588,8 @@ git add -A && git commit -m "feat: complete health-agent frontend v1 with mock d
 | 3 | 首页模块 | 2 | ✅ 已完成 |
 | 4 | 饮食模块 | 3 | ✅ 已完成 |
 | 5 | 数据模块 | 3 | ✅ 已完成 |
-| 6 | 计划模块 | 3 | 🔄 进行中 |
-| 7 | 个人中心模块 | 2 | ⬜ 未开始 |
+| 6 | 计划模块 | 3 | ✅ 已完成 |
+| 7 | 个人中心模块 | 2 | 🔄 进行中 |
 | 8 | AI 对话模块 | 2 | ⬜ 未开始 |
 | 9 | 全局联调与收尾 | 2 | ⬜ 未开始 |
 | **总计** | | **30 Tasks** | |

@@ -9,6 +9,9 @@ import { PlaceholderScreen } from '@shared/ui/PlaceholderScreen';
 import { DietEditScreen } from '@features/diet/screens/DietEditScreen';
 import { BodyEditScreen } from '@features/data/screens/BodyEditScreen';
 import { AnalysisScreen } from '@features/data/screens/AnalysisScreen';
+import { PlanListScreen } from '@features/plan/screens/PlanListScreen';
+import { PlanDetailScreen } from '@features/plan/screens/PlanDetailScreen';
+import { PlanCreateChatScreen } from '@features/plan/screens/PlanCreateChatScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -43,18 +46,18 @@ export function MainNavigator() {
       />
       <Stack.Screen
         name="PlanList"
-        component={PlaceholderScreen}
-        options={{ title: '我的计划' }}
+        component={PlanListScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="PlanDetail"
-        component={PlaceholderScreen}
-        options={{ title: '计划详情' }}
+        component={PlanDetailScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="PlanCreate"
-        component={PlaceholderScreen}
-        options={{ title: '创建计划' }}
+        component={PlanCreateChatScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="EditProfile"
