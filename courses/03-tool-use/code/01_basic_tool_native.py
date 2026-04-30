@@ -1,3 +1,4 @@
+import os
 """
 Tool Use 基础示例：天气查询（使用 DeepSeek 原生 Function Calling）
 
@@ -10,7 +11,7 @@ import json
 
 # 初始化 DeepSeek 客户端
 client = OpenAI(
-    api_key="sk-539707f4724a4e39a213e9b51e3f9c12",
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 

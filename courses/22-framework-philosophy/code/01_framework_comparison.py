@@ -63,7 +63,7 @@ def run_handwritten_agent(user_input: str) -> str:
     """
     # --- 初始化 LLM 客户端 ---
     client = OpenAI(
-        api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+        api_key=os.getenv("DASHSCOPE_API_KEY"),
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
     )
 
@@ -162,7 +162,7 @@ def run_langchain_agent(user_input: str) -> str:
     # 它实现了 Runnable 协议，可以用 | 操作符组合
     llm = ChatOpenAI(
         model="qwen-plus",
-        api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+        api_key=os.getenv("DASHSCOPE_API_KEY"),
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
     )
 
@@ -229,7 +229,7 @@ def run_langgraph_agent(user_input: str) -> str:
     # --- 初始化 LLM 和工具 ---
     llm = ChatOpenAI(
         model="qwen-plus",
-        api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+        api_key=os.getenv("DASHSCOPE_API_KEY"),
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
     )
 

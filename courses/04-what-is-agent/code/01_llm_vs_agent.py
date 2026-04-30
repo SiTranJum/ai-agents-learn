@@ -1,3 +1,4 @@
+import os
 """
 课程 4：普通 LLM 调用 vs Agent 对比
 
@@ -13,7 +14,7 @@ import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 client = OpenAI(
-    api_key="sk-539707f4724a4e39a213e9b51e3f9c12",
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 

@@ -1,3 +1,4 @@
+import os
 """
 示例 2：编排器 + 共享上下文
 
@@ -10,7 +11,7 @@ from typing import Dict, Any, Callable
 import json
 
 client = OpenAI(
-    api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 
