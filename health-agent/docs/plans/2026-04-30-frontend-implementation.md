@@ -403,8 +403,8 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 
 ### Task 4.1: Diet 类型、Store、Mock Service
 
-- [ ] **Step 1-4: 类型 → Store → Mock → Service**
-- [ ] **Step 5: Commit**
+- [x] **Step 1-4: 类型 → Store → Mock → Service**
+- [x] **Step 5: Commit**
 
 ### Task 4.2: 饮食记录页
 
@@ -415,11 +415,11 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 - Create: `src/features/diet/components/MealCardList.tsx`
 - Create: `src/features/diet/hooks/useDietData.ts`
 
-- [ ] **Step 1: 实现 DateSwitcher**（日期左右切换）
-- [ ] **Step 2: 实现 NutritionSummary**（今日营养汇总）
-- [ ] **Step 3: 实现 MealCardList**（早/午/晚/加餐卡片列表，复用 shared MealCard）
-- [ ] **Step 4: 组装 DietRecordScreen**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: 实现 DateSwitcher**（日期左右切换）
+- [x] **Step 2: 实现 NutritionSummary**（今日营养汇总）
+- [x] **Step 3: 实现 MealCardList**（早/午/晚/加餐卡片列表，复用 shared MealCard）
+- [x] **Step 4: 组装 DietRecordScreen**
+- [x] **Step 5: Commit**
 
 ### Task 4.3: 饮食编辑页
 
@@ -428,10 +428,10 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 - Create: `src/features/diet/components/FoodSearchModal.tsx`
 - Create: `src/features/diet/hooks/useFoodSearch.ts`
 
-- [ ] **Step 1: 实现 FoodSearchModal**（食物搜索弹窗）
-- [ ] **Step 2: 实现 DietEditScreen**（食物列表 + 添加/删除/修改份量）
-- [ ] **Step 3: 验证饮食记录 → 编辑完整流程**
-- [ ] **Step 4: Commit**
+- [x] **Step 1: 实现 FoodSearchModal**（食物搜索弹窗）
+- [x] **Step 2: 实现 DietEditScreen**（食物列表 + 添加/删除/修改份量）
+- [x] **Step 3: 验证饮食记录 → 编辑完整流程**
+- [x] **Step 4: Commit**
 
 ---
 
@@ -444,8 +444,8 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 
 ### Task 5.1: Data 类型、Store、Mock Service
 
-- [ ] **Step 1-4: 类型 → Store → Mock → Service**
-- [ ] **Step 5: Commit**
+- [x] **Step 1-4: 类型 → Store → Mock → Service**
+- [x] **Step 5: Commit**
 
 ### Task 5.2: 数据页
 
@@ -455,28 +455,28 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 - Create: `src/features/data/components/TrendChart.tsx`
 - Create: `src/features/data/components/DataRecordList.tsx`
 
-- [ ] **Step 1: 实现 DataTabBar**（6 个 Tab 横向滚动切换）
-- [ ] **Step 2: 实现 TrendChart**（趋势折线图 + 时间范围切换）
-- [ ] **Step 3: 实现 DataRecordList**（历史记录列表）
-- [ ] **Step 4: 组装 DataScreen**（Tab 切换 → 动态展示对应卡片和趋势）
-- [ ] **Step 5: Commit**
+- [x] **Step 1: 实现 DataTabBar**（6 个 Tab 横向滚动切换）
+- [x] **Step 2: 实现 TrendChart**（趋势折线图 + 时间范围切换）
+- [x] **Step 3: 实现 DataRecordList**（历史记录列表）
+- [x] **Step 4: 组装 DataScreen**（Tab 切换 → 动态展示对应卡片和趋势）
+- [x] **Step 5: Commit**
 
 ### Task 5.3: 身体数据编辑页
 
 **Files:**
 - Create: `src/features/data/screens/BodyEditScreen.tsx`
 
-- [ ] **Step 1: 实现 BodyEditScreen**（根据 recordType 动态渲染表单）
-- [ ] **Step 2: 验证数据页 → 编辑页完整流程**
-- [ ] **Step 3: Commit**
+- [x] **Step 1: 实现 BodyEditScreen**（根据 recordType 动态渲染表单）
+- [x] **Step 2: 验证数据页 → 编辑页完整流程**
+- [x] **Step 3: Commit**
 
 ### Task 5.4: 数据分析页
 
 **Files:**
 - Create: `src/features/data/screens/AnalysisScreen.tsx`
 
-- [ ] **Step 1: 实现 AnalysisScreen**（热量趋势 + 营养分布 + 体重变化 + 计划达成 + AI 洞察）
-- [ ] **Step 2: Commit**
+- [x] **Step 1: 实现 AnalysisScreen**（热量趋势 + 营养分布 + 体重变化 + 计划达成 + AI 洞察）
+- [x] **Step 2: Commit**
 
 ---
 
@@ -586,9 +586,9 @@ git add -A && git commit -m "feat: complete health-agent frontend v1 with mock d
 | 1 | 共享组件层 | 5 | ✅ 已完成 |
 | 2 | 认证模块 | 3 | ✅ 已完成 |
 | 3 | 首页模块 | 2 | ✅ 已完成 |
-| 4 | 饮食模块 | 3 | 🔄 进行中 |
-| 5 | 数据模块 | 4 | ⬜ 未开始 |
-| 6 | 计划模块 | 3 | ⬜ 未开始 |
+| 4 | 饮食模块 | 3 | ✅ 已完成 |
+| 5 | 数据模块 | 3 | ✅ 已完成 |
+| 6 | 计划模块 | 3 | 🔄 进行中 |
 | 7 | 个人中心模块 | 2 | ⬜ 未开始 |
 | 8 | AI 对话模块 | 2 | ⬜ 未开始 |
 | 9 | 全局联调与收尾 | 2 | ⬜ 未开始 |

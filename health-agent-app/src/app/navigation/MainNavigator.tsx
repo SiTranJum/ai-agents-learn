@@ -7,6 +7,8 @@ import { theme } from '@app/styles/theme';
 // 占位页面（后续替换为真实页面）
 import { PlaceholderScreen } from '@shared/ui/PlaceholderScreen';
 import { DietEditScreen } from '@features/diet/screens/DietEditScreen';
+import { BodyEditScreen } from '@features/data/screens/BodyEditScreen';
+import { AnalysisScreen } from '@features/data/screens/AnalysisScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -31,13 +33,13 @@ export function MainNavigator() {
       />
       <Stack.Screen
         name="BodyEdit"
-        component={PlaceholderScreen}
-        options={{ title: '编辑数据' }}
+        component={BodyEditScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="Analysis"
-        component={PlaceholderScreen}
-        options={{ title: '数据分析' }}
+        component={AnalysisScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="PlanList"
