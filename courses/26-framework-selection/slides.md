@@ -85,7 +85,7 @@
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 
@@ -118,7 +118,7 @@ from langchain_core.output_parsers import StrOutputParser
 
 llm = ChatOpenAI(
     model="qwen-plus",
-    api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 
@@ -153,7 +153,7 @@ from operator import add
 
 llm = ChatOpenAI(
     model="qwen-plus",
-    api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 
@@ -206,7 +206,7 @@ from crewai import Agent, Task, Crew, LLM
 llm = LLM(
     model="openai/qwen-plus",
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-    api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
 )
 
 analyst = Agent(

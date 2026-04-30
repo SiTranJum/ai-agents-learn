@@ -67,7 +67,7 @@ from crewai import Agent, LLM
 llm = LLM(
     model="openai/qwen-plus",  # provider/model 格式
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-    api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
 )
 
 # 定义一个 Agent：营养分析师

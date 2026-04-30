@@ -1,3 +1,4 @@
+import os
 """
 Tool Use 的"多轮请求"详解
 
@@ -10,7 +11,7 @@ from openai import OpenAI
 import json
 
 client = OpenAI(
-    api_key="sk-539707f4724a4e39a213e9b51e3f9c12",
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 

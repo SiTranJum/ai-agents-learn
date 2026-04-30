@@ -104,7 +104,7 @@ courses/
   - 配置 DashScope base_url：`base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"`
   - Chat 模型使用 `qwen-plus`
   - Embedding 模型使用 `text-embedding-v3`
-  - API Key：`sk-a4ae611c3f9c4df89a133e621b2b7851`
+  - API Key：从环境变量读取，`api_key=os.getenv("DASHSCOPE_API_KEY")`（不要在代码中硬编码密钥）
   - 不要使用 DeepSeek API（已弃用）
   - 不要使用 Anthropic API（`import anthropic`）
 - **所有代码示例必须包含详细的 SDK/API 注释**：用户是 Java 开发者，对 Python AI SDK 不熟悉。每个 API 方法、参数、返回值都需要用注释说明其作用和含义，确保用户能看懂代码在做什么。

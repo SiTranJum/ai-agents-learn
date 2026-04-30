@@ -19,7 +19,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_bufferin
 # - embeddings.create -> text-embedding-v3
 # - chat.completions.create -> qwen-plus
 dashscope_client = OpenAI(
-    api_key=os.getenv("DASHSCOPE_API_KEY", "sk-a4ae611c3f9c4df89a133e621b2b7851"),
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 

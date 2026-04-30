@@ -1,3 +1,4 @@
+import os
 """
 示例 1：消息传递模式
 
@@ -11,7 +12,7 @@ from datetime import datetime
 import json
 
 client = OpenAI(
-    api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 
