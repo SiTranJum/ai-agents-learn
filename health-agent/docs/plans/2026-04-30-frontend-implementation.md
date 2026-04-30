@@ -368,8 +368,8 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 - Create: `src/features/home/services/homeService.ts`
 - Create: `src/features/home/mocks/homeMocks.ts`
 
-- [ ] **Step 1-4: 类型 → Store → Mock → Service**
-- [ ] **Step 5: Commit**
+- [x] **Step 1-4: 类型 → Store → Mock → Service**
+- [x] **Step 5: Commit**
 
 ### Task 3.2: 首页组件与页面
 
@@ -382,15 +382,15 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 - Create: `src/features/home/screens/HomeScreen.tsx`
 - Create: `src/features/home/hooks/useHomeData.ts`
 
-- [ ] **Step 1: 实现 useHomeData hook**
-- [ ] **Step 2: 实现 HealthOverviewCard**（热量环形图 + 营养素进度条）
-- [ ] **Step 3: 实现 QuickActionBar**（记录饮食 / 记录体重 / 查看计划 / 更多）
-- [ ] **Step 4: 实现 AIInsightCard**（AI 建议卡片）
-- [ ] **Step 5: 实现 PlanProgressCard**（计划进度卡片）
-- [ ] **Step 6: 实现 AuxiliaryRecordGrid**（饮水 / 运动 / 睡眠小卡片）
-- [ ] **Step 7: 组装 HomeScreen**
-- [ ] **Step 8: 验证首页展示**
-- [ ] **Step 9: Commit**
+- [x] **Step 1: 实现 useHomeData hook**
+- [x] **Step 2: 实现 HealthOverviewCard**（热量环形图 + 营养素进度条）
+- [x] **Step 3: 实现 QuickActionBar**（记录饮食 / 记录体重 / 查看计划 / 更多）
+- [x] **Step 4: 实现 AIInsightCard**（AI 建议卡片）
+- [x] **Step 5: 实现 PlanProgressCard**（计划进度卡片）
+- [x] **Step 6: 实现 AuxiliaryRecordGrid**（饮水 / 运动 / 睡眠小卡片）
+- [x] **Step 7: 组装 HomeScreen**
+- [x] **Step 8: 验证首页展示**
+- [x] **Step 9: Commit**
 
 ---
 
@@ -584,9 +584,9 @@ git add -A && git commit -m "feat: complete health-agent frontend v1 with mock d
 |-------|------|-------------|------|
 | 0 | 项目初始化与基础设施 | 4 | ✅ 已完成 |
 | 1 | 共享组件层 | 5 | ✅ 已完成 |
-| 2 | 认证模块 | 3 | 🔄 进行中 |
-| 3 | 首页模块 | 2 | ⬜ 未开始 |
-| 4 | 饮食模块 | 3 | ⬜ 未开始 |
+| 2 | 认证模块 | 3 | ✅ 已完成 |
+| 3 | 首页模块 | 2 | ✅ 已完成 |
+| 4 | 饮食模块 | 3 | 🔄 进行中 |
 | 5 | 数据模块 | 4 | ⬜ 未开始 |
 | 6 | 计划模块 | 3 | ⬜ 未开始 |
 | 7 | 个人中心模块 | 2 | ⬜ 未开始 |
