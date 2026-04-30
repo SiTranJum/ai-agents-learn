@@ -30,7 +30,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", line_bufferin
 # - chat.completions.create -> 调用对话模型
 # - embeddings.create -> 调用向量模型
 dashscope_client = OpenAI(
-    api_key=os.getenv("DASHSCOPE_API_KEY", "sk-non"),
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 

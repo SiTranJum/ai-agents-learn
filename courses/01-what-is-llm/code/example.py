@@ -1,3 +1,4 @@
+import os
 """
 示例：第一个 LLM API 调用
 
@@ -18,7 +19,7 @@ from openai import OpenAI
 #              OpenAI:   https://api.openai.com/v1
 #              通义千问:  https://dashscope.aliyuncs.com/compatible-mode/v1
 client = OpenAI(
-    api_key="sk-ds-non",
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 

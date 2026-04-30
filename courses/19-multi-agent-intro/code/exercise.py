@@ -1,3 +1,4 @@
+import os
 """
 练习：实现一个混合模式的健康管家
 
@@ -15,7 +16,7 @@ import json
 import asyncio
 
 client = OpenAI(
-    api_key="sk-non",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 

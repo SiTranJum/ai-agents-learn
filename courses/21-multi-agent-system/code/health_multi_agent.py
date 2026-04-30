@@ -1,3 +1,4 @@
+import os
 """
 健康管家 Multi-Agent 系统
 
@@ -19,7 +20,7 @@ import uuid
 import asyncio
 
 client = OpenAI(
-    api_key="sk-non",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 

@@ -1,3 +1,4 @@
+import os
 """
 课程 24：LangGraph 状态机编排 — 代码实践
 
@@ -25,7 +26,7 @@ import json
 
 llm = ChatOpenAI(
     model="qwen-plus",
-    api_key="sk-non",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 

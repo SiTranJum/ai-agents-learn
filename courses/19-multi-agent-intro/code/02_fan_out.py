@@ -1,3 +1,4 @@
+import os
 """
 模式二：并行扇出（Fan-out / Fan-in）
 
@@ -12,7 +13,7 @@ from typing import List
 
 # 创建 DashScope 客户端
 client = OpenAI(
-    api_key="sk-non",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 

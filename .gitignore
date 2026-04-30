@@ -21,10 +21,14 @@ node_modules/
 dist/
 web-build/
 
-# Environment
+# Environment / secrets — never commit real API keys
 .env
 .env.local
 .env.*.local
+.env.*
+*.env
+*.secrets
+*.secrets.*
 
 # IDE
 .vscode/

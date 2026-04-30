@@ -1,3 +1,4 @@
+import os
 """
 模式一：串行管道（Pipeline）
 
@@ -10,7 +11,7 @@ from openai import OpenAI
 
 # 创建 DashScope 客户端（通义千问）
 client = OpenAI(
-    api_key="sk-non",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 

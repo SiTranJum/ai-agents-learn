@@ -1,3 +1,4 @@
+import os
 """
 MCP Client 示例 - 如何使用 db-query-mcp-server
 
@@ -26,7 +27,7 @@ from mcp.client.stdio import stdio_client, StdioServerParameters
 
 # 通义千问 API 配置
 llm_client = OpenAI(
-    api_key="sk-non",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 
@@ -104,12 +105,12 @@ async def example1_simple_call():
             command="python",
             args=["server.py"],
             env={
-                "DB_HOST": "localhost",
+                "DB_HOST": "172.25.0.19",
                 "DB_PORT": "3306",
                 "DB_USER": "root",
                 "DB_PASSWORD": "root",
-                "DB_NAME": "test",
-                "LLM_API_KEY": "sk-non",
+                "DB_NAME": "ad_coin",
+                "LLM_API_KEY": os.environ.get("DASHSCOPE_API_KEY"),
                 "SKILLS_DIR": "./skills"
             }
         )
@@ -156,12 +157,12 @@ async def example2_agent_with_mcp():
             command="python",
             args=["server.py"],
             env={
-                "DB_HOST": "localhost",
+                "DB_HOST": "172.25.0.19",
                 "DB_PORT": "3306",
                 "DB_USER": "root",
                 "DB_PASSWORD": "root",
-                "DB_NAME": "test",
-                "LLM_API_KEY": "sk-non",
+                "DB_NAME": "ad_coin",
+                "LLM_API_KEY": os.environ.get("DASHSCOPE_API_KEY"),
                 "SKILLS_DIR": "./skills"
             }
         )
@@ -294,12 +295,12 @@ async def example3_manage_skills():
             command="python",
             args=["server.py"],
             env={
-                "DB_HOST": "localhost",
+                "DB_HOST": "172.25.0.19",
                 "DB_PORT": "3306",
                 "DB_USER": "root",
                 "DB_PASSWORD": "root",
-                "DB_NAME": "test",
-                "LLM_API_KEY": "sk-non",
+                "DB_NAME": "ad_coin",
+                "LLM_API_KEY": os.environ.get("DASHSCOPE_API_KEY"),
                 "SKILLS_DIR": "./skills"
             }
         )

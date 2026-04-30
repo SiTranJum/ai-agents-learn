@@ -1,3 +1,4 @@
+import os
 """
 实验 3：混合检索（向量 + 关键词）
 
@@ -21,7 +22,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_bufferin
 # ========== API 配置 ==========
 
 embedding_client = OpenAI(
-    api_key="sk-non",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 
