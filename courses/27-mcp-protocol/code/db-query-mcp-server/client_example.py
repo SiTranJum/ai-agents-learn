@@ -110,7 +110,7 @@ async def example1_simple_call():
                 "DB_USER": "root",
                 "DB_PASSWORD": "root",
                 "DB_NAME": "ad_coin",
-                "LLM_API_KEY": os.environ.get("DASHSCOPE_API_KEY", "YOUR_QWEN_API_KEY"),
+                "LLM_API_KEY": os.environ.get("DASHSCOPE_API_KEY"),
                 "SKILLS_DIR": "./skills"
             }
         )
@@ -162,7 +162,7 @@ async def example2_agent_with_mcp():
                 "DB_USER": "root",
                 "DB_PASSWORD": "root",
                 "DB_NAME": "ad_coin",
-                "LLM_API_KEY": os.environ.get("DASHSCOPE_API_KEY", "YOUR_QWEN_API_KEY"),
+                "LLM_API_KEY": os.environ.get("DASHSCOPE_API_KEY"),
                 "SKILLS_DIR": "./skills"
             }
         )
@@ -300,7 +300,7 @@ async def example3_manage_skills():
                 "DB_USER": "root",
                 "DB_PASSWORD": "root",
                 "DB_NAME": "ad_coin",
-                "LLM_API_KEY": os.environ.get("DASHSCOPE_API_KEY", "YOUR_QWEN_API_KEY"),
+                "LLM_API_KEY": os.environ.get("DASHSCOPE_API_KEY"),
                 "SKILLS_DIR": "./skills"
             }
         )
