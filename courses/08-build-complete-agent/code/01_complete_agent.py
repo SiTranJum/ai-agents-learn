@@ -1,3 +1,4 @@
+import os
 """
 课程 8：构建完整的健康管家 Agent
 
@@ -18,7 +19,7 @@ from typing import Dict, List, Optional
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
 
 client = OpenAI(
-    api_key="sk-ds-non",
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 

@@ -1,3 +1,4 @@
+import os
 """
 课程 13：Multi-Step Agent — 复杂任务的多步编排
 
@@ -30,7 +31,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_bufferin
 
 # ========== DeepSeek API 客户端 ==========
 client = OpenAI(
-    api_key="sk-ds-non",
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 

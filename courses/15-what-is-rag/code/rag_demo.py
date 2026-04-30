@@ -1,3 +1,4 @@
+import os
 """
 课程 15：RAG 基础演示
 
@@ -28,7 +29,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_bufferin
 
 # ========== DeepSeek API 客户端 ==========
 client = OpenAI(
-    api_key="sk-ds-non",
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 

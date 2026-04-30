@@ -1,3 +1,4 @@
+import os
 """
 练习 4：结构化输出（JSON 格式）
 
@@ -8,7 +9,7 @@ from openai import OpenAI
 import json
 
 client = OpenAI(
-    api_key="sk-ds-non",
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 

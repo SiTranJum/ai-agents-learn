@@ -1,3 +1,4 @@
+import os
 """
 模式三：路由分发（Router）
 
@@ -11,7 +12,7 @@ import json
 
 # 创建 DashScope 客户端
 client = OpenAI(
-    api_key="sk-non",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 

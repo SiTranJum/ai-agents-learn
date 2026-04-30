@@ -41,7 +41,7 @@ def load_config():
     )
 
     llm_config = LLMConfig(
-        api_key=os.getenv("LLM_API_KEY", "sk-non"),
+        api_key=os.getenv("LLM_API_KEY"),
         base_url=os.getenv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
         model=os.getenv("LLM_MODEL", "qwen-plus")
     )

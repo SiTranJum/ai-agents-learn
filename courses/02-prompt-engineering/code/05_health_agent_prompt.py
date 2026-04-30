@@ -1,3 +1,4 @@
+import os
 """
 练习 5：设计健康管家的 System Prompt
 
@@ -7,7 +8,7 @@
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="sk-ds-non",
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 

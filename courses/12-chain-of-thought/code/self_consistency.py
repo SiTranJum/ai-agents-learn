@@ -1,3 +1,4 @@
+import os
 """
 课程 12：Self-Consistency CoT 实现
 
@@ -20,7 +21,7 @@ from openai import OpenAI
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
 
 client = OpenAI(
-    api_key="sk-ds-non",
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://api.deepseek.com"
 )
 

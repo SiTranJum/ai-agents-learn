@@ -1,3 +1,4 @@
+import os
 """
 MCP Client - 连接 health-mcp-server 并使用工具
 
@@ -25,7 +26,7 @@ from mcp.types import Tool
 
 # 通义千问 API（OpenAI SDK 兼容模式）
 llm = OpenAI(
-    api_key="sk-non",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
 

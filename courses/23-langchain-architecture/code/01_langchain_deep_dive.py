@@ -1,3 +1,4 @@
+import os
 """
 课程 23：LangChain 架构深度剖析 — 代码实践
 
@@ -32,7 +33,7 @@ import time
 # 所以 llm 本身就是一个 Runnable，可以用 | 操作符组合
 llm = ChatOpenAI(
     model="qwen-plus",  # 通义千问 qwen-plus 模型
-    api_key="sk-non",
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
     temperature=0.7,
 )
