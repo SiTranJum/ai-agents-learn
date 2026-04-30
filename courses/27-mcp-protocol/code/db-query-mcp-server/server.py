@@ -302,7 +302,7 @@ async def main():
     )
 
     llm_config = LLMConfig(
-        api_key=os.getenv("LLM_API_KEY", "sk-a4ae611c3f9c4df89a133e621b2b7851"),
+        api_key=os.getenv("LLM_API_KEY", "sk-non"),
         base_url=os.getenv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
         model=os.getenv("LLM_MODEL", "qwen-plus")
     )

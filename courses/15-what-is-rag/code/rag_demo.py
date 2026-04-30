@@ -28,7 +28,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_bufferin
 
 # ========== DeepSeek API 客户端 ==========
 client = OpenAI(
-    api_key="sk-539707f4724a4e39a213e9b51e3f9c12",
+    api_key="sk-ds-non",
     base_url="https://api.deepseek.com"
 )
 

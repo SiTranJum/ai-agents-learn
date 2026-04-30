@@ -25,7 +25,7 @@ import json
 
 llm = ChatOpenAI(
     model="qwen-plus",
-    api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+    api_key="sk-non",
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 

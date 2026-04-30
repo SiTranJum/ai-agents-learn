@@ -31,7 +31,7 @@ def demo_handwritten():
     from openai import OpenAI
 
     client = OpenAI(
-        api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+        api_key="sk-non",
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
     )
 
@@ -76,7 +76,7 @@ def demo_langchain():
 
     llm = ChatOpenAI(
         model="qwen-plus",
-        api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+        api_key="sk-non",
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
     )
 
@@ -126,7 +126,7 @@ def demo_langgraph():
 
     llm = ChatOpenAI(
         model="qwen-plus",
-        api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+        api_key="sk-non",
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
     )
 
@@ -196,7 +196,7 @@ def demo_crewai():
     llm = LLM(
         model="openai/qwen-plus",
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+        api_key="sk-non",
     )
 
     # 定义 Agent

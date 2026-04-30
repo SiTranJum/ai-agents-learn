@@ -32,7 +32,7 @@ import time
 # 所以 llm 本身就是一个 Runnable，可以用 | 操作符组合
 llm = ChatOpenAI(
     model="qwen-plus",  # 通义千问 qwen-plus 模型
-    api_key="sk-a4ae611c3f9c4df89a133e621b2b7851",
+    api_key="sk-non",
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
     temperature=0.7,
 )
