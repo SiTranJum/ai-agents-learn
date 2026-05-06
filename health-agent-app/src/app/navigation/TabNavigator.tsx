@@ -1,4 +1,5 @@
 import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather } from '@expo/vector-icons';
 import { TabParamList } from './types';
@@ -6,11 +7,12 @@ import { HomeScreen } from '@features/home/screens/HomeScreen';
 import { DietRecordScreen } from '@features/diet/screens/DietRecordScreen';
 import { DataScreen } from '@features/data/screens/DataScreen';
 import { ProfileScreen } from '@features/profile/screens/ProfileScreen';
+import { GlobalAIInputBar } from '@features/ai/components/GlobalAIInputBar';
 import { theme } from '@app/styles/theme';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
-export function TabNavigator() {
+function TabsInner() {
   return (
     <Tab.Navigator
       screenOptions={{
@@ -71,3 +73,23 @@ export function TabNavigator() {
     </Tab.Navigator>
   );
 }
+
+export function TabNavigator() {
+  return (
+    <View style={styles.root}>
+      {/* Tab 内容区 */}
+      <View style={styles.flex1}>
+        <TabsInner />
+      </View>
+      {/* 全局 AI 输入栏 — Phase 8 入口
+          跨所有主 Tab 页可见；点击发送 → 跳转 AIDialog */}
+      <GlobalAIInputBar />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  flex1: { flex: 1 },
+});
+
