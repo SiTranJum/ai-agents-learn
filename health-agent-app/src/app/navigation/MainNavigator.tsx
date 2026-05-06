@@ -4,8 +4,6 @@ import { MainStackParamList } from './types';
 import { TabNavigator } from './TabNavigator';
 import { theme } from '@app/styles/theme';
 
-// 占位页面（后续替换为真实页面）
-import { PlaceholderScreen } from '@shared/ui/PlaceholderScreen';
 import { DietEditScreen } from '@features/diet/screens/DietEditScreen';
 import { BodyEditScreen } from '@features/data/screens/BodyEditScreen';
 import { AnalysisScreen } from '@features/data/screens/AnalysisScreen';

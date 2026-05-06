@@ -1,6 +1,10 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import {
+  createBottomTabNavigator,
+  BottomTabBar,
+  type BottomTabBarProps,
+} from '@react-navigation/bottom-tabs';
 import { Feather } from '@expo/vector-icons';
 import { TabParamList } from './types';
 import { HomeScreen } from '@features/home/screens/HomeScreen';
@@ -12,9 +16,23 @@ import { theme } from '@app/styles/theme';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
-function TabsInner() {
+/**
+ * 自定义 tabBar：将 GlobalAIInputBar 放在系统 Tab Bar 之上
+ * 布局：[ Tab 内容 ] → [ AIInputBar 56px ] → [ Tab Bar 60px ]
+ */
+function TabBarWithAIInput(props: BottomTabBarProps) {
+  return (
+    <View style={styles.bottomGroup}>
+      <GlobalAIInputBar />
+      <BottomTabBar {...props} />
+    </View>
+  );
+}
+
+export function TabNavigator() {
   return (
     <Tab.Navigator
+      tabBar={TabBarWithAIInput}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
@@ -74,22 +92,9 @@ function TabsInner() {
   );
 }
 
-export function TabNavigator() {
-  return (
-    <View style={styles.root}>
-      {/* Tab 内容区 */}
-      <View style={styles.flex1}>
-        <TabsInner />
-      </View>
-      {/* 全局 AI 输入栏 — Phase 8 入口
-          跨所有主 Tab 页可见；点击发送 → 跳转 AIDialog */}
-      <GlobalAIInputBar />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  flex1: { flex: 1 },
+  bottomGroup: {
+    backgroundColor: theme.colors.bgPage,
+  },
 });
 
