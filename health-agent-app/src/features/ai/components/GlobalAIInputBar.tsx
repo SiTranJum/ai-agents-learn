@@ -36,7 +36,7 @@ export function GlobalAIInputBar() {
         onSend={handleSend}
         onCamera={handleCamera}
         onVoice={handleVoice}
-        placeholder="说点什么... (试试'苹果的营养')"
+        placeholder="说点什么..."
       />
     </View>
   );

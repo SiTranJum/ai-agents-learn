@@ -95,8 +95,9 @@ const styles = StyleSheet.create({
     ...theme.typography.bodySm,
     color: theme.colors.textPrimary,
     fontWeight: '600',
-    minWidth: 40,
+    width: 45,
     textAlign: 'right',
+    flexShrink: 0,
   },
   footer: {
     flexDirection: 'row',
