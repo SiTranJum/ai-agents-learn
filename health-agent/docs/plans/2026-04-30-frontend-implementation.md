@@ -516,15 +516,15 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 
 ### Task 7.1: Profile 类型、Store、Mock Service
 
-- [ ] **Step 1-4: 类型 → Store → Mock → Service**
-- [ ] **Step 5: Commit**
+- [x] **Step 1-4: 类型 → Store → Mock → Service**
+- [x] **Step 5: Commit**
 
 ### Task 7.2: 个人中心页面
 
-- [ ] **Step 1: 实现 ProfileScreen**（头像 + 基本信息 + 功能入口列表）
-- [ ] **Step 2: 实现 EditProfileScreen**（编辑档案表单）
-- [ ] **Step 3: 实现 SettingsScreen**（交互模式切换 + 通知 + 退出登录）
-- [ ] **Step 4: Commit**
+- [x] **Step 1: 实现 ProfileScreen**（头像 + 基本信息 + 功能入口列表）
+- [x] **Step 2: 实现 EditProfileScreen**（编辑档案表单）
+- [x] **Step 3: 实现 SettingsScreen**（交互模式切换 + 通知 + 退出登录）
+- [x] **Step 4: Commit**
 
 ---
 
@@ -589,7 +589,7 @@ git add -A && git commit -m "feat: complete health-agent frontend v1 with mock d
 | 4 | 饮食模块 | 3 | ✅ 已完成 |
 | 5 | 数据模块 | 3 | ✅ 已完成 |
 | 6 | 计划模块 | 3 | ✅ 已完成 |
-| 7 | 个人中心模块 | 2 | 🔄 进行中 |
-| 8 | AI 对话模块 | 2 | ⬜ 未开始 |
+| 7 | 个人中心模块 | 2 | ✅ 已完成 |
+| 8 | AI 对话模块 | 3 | 🔄 进行中 |
 | 9 | 全局联调与收尾 | 2 | ⬜ 未开始 |
 | **总计** | | **30 Tasks** | |
