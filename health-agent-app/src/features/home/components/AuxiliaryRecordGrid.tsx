@@ -3,9 +3,10 @@
 // 参考: docs/prd/v1/ui-design/03-home-dashboard.md §3.G, §6.5
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '@app/styles/theme';
+import { Images } from '@constants/assets';
 import type { AuxiliaryItemType, HomeAuxiliary } from '../types/home.types';
 
 export interface AuxiliaryRecordGridProps {
@@ -16,7 +17,8 @@ export interface AuxiliaryRecordGridProps {
 interface ItemConfig {
   type: AuxiliaryItemType;
   label: string;
-  icon: keyof typeof Feather.glyphMap;
+  illustration?: any; // 插画图片
+  icon?: keyof typeof Feather.glyphMap; // 备用图标
   color: string;
   primary: string;
   secondary?: string;
@@ -27,7 +29,7 @@ export function AuxiliaryRecordGrid({ auxiliary, onItemPress }: AuxiliaryRecordG
     {
       type: 'water',
       label: '饮水',
-      icon: 'droplet',
+      illustration: Images.illustrations.waterCup,
       color: theme.colors.info,
       primary:
         auxiliary.water.current > 0
@@ -38,14 +40,14 @@ export function AuxiliaryRecordGrid({ auxiliary, onItemPress }: AuxiliaryRecordG
     {
       type: 'sleep',
       label: '睡眠',
-      icon: 'moon',
+      illustration: Images.illustrations.sleep,
       color: '#A78BFA',
       primary: auxiliary.sleep?.duration ?? '未记录',
     },
     {
       type: 'exercise',
       label: '运动',
-      icon: 'activity',
+      illustration: Images.illustrations.exercise,
       color: theme.colors.success,
       primary: auxiliary.exercise?.duration ?? '未记录',
     },
@@ -73,9 +75,13 @@ function AuxItem({ config, onPress }: { config: ItemConfig; onPress: () => void 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.headerRow}>
-        <View style={[styles.iconWrap, { backgroundColor: `${config.color}22` }]}>
-          <Feather name={config.icon} size={16} color={config.color} />
-        </View>
+        {config.illustration ? (
+          <Image source={config.illustration} style={styles.illustration} />
+        ) : (
+          <View style={[styles.iconWrap, { backgroundColor: `${config.color}22` }]}>
+            <Feather name={config.icon!} size={16} color={config.color} />
+          </View>
+        )}
         <Text style={styles.label}>{config.label}</Text>
       </View>
       <Text style={[styles.primary, isEmpty && styles.primaryEmpty]} numberOfLines={1}>
@@ -115,6 +121,11 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.full,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  illustration: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
   },
   label: {
     ...theme.typography.bodySm,

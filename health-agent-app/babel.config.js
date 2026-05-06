@@ -13,6 +13,7 @@ module.exports = function (api) {
             '@features': './src/features',
             '@shared': './src/shared',
             '@assets': './src/assets',
+            '@constants': './src/constants',
           },
         },
       ],

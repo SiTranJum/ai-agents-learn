@@ -1,13 +1,14 @@
 // HealthOverviewCard - 今日概览大卡片
-// 左侧热量环形图 + 三大营养素进度条
+// 左侧热量环形图 + 三大营养素进度条 + 右侧健康人物插画
 // 参考: docs/prd/v1/ui-design/03-home-dashboard.md §3.B
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { Card } from '@shared/ui/Card';
 import { CircularProgress } from '@shared/ui/CircularProgress';
 import { ProgressBar } from '@shared/ui/ProgressBar';
 import { theme } from '@app/styles/theme';
+import { Images } from '@constants/assets';
 import type { HomeData } from '../types/home.types';
 
 export interface HealthOverviewCardProps {
@@ -72,6 +73,9 @@ export function HealthOverviewCard({ calories, nutrients }: HealthOverviewCardPr
             color={theme.colors.success}
           />
         </View>
+
+        {/* 右侧：健康人物插画 */}
+        <Image source={Images.illustrations.homePerson} style={styles.illustration} />
       </View>
     </Card>
   );
@@ -160,5 +164,11 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: theme.colors.textTertiary,
     fontWeight: '400',
+  },
+  illustration: {
+    width: 80,
+    height: 80,
+    resizeMode: 'contain',
+    marginLeft: theme.spacing.sm,
   },
 });
