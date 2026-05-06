@@ -12,6 +12,8 @@ import { AnalysisScreen } from '@features/data/screens/AnalysisScreen';
 import { PlanListScreen } from '@features/plan/screens/PlanListScreen';
 import { PlanDetailScreen } from '@features/plan/screens/PlanDetailScreen';
 import { PlanCreateChatScreen } from '@features/plan/screens/PlanCreateChatScreen';
+import { EditProfileScreen } from '@features/profile/screens/EditProfileScreen';
+import { SettingsScreen } from '@features/profile/screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -61,13 +63,13 @@ export function MainNavigator() {
       />
       <Stack.Screen
         name="EditProfile"
-        component={PlaceholderScreen}
-        options={{ title: '编辑档案' }}
+        component={EditProfileScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="Settings"
-        component={PlaceholderScreen}
-        options={{ title: '设置' }}
+        component={SettingsScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="AIDialog"
