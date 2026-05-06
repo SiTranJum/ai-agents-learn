@@ -14,6 +14,7 @@ import { PlanDetailScreen } from '@features/plan/screens/PlanDetailScreen';
 import { PlanCreateChatScreen } from '@features/plan/screens/PlanCreateChatScreen';
 import { EditProfileScreen } from '@features/profile/screens/EditProfileScreen';
 import { SettingsScreen } from '@features/profile/screens/SettingsScreen';
+import { AIDialogScreen } from '@features/ai/screens/AIDialogScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -73,8 +74,8 @@ export function MainNavigator() {
       />
       <Stack.Screen
         name="AIDialog"
-        component={PlaceholderScreen}
-        options={{ title: 'AI 对话' }}
+        component={AIDialogScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

@@ -537,17 +537,17 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 
 ### Task 8.1: AI 类型、Store、Mock Service
 
-- [ ] **Step 1-4: 类型 → Store → Mock → Service**
-- [ ] **Step 5: Commit**
+- [x] **Step 1-4: 类型 → Store → Mock → Service**
+- [x] **Step 5: Commit**
 
 ### Task 8.2: AI 对话页面与浮层
 
-- [ ] **Step 1: 实现 ChatMessageList 组件**（消息列表 + 自动滚动）
-- [ ] **Step 2: 实现 ChatInput 组件**（文本 + 拍照 + 语音）
-- [ ] **Step 3: 实现 AIDialogScreen**（全屏对话页）
-- [ ] **Step 4: 实现 NutritionBottomSheet**（营养查询结果浮层）
-- [ ] **Step 5: 实现 ConfirmDialog**（跨页面确认弹窗）
-- [ ] **Step 6: Commit**
+- [x] **Step 1: 实现 ChatMessageList 组件**（消息列表 + 自动滚动）
+- [x] **Step 2: 实现 ChatInput 组件**（文本 + 拍照 + 语音）
+- [x] **Step 3: 实现 AIDialogScreen**（全屏对话页）
+- [x] **Step 4: 实现 NutritionBottomSheet**（营养查询结果浮层）
+- [x] **Step 5: 实现 ConfirmDialog**（跨页面确认弹窗）
+- [x] **Step 6: Commit**
 
 ---
 
@@ -590,6 +590,6 @@ git add -A && git commit -m "feat: complete health-agent frontend v1 with mock d
 | 5 | 数据模块 | 3 | ✅ 已完成 |
 | 6 | 计划模块 | 3 | ✅ 已完成 |
 | 7 | 个人中心模块 | 2 | ✅ 已完成 |
-| 8 | AI 对话模块 | 3 | 🔄 进行中 |
-| 9 | 全局联调与收尾 | 2 | ⬜ 未开始 |
+| 8 | AI 对话模块 | 3 | ✅ 已完成 |
+| 9 | 全局联调与收尾 | 2 | 🔄 进行中 |
 | **总计** | | **30 Tasks** | |
