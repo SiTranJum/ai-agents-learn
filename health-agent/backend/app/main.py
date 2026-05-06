@@ -173,3 +173,14 @@ def _register_exception_handlers(app: FastAPI) -> None:
 
 
 app = create_app()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host=settings.app_host,
+        port=settings.app_port,
+        reload=settings.app_debug,
+    )
