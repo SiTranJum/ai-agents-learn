@@ -557,20 +557,20 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 
 ### Task 9.1: 全局 AIInputBar 接入
 
-- [ ] **Step 1: 在 MainNavigator 中全局挂载 AIInputBar**
-- [ ] **Step 2: 实现 AIInputBar 的全局消息分发逻辑**（根据当前页面上下文路由到对应模块）
-- [ ] **Step 3: Commit**
+- [x] **Step 1: 在 TabNavigator 中全局挂载 AIInputBar**（自定义 tabBar，置于系统 Tab Bar 之上）
+- [x] **Step 2: 实现 AIInputBar 的全局消息分发逻辑**（输入文字 → navigate('AIDialog', { initialMessage }) → AI 自动接收并回复）
+- [x] **Step 3: Commit**
 
 ### Task 9.2: 完整流程验证
 
-- [ ] **Step 1: 验证 Auth 流程**（注册 → Onboarding → 首页）
-- [ ] **Step 2: 验证饮食流程**（首页快捷入口 → 饮食记录 → 编辑 → 返回）
-- [ ] **Step 3: 验证数据流程**（数据页 Tab 切换 → 编辑 → 分析页）
-- [ ] **Step 4: 验证计划流程**（创建计划 → 列表 → 详情）
-- [ ] **Step 5: 验证个人中心**（查看 → 编辑 → 设置）
-- [ ] **Step 6: 验证 AI 对话**（全屏对话 → 浮层 → 确认弹窗）
-- [ ] **Step 7: 修复发现的问题**
-- [ ] **Step 8: Final Commit**
+- [x] **Step 1: 验证 Auth 流程**（注册 → Onboarding → 首页）
+- [x] **Step 2: 验证饮食流程**（首页快捷入口 → 饮食记录 → 编辑 → 返回）
+- [x] **Step 3: 验证数据流程**（数据页 Tab 切换 → 编辑 → 分析页）
+- [x] **Step 4: 验证计划流程**（创建计划 → 列表 → 详情）
+- [x] **Step 5: 验证个人中心**（查看 → 编辑 → 设置）
+- [x] **Step 6: 验证 AI 对话**（全屏对话 → 浮层 → 确认弹窗）
+- [x] **Step 7: 修复发现的问题**（清理未使用 PlaceholderScreen 引用；GlobalAIInputBar 上移到 Tab Bar 之上）
+- [x] **Step 8: Final Commit**
 
 ```bash
 git add -A && git commit -m "feat: complete health-agent frontend v1 with mock data"
@@ -591,5 +591,5 @@ git add -A && git commit -m "feat: complete health-agent frontend v1 with mock d
 | 6 | 计划模块 | 3 | ✅ 已完成 |
 | 7 | 个人中心模块 | 2 | ✅ 已完成 |
 | 8 | AI 对话模块 | 3 | ✅ 已完成 |
-| 9 | 全局联调与收尾 | 2 | 🔄 进行中 |
-| **总计** | | **30 Tasks** | |
+| 9 | 全局联调与收尾 | 2 | ✅ 已完成 |
+| **总计** | | **30 Tasks** | **🎉 V1 全部完成** |
