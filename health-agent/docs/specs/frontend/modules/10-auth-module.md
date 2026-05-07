@@ -626,7 +626,21 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
 ## 7. 模块内 Services
 
-认证模块的 API 调用服务。
+**重要架构决策**：前端直接使用 Supabase Auth SDK，不通过后端 API。
+
+### 7.1 Supabase 客户端配置
+
+```typescript
+// src/core/supabase/client.ts
+import { createClient } from '@supabase/supabase-js'
+
+export const supabase = createClient(
+  process.env.EXPO_PUBLIC_SUPABASE_URL!,
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
+)
+```
+
+### 7.2 AuthService 接口
 
 ```typescript
 interface AuthService {
@@ -634,17 +648,17 @@ interface AuthService {
    * 登录
    * @param email 邮箱
    * @param password 密码
-   * @returns 返回 token 和用户信息
+   * @returns 返回 access_token
    */
-  login(email: string, password: string): Promise<LoginResponse>;
+  login(email: string, password: string): Promise<string>;
 
   /**
    * 注册
    * @param email 邮箱
    * @param password 密码
-   * @returns 返回 token
+   * @returns 返回 access_token
    */
-  register(email: string, password: string): Promise<RegisterResponse>;
+  register(email: string, password: string): Promise<string>;
 
   /**
    * 忘记密码
@@ -653,6 +667,71 @@ interface AuthService {
    */
   forgotPassword(email: string): Promise<void>;
 
+  /**
+   * 登出
+   */
+  logout(): Promise<void>;
+
+  /**
+   * 获取当前 session
+   */
+  getSession(): Promise<string | null>;
+}
+```
+
+### 7.3 AuthService 实现
+
+```typescript
+// src/features/auth/services/authService.ts
+import { supabase } from '@core/supabase/client'
+
+export const authService: AuthService = {
+  async login(email: string, password: string): Promise<string> {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) throw new Error(error.message)
+    if (!data.session) throw new Error('登录失败')
+
+    return data.session.access_token
+  },
+
+  async register(email: string, password: string): Promise<string> {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+
+    if (error) throw new Error(error.message)
+    if (!data.session) throw new Error('注册失败')
+
+    return data.session.access_token
+  },
+
+  async forgotPassword(email: string): Promise<void> {
+    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    if (error) throw new Error(error.message)
+  },
+
+  async logout(): Promise<void> {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw new Error(error.message)
+  },
+
+  async getSession(): Promise<string | null> {
+    const { data } = await supabase.auth.getSession()
+    return data.session?.access_token ?? null
+  },
+}
+```
+
+### 7.4 用户档案服务（调用后端 API）
+
+```typescript
+// src/features/auth/services/userService.ts
+interface UserService {
   /**
    * 保存 Onboarding 数据
    * @param data 用户档案数据
@@ -665,6 +744,20 @@ interface AuthService {
    * @returns 返回是否完成
    */
   checkOnboardingStatus(): Promise<boolean>;
+}
+
+export const userService: UserService = {
+  async saveOnboarding(data: OnboardingData): Promise<UserProfile> {
+    // 调用后端 API: POST /api/v1/users/me/onboarding
+    const response = await apiClient.post('/users/me/onboarding', data)
+    return response.data
+  },
+
+  async checkOnboardingStatus(): Promise<boolean> {
+    // 调用后端 API: GET /api/v1/users/me
+    const response = await apiClient.get('/users/me')
+    return response.data.onboardingCompleted
+  },
 }
 ```
 

@@ -310,18 +310,22 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 **参考 spec：** `modules/10-auth-module.md`
 **参考 UI 文稿：** `ui-design/13-auth-and-onboarding.md`
 
-### Task 2.1: Auth 类型、Store、Mock Service
+### Task 2.1: Supabase 客户端与 Auth Service
 
 **Files:**
+- Create: `src/core/supabase/client.ts`
 - Create: `src/features/auth/types/auth.types.ts`
 - Create: `src/features/auth/store/authStore.ts`
 - Create: `src/features/auth/services/authService.ts`
-- Create: `src/features/auth/mocks/authMocks.ts`
+- Create: `src/features/auth/services/userService.ts`
 
-- [ ] **Step 1: 定义 Auth 类型**
-- [ ] **Step 2: 实现 authStore**（Zustand）
-- [ ] **Step 3: 实现 mock 数据和 authService**
-- [ ] **Step 4: Commit**
+- [ ] **Step 1: 安装 Supabase SDK**（`npm install @supabase/supabase-js`）
+- [ ] **Step 2: 配置 Supabase 客户端**（创建 client.ts，配置 URL 和 ANON_KEY）
+- [ ] **Step 3: 定义 Auth 类型**
+- [ ] **Step 4: 实现 authStore**（Zustand）
+- [ ] **Step 5: 实现 authService**（直接调用 Supabase Auth SDK）
+- [ ] **Step 6: 实现 userService**（调用后端 API 处理 Onboarding）
+- [ ] **Step 7: Commit**
 
 ### Task 2.2: 登录与注册页面
 

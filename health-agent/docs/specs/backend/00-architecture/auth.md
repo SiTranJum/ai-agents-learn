@@ -105,88 +105,40 @@ class CurrentUser(BaseModel):
     email: str | None = None
 ```
 
-## 3. API 端点
+## 3. 认证端点说明
 
-### 3.1 注册
+**重要架构决策**：后端不提供注册/登录/登出/刷新等认证端点。
 
-```
-POST /api/v1/auth/register
-```
+**原因**：
+- Supabase Auth 本身就是设计给前端直接调用的
+- 后端提供这些端点只是简单转发,没有额外价值
+- 减少后端代码复杂度,避免不必要的中间层
 
-请求体：
+**前端直接调用 Supabase Auth**：
+```typescript
+// 前端使用 @supabase/supabase-js SDK
+import { createClient } from '@supabase/supabase-js'
 
-```python
-class RegisterRequest(BaseModel):
-    email: str = Field(..., pattern=r"^[\w\.-]+@[\w\.-]+\.\w+$")
-    password: str = Field(..., min_length=8, description="至少 8 位，包含字母和数字")
-    nickname: str = Field(..., min_length=2, max_length=20)
-```
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-处理流程：
-1. 校验邮箱格式和密码强度
-2. 调用 Supabase Auth 创建用户
-3. 在 `health_profiles` 表创建空档案记录
-4. 返回 access_token + refresh_token
+// 注册
+await supabase.auth.signUp({ email, password })
 
-响应：
+// 登录
+const { data } = await supabase.auth.signInWithPassword({ email, password })
+const token = data.session.access_token
 
-```python
-class AuthResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    user: UserBasic
+// 登出
+await supabase.auth.signOut()
 
-class UserBasic(BaseModel):
-    id: UUID
-    email: str
-    nickname: str
+// 刷新
+await supabase.auth.refreshSession()
 ```
 
-### 3.2 登录
-
-```
-POST /api/v1/auth/login
-```
-
-请求体：
-
-```python
-class LoginRequest(BaseModel):
-    email: str
-    password: str
-```
-
-处理流程：
-1. 调用 Supabase Auth 验证凭据
-2. 失败次数累计（5 次锁定 15 分钟）
-3. 成功则返回 token
-
-### 3.3 登出
-
-```
-POST /api/v1/auth/logout
-认证：需要
-```
-
-处理流程：
-1. 调用 Supabase Auth 撤销当前 session
-
-### 3.4 刷新 Token
-
-```
-POST /api/v1/auth/refresh
-```
-
-请求体：
-
-```python
-class RefreshRequest(BaseModel):
-    refresh_token: str
-```
-
-处理流程：
-1. 调用 Supabase Auth 刷新 token
-2. 返回新的 access_token + refresh_token
+**后端职责**：
+- 验证前端传来的 JWT Token
+- 提取 user_id 用于业务逻辑
+- 首次访问时自动创建空的 health_profile
 
 ## 4. 路由保护
 
@@ -194,8 +146,8 @@ class RefreshRequest(BaseModel):
 
 | 级别 | 说明 | 端点 |
 |------|------|------|
-| 公开 | 无需认证 | `POST /auth/register`、`POST /auth/login` |
-| 认证 | 需要有效 Token | 其他所有端点 |
+| 公开 | 无需认证 | 健康检查端点（如 `/health`） |
+| 认证 | 需要有效 Token | 所有业务端点 |
 
 V1 不实现角色权限（RBAC），所有认证用户权限相同。
 
@@ -205,11 +157,7 @@ V1 不实现角色权限（RBAC），所有认证用户权限相同。
 # app/api/v1/router.py
 from fastapi import APIRouter
 
-# 公开路由
-public_router = APIRouter()
-public_router.include_router(auth_router, prefix="/auth", tags=["auth"])
-
-# 需认证路由
+# 所有业务路由都需要认证
 protected_router = APIRouter(dependencies=[Depends(get_current_user)])
 protected_router.include_router(users_router, prefix="/users", tags=["users"])
 protected_router.include_router(diet_router, prefix="/diet", tags=["diet"])
@@ -254,39 +202,35 @@ class BaseRepository:
 - 更新/删除操作先查询确认归属，再执行操作
 - 不提供跨用户查询的接口
 
-## 6. Supabase Auth 客户端封装
+## 6. 首次访问自动创建档案
+
+当用户首次访问后端 API 时（JWT 验证通过但 health_profile 不存在），自动创建空档案。
 
 ```python
-# app/integrations/supabase_auth/client.py
-class SupabaseAuthClient:
-    """封装 Supabase Auth REST API 调用"""
+# app/dependencies.py
+async def get_current_user_with_profile(
+    payload: dict = Depends(verify_token),
+    db: AsyncSession = Depends(get_db),
+) -> CurrentUser:
+    """获取当前用户，并确保 health_profile 存在"""
+    user_id = UUID(payload["sub"])
 
-    def __init__(self, url: str, service_role_key: str):
-        self.url = url
-        self.headers = {
-            "apikey": service_role_key,
-            "Authorization": f"Bearer {service_role_key}",
-        }
+    # 检查档案是否存在
+    user_repo = UserRepository(db, user_id)
+    profile = await user_repo.get_profile()
 
-    async def sign_up(self, email: str, password: str) -> AuthResult:
-        """注册新用户"""
-        ...
+    # 首次访问，自动创建空档案
+    if not profile:
+        profile = await user_repo.create_empty_profile()
 
-    async def sign_in(self, email: str, password: str) -> AuthResult:
-        """邮箱密码登录"""
-        ...
-
-    async def sign_out(self, access_token: str) -> None:
-        """登出（撤销 session）"""
-        ...
-
-    async def refresh_token(self, refresh_token: str) -> AuthResult:
-        """刷新 Token"""
-        ...
-
-class AuthResult(BaseModel):
-    access_token: str
-    refresh_token: str
-    user_id: UUID
-    email: str
+    return CurrentUser(
+        id=user_id,
+        email=payload.get("email"),
+        profile=profile,
+    )
 ```
+
+**说明**：
+- 前端注册成功后，首次调用任何后端 API 时触发档案创建
+- 空档案只包含 user_id，其他字段为 NULL
+- 用户通过 Onboarding 流程或个人中心完善档案
