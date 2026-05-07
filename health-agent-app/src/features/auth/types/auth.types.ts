@@ -80,11 +80,3 @@ export interface AuthUserProfile {
   updatedAt: string;
 }
 
-export interface LoginResponse {
-  token: string;
-  user: AuthUserProfile;
-}
-
-export interface RegisterResponse {
-  token: string;
-}

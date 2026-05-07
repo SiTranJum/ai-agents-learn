@@ -1,67 +1,69 @@
-// Auth Service - Mock 实现
-// 参考: docs/specs/frontend/modules/10-auth-module.md §7-8
+// AuthService - 直接调用 Supabase Auth SDK
+// 参考: docs/specs/frontend/modules/10-auth-module.md §7.2 / §7.3
 
-import type {
-  AuthUserProfile,
-  LoginResponse,
-  OnboardingData,
-  RegisterResponse,
-} from '../types/auth.types';
-import {
-  TEST_EMAIL,
-  TEST_PASSWORD,
-  mockLoginSuccess,
-  mockOnboardingSaveSuccess,
-  mockRegisterSuccess,
-} from '../mocks/authMocks';
-
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+import { supabase } from '@core/supabase/client';
 
 export interface AuthService {
-  login(email: string, password: string): Promise<LoginResponse>;
-  register(email: string, password: string): Promise<RegisterResponse>;
+  /** 邮箱+密码登录，返回 access_token */
+  login(email: string, password: string): Promise<string>;
+  /** 邮箱+密码注册，返回 access_token（若开启邮箱确认可能为空字符串） */
+  register(email: string, password: string): Promise<string>;
+  /** 发送密码重置邮件 */
   forgotPassword(email: string): Promise<void>;
-  saveOnboarding(data: OnboardingData): Promise<AuthUserProfile>;
-  checkOnboardingStatus(): Promise<boolean>;
+  /** 登出 */
+  logout(): Promise<void>;
+  /** 获取当前 session 的 access_token */
+  getSession(): Promise<string | null>;
+}
+
+/** 将 Supabase 错误映射为面向用户的中文错误（基于 message 关键词）。 */
+function mapAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes('invalid login credentials') || m.includes('invalid email or password')) {
+    return '邮箱或密码错误，请重试';
+  }
+  if (m.includes('user already registered') || m.includes('already registered')) {
+    return '该邮箱已注册，请直接登录';
+  }
+  if (m.includes('email not confirmed')) {
+    return '邮箱未验证，请先查看邮箱完成验证';
+  }
+  if (m.includes('password should be at least')) {
+    return '密码至少 8 位，建议包含字母和数字';
+  }
+  if (m.includes('network') || m.includes('failed to fetch')) {
+    return '网络连接失败，请检查网络后重试';
+  }
+  return message || '操作失败，请稍后重试';
 }
 
 export const authService: AuthService = {
   async login(email, password) {
-    await delay(1000);
-    if (email === TEST_EMAIL && password === TEST_PASSWORD) {
-      return mockLoginSuccess;
-    }
-    throw new Error('邮箱或密码错误，请重试');
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(mapAuthError(error.message));
+    if (!data.session) throw new Error('登录失败');
+    return data.session.access_token;
   },
 
-  async register(email, _password) {
-    await delay(1000);
-    if (email === TEST_EMAIL) {
-      throw new Error('该邮箱已注册，请直接登录');
-    }
-    return mockRegisterSuccess;
+  async register(email, password) {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) throw new Error(mapAuthError(error.message));
+    // 若 Supabase 项目启用邮箱确认，session 为 null
+    return data.session?.access_token ?? '';
   },
 
-  async forgotPassword(_email) {
-    await delay(1000);
-    // 成功无返回值
+  async forgotPassword(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) throw new Error(mapAuthError(error.message));
   },
 
-  async saveOnboarding(data) {
-    await delay(1500);
-    return {
-      ...mockOnboardingSaveSuccess,
-      ...data,
-      id: mockOnboardingSaveSuccess.id,
-      email: mockOnboardingSaveSuccess.email,
-      onboardingCompleted: true,
-      createdAt: mockOnboardingSaveSuccess.createdAt,
-      updatedAt: new Date().toISOString(),
-    };
+  async logout() {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw new Error(mapAuthError(error.message));
   },
 
-  async checkOnboardingStatus() {
-    await delay(500);
-    return false;
+  async getSession() {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
   },
 };

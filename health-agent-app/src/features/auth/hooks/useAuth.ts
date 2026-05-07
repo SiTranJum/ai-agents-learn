@@ -1,9 +1,20 @@
 // useAuth Hook - 封装登录/注册/忘记密码/Onboarding 流程
 // 参考: docs/specs/frontend/modules/10-auth-module.md
+//
+// 流程：
+//   - login: Supabase 登录 → 拉取后端档案 → 写入 globalStore.token + userProfile
+//            若用户未完成 Onboarding：暂存到 pendingToken，引导进入 Onboarding
+//   - register: Supabase 注册 → 暂存 token，进入 Onboarding
+//   - forgotPassword: Supabase resetPasswordForEmail
+//   - submitOnboarding: 调用后端 /users/me/onboarding → 写入 globalStore
 
 import { useState } from 'react';
-import { useGlobalStore, UserProfile as GlobalUserProfile } from '@core/store/globalStore';
+import {
+  useGlobalStore,
+  UserProfile as GlobalUserProfile,
+} from '@core/store/globalStore';
 import { authService } from '../services/authService';
+import { userService } from '../services/userService';
 import { useAuthStore } from '../store/authStore';
 import type {
   ActivityLevel,
@@ -12,7 +23,6 @@ import type {
   OnboardingData,
 } from '../types/auth.types';
 
-// 将 Auth 模块的 UserProfile 映射到 Global UserProfile
 function toGlobalUserProfile(p: AuthUserProfile): GlobalUserProfile {
   const activityMap: Record<ActivityLevel, GlobalUserProfile['activityLevel']> = {
     sedentary: 'sedentary',
@@ -53,24 +63,31 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const login = async (email: string, password: string): Promise<{
-    success: boolean;
-    onboardingCompleted: boolean;
-  }> => {
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<{ success: boolean; onboardingCompleted: boolean }> => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await authService.login(email, password);
-      const profile = toGlobalUserProfile(res.user);
-      if (res.user.onboardingCompleted) {
-        setUserProfile(profile);
-        setToken(res.token); // 触发 RootNavigator 切换到 Main
-      } else {
-        // 未完成 Onboarding：暂存 token，进入 Onboarding 流程
-        setUserProfile(profile);
-        setPendingToken(res.token);
+      const token = await authService.login(email, password);
+      // 登录成功后查询后端档案
+      let onboardingCompleted = false;
+      try {
+        const profile = await userService.getMe();
+        onboardingCompleted = profile.onboardingCompleted;
+        setUserProfile(toGlobalUserProfile(profile));
+      } catch {
+        // 后端档案获取失败（可能尚未创建）→ 视为未完成 Onboarding
+        onboardingCompleted = false;
       }
-      return { success: true, onboardingCompleted: res.user.onboardingCompleted };
+
+      if (onboardingCompleted) {
+        setToken(token); // 触发 RootNavigator 切换到 Main
+      } else {
+        setPendingToken(token);
+      }
+      return { success: true, onboardingCompleted };
     } catch (e) {
       const msg = e instanceof Error ? e.message : '登录失败，请重试';
       setError(msg);
@@ -84,9 +101,10 @@ export function useAuth() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await authService.register(email, password);
+      const token = await authService.register(email, password);
       resetOnboarding();
-      setPendingToken(res.token);
+      // 若 Supabase 启用邮箱确认，token 可能为空字符串
+      setPendingToken(token || null);
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : '注册失败，请重试';
@@ -116,11 +134,10 @@ export function useAuth() {
     setIsLoading(true);
     setError(null);
     try {
-      const profile = await authService.saveOnboarding(data);
+      const profile = await userService.saveOnboarding(data);
       setUserProfile(toGlobalUserProfile(profile));
-      // 写入 token 触发主导航切换
-      const tokenToUse = pendingToken ?? 'mock_jwt_token_onboarding';
-      setToken(tokenToUse);
+      const tokenToUse = pendingToken ?? (await authService.getSession());
+      if (tokenToUse) setToken(tokenToUse);
       setPendingToken(null);
       resetOnboarding();
       return true;
@@ -133,6 +150,15 @@ export function useAuth() {
     }
   };
 
+  const logout = async (): Promise<void> => {
+    try {
+      await authService.logout();
+    } finally {
+      useGlobalStore.getState().logout();
+      resetOnboarding();
+    }
+  };
+
   return {
     isLoading,
     error,
@@ -141,5 +167,6 @@ export function useAuth() {
     register,
     forgotPassword,
     submitOnboarding,
+    logout,
   };
 }

@@ -319,12 +319,12 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 - Create: `src/features/auth/services/authService.ts`
 - Create: `src/features/auth/services/userService.ts`
 
-- [ ] **Step 1: 安装 Supabase SDK**（`npm install @supabase/supabase-js`）
-- [ ] **Step 2: 配置 Supabase 客户端**（创建 client.ts，配置 URL 和 ANON_KEY）
-- [ ] **Step 3: 定义 Auth 类型**
-- [ ] **Step 4: 实现 authStore**（Zustand）
-- [ ] **Step 5: 实现 authService**（直接调用 Supabase Auth SDK）
-- [ ] **Step 6: 实现 userService**（调用后端 API 处理 Onboarding）
+- [x] **Step 1: 安装 Supabase SDK**（`npm install @supabase/supabase-js react-native-url-polyfill @react-native-async-storage/async-storage`）
+- [x] **Step 2: 配置 Supabase 客户端**（创建 `src/core/supabase/client.ts`，使用 AsyncStorage 持久化 session，URL/ANON_KEY 通过 `EXPO_PUBLIC_SUPABASE_*` 环境变量注入）
+- [x] **Step 3: 定义 Auth 类型**（保留 `OnboardingData` / `AuthUserProfile`，移除已废弃的 `LoginResponse` / `RegisterResponse`）
+- [x] **Step 4: 实现 authStore**（Zustand，含 `pendingToken` 暂存）
+- [x] **Step 5: 实现 authService**（直接调用 `supabase.auth.signInWithPassword/signUp/resetPasswordForEmail/signOut/getSession`，错误信息统一映射为中文）
+- [x] **Step 6: 实现 userService**（基于 `src/core/api/client.ts` 调用后端 `GET /users/me`、`POST /users/me/onboarding`，自动注入 Supabase access_token 作为 Bearer）
 - [ ] **Step 7: Commit**
 
 ### Task 2.2: 登录与注册页面
@@ -335,11 +335,11 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 - Create: `src/features/auth/screens/ForgotPasswordScreen.tsx`
 - Create: `src/features/auth/hooks/useAuth.ts`
 
-- [ ] **Step 1: 实现 useAuth hook**（封装登录/注册/忘记密码逻辑）
-- [ ] **Step 2: 实现 LoginScreen**（邮箱 + 密码 + 登录按钮 + 跳转链接）
-- [ ] **Step 3: 实现 RegisterScreen**（邮箱 + 密码 + 确认密码 + 注册按钮）
-- [ ] **Step 4: 实现 ForgotPasswordScreen**（邮箱 + 发送按钮）
-- [ ] **Step 5: 接入 AuthNavigator，验证登录流程**
+- [x] **Step 1: 实现 useAuth hook**（封装登录/注册/忘记密码/Onboarding 提交，支持 Supabase 登录后自动拉取后端档案判断 onboardingCompleted）
+- [x] **Step 2: 实现 LoginScreen**（邮箱 + 密码 + 登录按钮 + 跳转链接）
+- [x] **Step 3: 实现 RegisterScreen**（邮箱 + 密码 + 确认密码 + 注册按钮）
+- [x] **Step 4: 实现 ForgotPasswordScreen**（邮箱 + 发送按钮 + 60s 倒计时重发）
+- [x] **Step 5: 接入 AuthNavigator，验证登录流程**
 - [ ] **Step 6: Commit**
 
 ### Task 2.3: Onboarding 引导页
@@ -349,10 +349,10 @@ git add src/app/ App.tsx && git commit -m "feat: add navigation skeleton with pl
 - Create: `src/features/auth/components/OnboardingStep.tsx`
 - Create: `src/features/auth/components/OnboardingProgress.tsx`
 
-- [ ] **Step 1: 实现 OnboardingProgress 进度条组件**
-- [ ] **Step 2: 实现 OnboardingStep 单步容器组件**
-- [ ] **Step 3: 实现 OnboardingScreen**（4 步表单：基础信息 → 健康目标 → 饮食偏好 → 疾病信息）
-- [ ] **Step 4: 接入导航，验证完整 Auth 流程**（登录 → Onboarding → 首页）
+- [x] **Step 1: 实现 OnboardingProgress 进度条组件**
+- [x] **Step 2: 实现 OnboardingStep 单步容器组件**
+- [x] **Step 3: 实现 OnboardingScreen**（5 步表单：基础信息 → 身体信息 → 健康目标 → 饮食偏好 → 疾病信息 → 预览页）
+- [x] **Step 4: 接入导航，验证完整 Auth 流程**（登录 → Onboarding → 首页）
 - [ ] **Step 5: Commit**
 
 ---
