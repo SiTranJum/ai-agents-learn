@@ -99,31 +99,19 @@ uvicorn app.main:app --reload
 ### Task 1.1: JWT 认证
 
 **Files:**
-- Create: `app/integrations/supabase/auth.py`
-- Create: `app/core/security.py`（更新）
-- Create: `app/api/deps.py`
-
-- [ ] **Step 1: 实现 JWT 验证**（解析 Bearer token、HS256 验证、提取 user_id）
-- [ ] **Step 2: 实现 `get_current_user` 依赖**（FastAPI Depends）
-- [ ] **Step 3: 实现 Supabase Auth 客户端封装**（register / login / logout / refresh）
-- [ ] **Step 4: Commit**
-
----
-
-### Task 1.2: Auth API 端点
-
-**Files:**
-- Create: `app/api/v1/auth.py`
+- Create: `app/core/security.py`
+- Create: `app/dependencies.py`
 - Create: `app/schemas/auth.py`
 
-- [ ] **Step 1: 定义 Auth schemas**（RegisterRequest / LoginRequest / TokenResponse）
-- [ ] **Step 2: 实现 4 个端点**（register / login / logout / refresh）
-- [ ] **Step 3: 编写测试**
-- [ ] **Step 4: Commit**
+- [ ] **Step 1: 实现 JWT 验证函数**（解析 Bearer token、HS256 验证、提取 user_id）
+- [ ] **Step 2: 定义 CurrentUser schema**
+- [ ] **Step 3: 实现 `get_current_user` 依赖**（FastAPI Depends，验证 JWT）
+- [ ] **Step 4: 编写测试**
+- [ ] **Step 5: Commit**
 
 ---
 
-### Task 1.3: 用户档案
+### Task 1.2: 用户档案与自动创建
 
 **Files:**
 - Create: `app/db/models/user.py`
@@ -131,14 +119,16 @@ uvicorn app.main:app --reload
 - Create: `app/schemas/user.py`
 - Create: `app/services/user_service.py`
 - Create: `app/api/v1/users.py`
+- Update: `app/dependencies.py`
 
 - [ ] **Step 1: 创建 HealthProfile 数据库模型**
 - [ ] **Step 2: 创建 User schemas**（HealthProfileCreate / Update / Response）
-- [ ] **Step 3: 实现 UserRepository**（自动 user_id 过滤）
+- [ ] **Step 3: 实现 UserRepository**（自动 user_id 过滤 + create_empty_profile）
 - [ ] **Step 4: 实现 UserService**（get_profile / update_profile / onboarding / profile_completeness）
-- [ ] **Step 5: 实现 API 端点**（GET /users/me、PUT /users/me/profile、POST /users/me/onboarding）
-- [ ] **Step 6: 生成数据库迁移并测试**
-- [ ] **Step 7: Commit**
+- [ ] **Step 5: 更新 dependencies.py**（添加 get_current_user_with_profile，首次访问自动创建档案）
+- [ ] **Step 6: 实现 API 端点**（GET /users/me、PUT /users/me/profile、POST /users/me/onboarding）
+- [ ] **Step 7: 生成数据库迁移并测试**
+- [ ] **Step 8: Commit**
 
 ---
 
@@ -446,7 +436,7 @@ uvicorn app.main:app --reload
 | Phase | 名称 | Task 数 | 状态 |
 |-------|------|---------|------|
 | 0 | 项目初始化与基础设施 | 3 | ⬜ 未开始 |
-| 1 | 认证与用户系统 | 3 | ⬜ 未开始 |
+| 1 | 认证与用户系统 | 3 | ✅ 已完成 |
 | 2 | LLM 与向量集成 | 2 | ⬜ 未开始 |
 | 3 | RAG 知识库 | 2 | ⬜ 未开始 |
 | 4 | 饮食记录模块 | 3 | ⬜ 未开始 |
