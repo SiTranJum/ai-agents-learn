@@ -6,14 +6,18 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Annotated
 
 from fastapi import Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import UnauthorizedException
-from app.core.security import CurrentUser, claims_to_current_user, decode_supabase_jwt
+from app.core.security import claims_to_current_user, decode_supabase_jwt
+from app.db.repositories.user_repo import UserRepository
 from app.db.session import get_db_session
+from app.schemas.auth import CurrentUser
+from app.services.user_service import UserService
 
 # 重新导出数据库会话依赖，调用方可直接 ``from app.dependencies import DbSession``
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
@@ -31,17 +35,72 @@ def _extract_bearer_token(authorization: str | None) -> str:
     return token
 
 
-async def get_current_user(
+async def get_access_token(
     authorization: str | None = Header(default=None, alias="Authorization"),
+) -> str:
+    """提取并返回原始 access_token。"""
+    return _extract_bearer_token(authorization)
+
+
+async def get_current_user(
+    token: Annotated[str, Depends(get_access_token)],
 ) -> CurrentUser:
-    """从 Bearer JWT 中解析当前登录用户。
+    """从 Bearer JWT 中解析当前登录用户（不查询数据库）。
 
     异常：
         UnauthorizedException: 当 token 缺失、格式错误、过期或非法时抛出。
     """
-    token = _extract_bearer_token(authorization)
     claims = decode_supabase_jwt(token)
-    return claims_to_current_user(claims)
+    parsed = claims_to_current_user(claims)
+    try:
+        user_uuid = uuid.UUID(parsed.id)
+    except (ValueError, AttributeError) as exc:
+        raise UnauthorizedException(
+            "令牌中的用户标识无效", code="AUTH_TOKEN_INVALID"
+        ) from exc
+    return CurrentUser(id=user_uuid, email=parsed.email, role=parsed.role)
 
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
+AccessTokenDep = Annotated[str, Depends(get_access_token)]
+
+
+async def get_current_user_with_profile(
+    user: CurrentUserDep,
+    session: DbSession,
+) -> CurrentUser:
+    """获取当前用户，并确保其健康档案存在。
+
+    首次访问后端 API 时（JWT 校验通过但 ``health_profiles`` 中没有对应行），
+    自动创建一条空档案以及偏好/健康信息/设置的初始记录。
+
+    详见 ``docs/specs/backend/00-architecture/auth.md`` §6。
+    """
+    repo = UserRepository(session=session, user_id=user.id)
+    profile = await repo.get_profile()
+    if profile is None:
+        # 首次访问：创建空档案及关联记录
+        profile = await repo.initialize_for_user()
+        await session.commit()
+    user.profile = profile
+    return user
+
+
+CurrentUserWithProfileDep = Annotated[
+    CurrentUser, Depends(get_current_user_with_profile)
+]
+
+
+# ---------- Service 工厂 ----------
+
+
+async def get_user_service(
+    session: DbSession,
+    user: CurrentUserDep,
+) -> UserService:
+    """构造按当前用户隔离的 :class:`UserService`。"""
+    repo = UserRepository(session=session, user_id=user.id)
+    return UserService(repo=repo)
+
+
+UserServiceDep = Annotated[UserService, Depends(get_user_service)]

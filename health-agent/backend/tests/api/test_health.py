@@ -38,11 +38,10 @@ async def test_unknown_route_uses_error_envelope(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_protected_endpoint_requires_token() -> None:
     """凡是依赖 get_current_user 的接口在缺少 token 时应抛出
-    UnauthorizedException。Phase 0 暂未挂载受保护路由，因此直接
-    校验依赖函数本身的行为。
+    UnauthorizedException。直接校验底层 token 提取依赖。
     """
     from app.core.exceptions import UnauthorizedException
-    from app.dependencies import get_current_user
+    from app.dependencies import get_access_token
 
     with pytest.raises(UnauthorizedException):
-        await get_current_user(authorization=None)
+        await get_access_token(authorization=None)

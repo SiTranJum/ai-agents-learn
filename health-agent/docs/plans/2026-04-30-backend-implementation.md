@@ -103,11 +103,11 @@ uvicorn app.main:app --reload
 - Create: `app/dependencies.py`
 - Create: `app/schemas/auth.py`
 
-- [ ] **Step 1: 实现 JWT 验证函数**（解析 Bearer token、HS256 验证、提取 user_id）
-- [ ] **Step 2: 定义 CurrentUser schema**
-- [ ] **Step 3: 实现 `get_current_user` 依赖**（FastAPI Depends，验证 JWT）
-- [ ] **Step 4: 编写测试**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: 实现 JWT 验证函数**（解析 Bearer token、HS256 验证、提取 user_id）
+- [x] **Step 2: 定义 CurrentUser schema**
+- [x] **Step 3: 实现 `get_current_user` 依赖**（FastAPI Depends，验证 JWT）
+- [x] **Step 4: 编写测试**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -121,14 +121,14 @@ uvicorn app.main:app --reload
 - Create: `app/api/v1/users.py`
 - Update: `app/dependencies.py`
 
-- [ ] **Step 1: 创建 HealthProfile 数据库模型**
-- [ ] **Step 2: 创建 User schemas**（HealthProfileCreate / Update / Response）
-- [ ] **Step 3: 实现 UserRepository**（自动 user_id 过滤 + create_empty_profile）
-- [ ] **Step 4: 实现 UserService**（get_profile / update_profile / onboarding / profile_completeness）
-- [ ] **Step 5: 更新 dependencies.py**（添加 get_current_user_with_profile，首次访问自动创建档案）
-- [ ] **Step 6: 实现 API 端点**（GET /users/me、PUT /users/me/profile、POST /users/me/onboarding）
-- [ ] **Step 7: 生成数据库迁移并测试**
-- [ ] **Step 8: Commit**
+- [x] **Step 1: 创建 HealthProfile 数据库模型**
+- [x] **Step 2: 创建 User schemas**（HealthProfileCreate / Update / Response）
+- [x] **Step 3: 实现 UserRepository**（自动 user_id 过滤 + create_empty_profile）
+- [x] **Step 4: 实现 UserService**（get_profile / update_profile / onboarding / profile_completeness）
+- [x] **Step 5: 更新 dependencies.py**（添加 get_current_user_with_profile，首次访问自动创建档案）
+- [x] **Step 6: 实现 API 端点**（GET /users/me、PUT /users/me/profile、POST /users/me/onboarding）
+- [x] **Step 7: 生成数据库迁移并测试**
+- [x] **Step 8: Commit**
 
 ---
 
@@ -436,7 +436,7 @@ uvicorn app.main:app --reload
 | Phase | 名称 | Task 数 | 状态 |
 |-------|------|---------|------|
 | 0 | 项目初始化与基础设施 | 3 | ⬜ 未开始 |
-| 1 | 认证与用户系统 | 3 | ✅ 已完成 |
+| 1 | 认证与用户系统 | 2 | ✅ 已完成 |
 | 2 | LLM 与向量集成 | 2 | ⬜ 未开始 |
 | 3 | RAG 知识库 | 2 | ⬜ 未开始 |
 | 4 | 饮食记录模块 | 3 | ⬜ 未开始 |
@@ -446,4 +446,4 @@ uvicorn app.main:app --reload
 | 8 | 计划系统 | 2 | ⬜ 未开始 |
 | 9 | AI 建议系统 | 1 | ⬜ 未开始 |
 | 10 | 全局联调与收尾 | 2 | ⬜ 未开始 |
-| **总计** | | **22 Tasks** | |
+| **总计** | | **21 Tasks** | |
