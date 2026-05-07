@@ -10,7 +10,7 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "python-multipart>=0.0.12",
     # 数据校验与配置
-    "pydantic>=2.9.0",
+    "pydantic[email]>=2.9.0",
     "pydantic-settings>=2.6.0",
     # 数据库
     "sqlalchemy[asyncio]>=2.0.36",
