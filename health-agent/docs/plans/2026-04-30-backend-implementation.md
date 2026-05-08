@@ -10,13 +10,21 @@
 
 **Specs 目录:** `docs/specs/backend/` — 所有实现细节参考此目录下的 spec 文档。
 
+**关键架构 Spec（执行前必读）：**
+
+- `00-architecture/overview.md` — 分层与调用路径（AI 路径 vs 纯 CRUD 路径）
+- `00-architecture/agents.md` — **Agent 层总纲：所有 LLM 推理的唯一入口**。涉及 LLM 的 Task 必读
+- `00-architecture/integrations.md` — Embedding / pgvector 技术细节
+- `00-architecture/project-structure.md` — 目录结构约定
+- `03-shared/services.md` — Agent/Service 职责边界
+
 ---
 
 ## Phase 0: 项目初始化与基础设施
 
 **目标：** 搭建 FastAPI 项目骨架，配置依赖、目录结构、数据库连接、基础中间件。
 
-**参考 spec：** `00-architecture/overview.md`、`00-architecture/project-structure.md`
+**参考 spec：** `00-architecture/overview.md`、`00-architecture/project-structure.md`、`00-architecture/agents.md`（Agent 目录约定）
 
 ### Task 0.1: 初始化项目
 
@@ -175,7 +183,7 @@ uvicorn app.main:app --reload
 
 **目标：** 建立食物营养库和健康建议库，实现向量检索能力。`RagService` 作为 Agent 的工具被调用。
 
-**参考 spec：** `02-ai-modules/rag-knowledge.md`
+**参考 spec：** `02-ai-modules/rag-knowledge.md`、`00-architecture/agents.md`（Service 作为 Agent Tool 的约定）
 
 ### Task 3.1: 知识库数据模型
 
@@ -466,7 +474,7 @@ uvicorn app.main:app --reload
 
 **目标：** 通过 `suggestion_agent` 实现每日/餐食/洞察三类建议；`SuggestionService` 做缓存与反馈。
 
-**参考 spec：** `02-ai-modules/ai-suggestion.md`
+**参考 spec：** `02-ai-modules/ai-suggestion.md`、`00-architecture/agents.md`
 
 ### Task 9.1: suggestion_agent + Service + API
 
