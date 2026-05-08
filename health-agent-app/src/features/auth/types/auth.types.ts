@@ -18,7 +18,8 @@ export interface ForgotPasswordFormData {
   email: string;
 }
 
-export type Gender = 'male' | 'female';
+// 枚举对齐 docs/specs/shared/api-contract.md §2
+export type Gender = 'male' | 'female' | 'other';
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'heavy';
 export type GoalType = 'lose_fat' | 'gain_muscle' | 'maintain' | 'healthy_diet';
 export type DietType =
@@ -26,6 +27,9 @@ export type DietType =
   | 'low_carb'
   | 'high_protein'
   | 'vegetarian'
+  | 'vegan'
+  | 'keto'
+  | 'low_fat'
   | 'mediterranean';
 
 export interface OnboardingData {

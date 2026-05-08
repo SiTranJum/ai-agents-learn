@@ -220,6 +220,7 @@ GET /api/v1/diet/records?page=1&page_size=20&sort_by=created_at&sort_order=desc
 | 方法 | 路径 | 说明 | 认证 |
 |------|------|------|------|
 | GET | `/users/me` | 获取当前用户信息 | 是 |
+| POST | `/users/me/onboarding` | 一次性提交 Onboarding 全量数据 | 是 |
 | PUT | `/users/me/profile` | 更新健康档案 | 是 |
 | PUT | `/users/me/preferences` | 更新饮食偏好 | 是 |
 | PUT | `/users/me/health-info` | 更新健康信息 | 是 |

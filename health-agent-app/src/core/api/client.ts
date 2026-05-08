@@ -29,8 +29,15 @@ async function handleResponse<T>(res: Response): Promise<T> {
     let code: string | undefined;
     try {
       const body = await res.json();
-      message = body.message ?? body.detail ?? message;
-      code = body.code;
+      // 后端统一错误格式：{ error: { code, message, details } }
+      // 契约见 docs/specs/shared/api-contract.md §1.3
+      if (body?.error) {
+        message = body.error.message ?? message;
+        code = body.error.code;
+      } else {
+        message = body.message ?? body.detail ?? message;
+        code = body.code;
+      }
     } catch {
       // ignore
     }
@@ -38,7 +45,14 @@ async function handleResponse<T>(res: Response): Promise<T> {
     throw err;
   }
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  const body = await res.json();
+  // 统一响应信封：{ data, message } / { data, pagination, message }
+  // 契约见 docs/specs/shared/api-contract.md §1。
+  // 存在 data 字段时剥壳返回，UI/service 层拿到的永远是裸 T。
+  if (body && typeof body === 'object' && 'data' in body) {
+    return (body as { data: T }).data;
+  }
+  return body as T;
 }
 
 export const apiClient = {

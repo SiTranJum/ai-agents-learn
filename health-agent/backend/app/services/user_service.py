@@ -24,6 +24,7 @@ from app.db.models.user import (
 from app.db.repositories.user_repo import UserRepository
 from app.schemas.user import (
     InteractionMode,
+    OnboardingPayload,
     UserFullResponse,
     UserHealthInfoResponse,
     UserHealthInfoUpdate,
@@ -73,6 +74,8 @@ class UserService:
             current_weight=profile.current_weight,
             target_weight=profile.target_weight,
             activity_level=profile.activity_level,  # type: ignore[arg-type]
+            goal_type=profile.goal_type,  # type: ignore[arg-type]
+            daily_calorie_target=profile.daily_calorie_target,
             profile_completeness=self._calculate_completeness(profile),
         )
 
@@ -113,10 +116,13 @@ class UserService:
         return UserFullResponse(
             id=user_id,
             email=email,
+            onboarding_completed=bool(profile.onboarding_completed),
             profile=self._profile_to_response(profile),
             preferences=self._preferences_to_response(preferences),
             health_info=self._health_info_to_response(health_info),
             settings=self._settings_to_response(settings_row),
+            created_at=profile.created_at,
+            updated_at=profile.updated_at,
         )
 
     async def get_profile_completeness(self, user_id: uuid.UUID) -> float:
@@ -200,6 +206,40 @@ class UserService:
         instance = await self.repo.update_settings(fields)
         await self.repo.session.commit()
         return self._settings_to_response(instance)
+
+    # ---------- Onboarding 聚合提交 ----------
+
+    async def complete_onboarding(
+        self, user_id: uuid.UUID, *, email: str, payload: OnboardingPayload
+    ) -> UserFullResponse:
+        """一次性写入 Onboarding 全量数据（profile + preferences + health_info）。
+
+        语义（见 docs/specs/shared/api-contract.md §3.3）：
+        - 各子段字段全部 Optional，未传字段保持数据库原值；
+        - 成功后置 ``onboarding_completed = True``；
+        - 幂等：已完成用户再次调用等价于一次聚合更新；
+        - 返回完整 ``UserFullResponse``，前端可直接刷新本地 state。
+        """
+        if payload.profile is not None:
+            await self.repo.update_profile(
+                payload.profile.model_dump(exclude_unset=True)
+            )
+        if payload.preferences is not None:
+            await self.repo.update_preferences(
+                payload.preferences.model_dump(exclude_unset=True)
+            )
+        if payload.health_info is not None:
+            await self.repo.update_health_info(
+                payload.health_info.model_dump(exclude_unset=True)
+            )
+
+        # 标记 onboarding 完成（update_profile 的 _apply_updates 会忽略 None，
+        # 但 True 会被写入）
+        await self.repo.update_profile({"onboarding_completed": True})
+
+        await self.repo.session.commit()
+        # TODO(Phase 6): memory_service.on_profile_updated(user_id, ...)
+        return await self.get_full_profile(user_id, email=email)
 
 
 __all__ = ["UserService", "PROFILE_REQUIRED_FIELDS"]
