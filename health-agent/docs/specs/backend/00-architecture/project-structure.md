@@ -68,45 +68,71 @@ health-agent-api/
 │   │       ├── suggestion_repo.py
 │   │       └── chat_repo.py
 │   │
-│   ├── services/                        # 业务逻辑层
+│   ├── services/                        # 业务逻辑层（DB CRUD + 纯算法，不做 LLM 编排）
 │   │   ├── __init__.py
 │   │   ├── auth_service.py              # 认证业务逻辑
 │   │   ├── user_service.py              # 用户档案业务逻辑
-│   │   ├── diet_service.py              # 饮食记录 + AI 解析
+│   │   ├── diet_service.py              # 饮食记录 CRUD + 营养计算（被 diet_agent 作为 Tool 调用）
 │   │   ├── body_service.py              # 身体数据 + 趋势计算
-│   │   ├── plan_service.py              # 计划创建 + 执行追踪
-│   │   ├── ai_chat_service.py           # AI 对话主流程
-│   │   ├── memory_service.py            # 记忆管理（提取、召回、衰减）
-│   │   ├── rag_service.py               # RAG 检索
-│   │   └── suggestion_service.py        # 建议生成
+│   │   ├── plan_service.py              # 计划 CRUD + BMR + 执行追踪（被 plan_agent 调用）
+│   │   ├── memory_service.py            # 记忆存储/召回/衰减（被 memory_agent 和其他 agent 调用）
+│   │   ├── rag_service.py               # RAG 检索（被各 agent 作为 Tool 调用）
+│   │   └── suggestion_service.py        # 建议缓存与反馈
 │   │
-│   ├── integrations/                    # 外部服务集成
+│   ├── integrations/                    # 外部服务集成（仅 Embedding + pgvector + Supabase）
 │   │   ├── __init__.py
-│   │   ├── llm/
-│   │   │   ├── __init__.py
-│   │   │   ├── client.py                # DashScope LLM 客户端封装
-│   │   │   ├── prompts/                 # Prompt 模板目录
-│   │   │   │   ├── diet_parse.py        # 饮食解析 prompt
-│   │   │   │   ├── memory_extract.py    # 记忆提取 prompt
-│   │   │   │   ├── plan_create.py       # 计划创建 prompt
-│   │   │   │   ├── suggestion.py        # 建议生成 prompt
-│   │   │   │   └── intent.py            # 意图识别 prompt
-│   │   │   └── schemas.py               # LLM 输入输出类型
 │   │   ├── embedding/
 │   │   │   ├── __init__.py
-│   │   │   └── client.py                # Embedding 生成客户端
+│   │   │   └── client.py                # Embedding 生成客户端（text-embedding-v3）
 │   │   ├── vector/
 │   │   │   ├── __init__.py
 │   │   │   └── pgvector_client.py       # pgvector 搜索封装
 │   │   └── supabase_auth/
 │   │       ├── __init__.py
 │   │       └── client.py                # Supabase Auth 客户端
+│   │   # 注意：不存在 llm/client.py。LLM 调用统一在 app/agents/ 中通过
+│   │   # langchain_openai.ChatOpenAI（配 DashScope base_url）发起。
 │   │
-│   ├── graphs/                          # LangGraph 流程定义
+│   ├── agents/                          # LangGraph Agent 层（所有 LLM 推理的唯一入口）
 │   │   ├── __init__.py
-│   │   ├── chat_graph.py                # 对话处理主流程
-│   │   ├── memory_graph.py              # 记忆提取流程
-│   │   └── suggestion_graph.py          # 建议生成流程
+│   │   ├── base.py                      # get_chat_model() 全局模型工厂 + 通用 State 基字段
+│   │   ├── prompts/                     # Prompt 模板目录（与 Graph 解耦）
+│   │   │   ├── diet_parse.py
+│   │   │   ├── memory_extract.py
+│   │   │   ├── memory_score.py
+│   │   │   ├── plan_confirm.py
+│   │   │   ├── plan_analyze.py
+│   │   │   ├── plan_draft.py
+│   │   │   ├── suggestion_daily.py
+│   │   │   ├── suggestion_meal.py
+│   │   │   ├── suggestion_insight.py
+│   │   │   ├── chat_system.py
+│   │   │   └── consolidate.py
+│   │   ├── chat/                        # 全局 AI 对话 Agent
+│   │   │   ├── state.py
+│   │   │   ├── nodes.py
+│   │   │   ├── tools.py
+│   │   │   └── graph.py                 # build_chat_agent()
+│   │   ├── diet/                        # 饮食文本/图片解析 Agent
+│   │   │   ├── state.py
+│   │   │   ├── nodes.py                 # parse_text / enrich_nutrition / save_record
+│   │   │   ├── tools.py                 # search_food / save_diet_record / get_prefs
+│   │   │   └── graph.py                 # build_diet_agent()
+│   │   ├── plan/                        # 计划 4 步对话创建 Agent
+│   │   │   ├── state.py
+│   │   │   ├── nodes.py                 # confirm_goal / analyze / draft / validate
+│   │   │   ├── tools.py                 # get_profile / get_recent_diet / save_plan / calc_bmr
+│   │   │   └── graph.py                 # build_plan_agent()
+│   │   ├── memory/                      # 记忆提取/评分/合并 Agent
+│   │   │   ├── state.py
+│   │   │   ├── nodes.py                 # extract / score / filter / embed_and_store
+│   │   │   ├── tools.py                 # save_memory / list_memories / embed
+│   │   │   └── graph.py                 # build_memory_agent()
+│   │   └── suggestion/                  # 建议生成 Agent
+│   │       ├── state.py
+│   │       ├── nodes.py                 # collect / recall / search_kb / generate / dedup
+│   │       ├── tools.py                 # get_progress / recall_memories / search_knowledge
+│   │       └── graph.py                 # build_suggestion_agent()
 │   │
 │   └── core/                            # 通用工具
 │       ├── __init__.py
@@ -191,26 +217,29 @@ SQLAlchemy ORM 模型。每个文件对应一组相关的数据库表。
 
 ### 2.5 `app/services/`
 
-业务逻辑层。核心业务编排在这里。
+业务逻辑层。**DB CRUD 编排 + 纯算法**。
 
-- 职责：业务规则、数据组装、跨模块协调、AI 流程调度
-- 可调用：repository 层、外部集成层、其他 service
-- 禁止：直接操作数据库 session
+- 职责：业务规则、数据组装、纯算法（BMR、营养计算、趋势统计）、软删除、权限校验
+- 可调用：repository 层、外部集成层（Embedding/pgvector）、其他 service
+- 禁止：直接操作数据库 session、**直接调用 LLM**（必须走 Agent）、封装 LLM 场景方法
+- 与 Agent 的关系：Service 是 Agent 的 **Tool 实现者**。饮食解析不在 service 里，而在 `diet_agent` 里；但"保存饮食记录到 DB"这种纯 CRUD 是 `DietService.create_record_from_parsed(...)`，由 Agent Tool 调用它。
 
 ### 2.6 `app/integrations/`
 
-外部服务封装。隔离第三方依赖。
+外部服务封装。**只剩 Embedding + pgvector + Supabase Auth**。
 
-- 职责：LLM 调用、Embedding 生成、向量搜索、Supabase Auth
+- 职责：Embedding 生成、向量搜索、Supabase Auth
+- **不含 LLM 客户端**：LLM 调用统一在 `app/agents/` 中通过 langchain_openai 发起
 - 设计原则：对外暴露简洁接口，内部处理重试、超时、错误转换
-- 切换供应商时只改这一层
 
-### 2.7 `app/graphs/`
+### 2.7 `app/agents/`
 
-LangGraph 流程定义。复杂的多步骤 AI 流程在这里编排。
+LangGraph Agent 层。**所有 LLM 推理的唯一入口**。
 
-- 职责：定义 AI 处理的 state graph（节点、边、条件分支）
-- 被 service 层调用
+- 职责：定义 Agent 的 State、Node、Tool、Graph 编译产物
+- 被 API 层直接调用（Agent-first），通过 Tool 间接调 Service
+- 禁止：绕过 Service 直接操作数据库；直接 `from openai import ...`
+- 详见 `00-architecture/agents.md`
 
 ### 2.8 `app/core/`
 
@@ -247,10 +276,14 @@ LangGraph 流程定义。复杂的多步骤 AI 流程在这里编排。
 ### 4.1 允许的依赖方向
 
 ```
-api/ ──→ services/ ──→ repositories/ ──→ db/models/
-                  ──→ integrations/
-                  ──→ graphs/
-                  ──→ 其他 services/（通过依赖注入）
+api/ ──→ agents/ ──(Tool)──→ services/ ──→ repositories/ ──→ db/models/
+     ──→ services/ ──────────────────────→ repositories/
+                    ──→ integrations/ (embedding / pgvector / supabase_auth)
+                    ──→ 其他 services/（通过依赖注入）
+
+agents/ ──→ langchain_openai.ChatOpenAI（唯一 LLM 出口）
+        ──→ services/（通过 Tool 封装）
+        ──→ integrations/embedding（节点内可直接 embed）
 ```
 
 ### 4.2 禁止的依赖
@@ -258,6 +291,7 @@ api/ ──→ services/ ──→ repositories/ ──→ db/models/
 - `api/` 禁止直接调用 `repositories/` 或 `integrations/`
 - `repositories/` 禁止调用 `services/` 或其他 `repositories/`
 - `integrations/` 禁止调用 `services/` 或 `repositories/`
+- `services/` 禁止 `from langchain_openai import ChatOpenAI` 或 `from openai import OpenAI`（LLM 必须走 `agents/`）
 - `core/` 禁止依赖任何业务模块
 
 ### 4.3 依赖注入

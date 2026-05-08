@@ -166,67 +166,74 @@ class FeedbackCreate(BaseModel):
   - 同一天内不重复生成相同内容；
   - 3 天内不生成与已有建议向量相似度 > 0.8 的建议。
 
-## 6. LangGraph 流程
+## 6. Agent 层（suggestion_agent）
 
-对齐 `00-architecture/integrations.md` 第 5.2 节，定义 `suggestion_graph`：
+**所有建议生成的 LLM 推理必须通过 `suggestion_agent` 发起**（见 `00-architecture/agents.md`）。`SuggestionService` 仅负责缓存读写、反馈持久化和反馈后的记忆触发协调。
+
+### 6.1 State
 
 ```python
-from typing import TypedDict
+# app/agents/suggestion/state.py
+from typing import TypedDict, Literal
 
-
-class SuggestionState(TypedDict):
+class SuggestionState(TypedDict, total=False):
     user_id: str
-    suggestion_type: str
+    suggestion_type: Literal["daily", "meal", "insight"]
+    meal_type: str | None                 # meal 类型必填
     user_profile: dict
-    recent_data: dict
+    recent_data: dict                     # 近 7/30 天饮食、体征、计划执行
     memories: list[dict]
     knowledge: list[dict]
     raw_suggestions: list[dict]
     filtered_suggestions: list[dict]
-
-
-# 节点定义：
-# collect_data       —— 调用各业务 service 收集用户画像与近期数据
-# recall_memories    —— 通过 memory_service 检索相关长期记忆
-# search_knowledge   —— 通过 rag_service 检索营养/健康知识
-# generate_suggestions —— 调用 llm_service 生成原始建议
-# deduplicate_filter —— 去重 + 质量规则过滤
-#
-# 边：collect_data -> recall_memories -> search_knowledge
-#     -> generate_suggestions -> deduplicate_filter -> END
 ```
+
+### 6.2 节点
+
+| 节点 | 职责 |
+|------|------|
+| `collect_data` | Tools: `UserService.get_full_profile`、`DietService.get_daily_summary`、`BodyService.get_trends`、`PlanService.get_progress` |
+| `recall_memories` | Tool: `MemoryService.recall_memories(...)` |
+| `search_knowledge` | Tool: `RagService.search_knowledge(...)` |
+| `generate_suggestions` | `get_chat_model(temperature=0.7).with_structured_output(...)` 生成原始建议；按 `suggestion_type` 使用不同 prompt：`prompts/suggestion_daily.py` / `suggestion_meal.py` / `suggestion_insight.py` |
+| `deduplicate_filter` | 代码确定性逻辑：忌口过滤 + 医疗诊断词过滤 + 活跃 plan 冲突 + 3 天内相似度 > 0.8 去重 |
+
+边：`collect_data → recall_memories → search_knowledge → generate_suggestions → deduplicate_filter → END`
 
 ## 7. 反馈机制
 
 - 用户可对单条建议给出 `helpful` / `not_helpful` / `dismissed` 评价。
 - 反馈写入 `suggestions.user_feedback` 字段。
-- 反馈触发 `memory_service.extract_memory(type="suggestion_feedback")`，将偏好（如"用户不喜欢牛油果"）沉淀为长期记忆。
-- 后续建议生成时，`recall_memories` 节点会召回这些偏好，从而实现持续学习。
+- 反馈触发 `memory_agent.ainvoke(trigger_type="suggestion_feedback", ...)`，将偏好沉淀为长期记忆。
+- 后续建议生成时，`recall_memories` 节点会召回这些偏好，实现持续学习。
 
 ## 8. Service 接口
+
+`SuggestionService` 仅做缓存与反馈，**不做 LLM 编排**：
 
 ```python
 from uuid import UUID
 
-
 class SuggestionService:
     async def get_daily_suggestions(self, user_id: UUID) -> DailySuggestionResponse:
-        """获取每日建议，优先命中缓存，缓存失效则触发 suggestion_graph。"""
+        """优先读缓存；缓存失效则调用 suggestion_agent.ainvoke(type='daily')，
+        持久化到 suggestions 表后返回。"""
 
     async def get_meal_suggestions(self, user_id: UUID, meal_type: MealType) -> MealSuggestionResponse:
-        """实时生成餐食建议，不走缓存。"""
+        """实时生成：直接调用 suggestion_agent.ainvoke(type='meal', meal_type=...)，不走缓存。"""
 
     async def get_insights(self, user_id: UUID) -> InsightResponse:
-        """获取每周健康洞察，优先命中缓存。"""
+        """优先读每周缓存；缓存失效则调用 suggestion_agent.ainvoke(type='insight')。"""
 
     async def submit_feedback(self, user_id: UUID, suggestion_id: UUID, feedback: FeedbackCreate) -> None:
-        """写入反馈并触发记忆提取。"""
+        """写入反馈 → 触发 memory_agent.ainvoke(trigger='suggestion_feedback', ...)。"""
 ```
 
 ## 9. 模块依赖
 
-- **上游**（本模块调用）：`llm_service`、`memory_service`、`rag_service`、`diet_service`、`body_service`、`plan_service`、`user_service`。
+- **上游**（本模块调用）：`suggestion_agent`（LLM 编排）、`memory_service` / `memory_agent`、`rag_service`、`diet_service`、`body_service`、`plan_service`、`user_service`。
 - **下游**（调用本模块）：无（叶子模块，仅由 API 路由直接调用）。
+- **LLM 客户端**：不直接依赖，一律通过 `suggestion_agent` 节点内的 `get_chat_model()` 获取。
 
 ## 10. 实现约束
 

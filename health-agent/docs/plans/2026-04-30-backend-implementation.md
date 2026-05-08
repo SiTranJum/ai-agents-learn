@@ -6,7 +6,7 @@
 
 **Architecture:** 分层架构 API → Service → Repository → DB/Integration，单体部署，模块自治。
 
-**Tech Stack:** Python 3.11+ · FastAPI · SQLAlchemy 2.0 · Pydantic v2 · Supabase (PostgreSQL 15+ / Auth) · pgvector · DashScope (qwen-plus / text-embedding-v3) · LangGraph · Alembic · pytest · uvicorn
+**Tech Stack:** Python 3.11+ · FastAPI · SQLAlchemy 2.0 · Pydantic v2 · Supabase (PostgreSQL 15+ / Auth) · pgvector · DashScope (qwen-plus / text-embedding-v3) · **LangGraph + langchain-openai（所有 LLM 推理的唯一入口）** · Alembic · pytest · uvicorn
 
 **Specs 目录:** `docs/specs/backend/` — 所有实现细节参考此目录下的 spec 文档。
 
@@ -132,24 +132,26 @@ uvicorn app.main:app --reload
 
 ---
 
-## Phase 2: LLM 与向量集成
+## Phase 2: Agent 基础设施与向量能力
 
-**目标：** 封装 DashScope LLM 调用和 pgvector 向量搜索，为后续 AI 模块提供基础能力。
+**目标：** 搭建 LangGraph Agent 统一入口（`app/agents/`）、Embedding 与 pgvector 向量搜索。所有 LLM 调用一律通过 Agent 发起，不再有独立的 `LLMClient` / `LLMService` 封装。
 
-**参考 spec：** `00-architecture/integrations.md`、`03-shared/services.md`
+**参考 spec：** `00-architecture/agents.md`、`00-architecture/integrations.md`、`03-shared/services.md`
 
-### Task 2.1: LLM 服务封装
+### Task 2.1: Agent 层骨架（替代旧的 LLM Service）
 
 **Files:**
-- Create: `app/integrations/llm/client.py`
-- Create: `app/integrations/llm/prompts/` (目录)
-- Create: `app/integrations/llm/service.py`
+- Create: `app/agents/__init__.py`
+- Create: `app/agents/base.py` (get_chat_model 模型工厂 + BaseAgentState)
+- Create: `app/agents/prompts/__init__.py`
+- Delete: `app/integrations/llm/` 整个目录（如已存在 client.py 则删除）
+- Delete: `app/services/llm_service.py`（如已存在）
 
-- [ ] **Step 1: 实现 LLMClient**（AsyncOpenAI 封装，DashScope base_url，重试策略）
-- [ ] **Step 2: 实现 chat() 和 chat_with_json()**（结构化输出）
-- [ ] **Step 3: 创建 prompt 模板目录结构**
-- [ ] **Step 4: 编写集成测试**（调用真实 API 验证连通性）
-- [ ] **Step 5: Commit**
+- [x] **Step 1: 新增依赖** — pyproject.toml 加 `langgraph`, `langchain-openai`, `langchain-core`
+- [x] **Step 2: 实现 `app/agents/base.py`** — `get_chat_model(temperature, **kwargs)` 读取配置并返回 `ChatOpenAI`（DashScope 兼容）；定义 `BaseAgentState`
+- [x] **Step 3: 清理废弃模块** — 删除 `app/integrations/llm/client.py`、`app/services/llm_service.py`（若存在）
+- [x] **Step 4: 编写连通性测试** — 构造一个一节点 Graph，输入 "你好" → 返回字符串，验证模型工厂可用（默认跳过，设置 `RUN_LLM_INTEGRATION=1` 时运行）
+- [x] **Step 5: Commit**
 
 ---
 
@@ -157,19 +159,21 @@ uvicorn app.main:app --reload
 
 **Files:**
 - Create: `app/integrations/embedding/client.py`
-- Create: `app/integrations/vector/service.py`
+- Create: `app/integrations/vector/pgvector_client.py`
 
-- [ ] **Step 1: 实现 EmbeddingClient**（text-embedding-v3，1024 维，批量支持）
-- [ ] **Step 2: 实现 VectorService**（pgvector 相似度搜索，支持过滤条件）
-- [ ] **Step 3: 创建 pgvector 扩展迁移**（`CREATE EXTENSION vector`）
-- [ ] **Step 4: 编写测试**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: 实现 EmbeddingClient**（text-embedding-v3，1024 维，批量支持）
+- [x] **Step 2: 实现 PgVectorClient**（pgvector 相似度搜索，支持过滤条件）
+- [x] **Step 3: 创建 pgvector 扩展迁移**（`CREATE EXTENSION IF NOT EXISTS vector`）
+- [x] **Step 4: 编写测试**
+- [x] **Step 5: Commit**
+
+> 备注：标记 [x] 的项若已在旧版 Phase 2 中完成，需按新 spec 做"反向 review"：确保 Service 不再 `from openai import OpenAI`，若存在则在 Phase 2 结束前清理。
 
 ---
 
 ## Phase 3: RAG 知识库
 
-**目标：** 建立食物营养库和健康建议库，实现向量检索能力。
+**目标：** 建立食物营养库和健康建议库，实现向量检索能力。`RagService` 作为 Agent 的工具被调用。
 
 **参考 spec：** `02-ai-modules/rag-knowledge.md`
 
@@ -197,20 +201,20 @@ uvicorn app.main:app --reload
 - Create: `data/foods.json`
 - Create: `data/health_tips.json`
 
-- [ ] **Step 1: 准备种子数据**（常见食物 100+ 条、健康建议 50+ 条，V1 精简版）
+- [ ] **Step 1: 准备种子数据**（常见食物 100+、健康建议 50+，V1 精简版）
 - [ ] **Step 2: 实现种子数据导入脚本**（批量 embedding 生成 + 入库）
-- [ ] **Step 3: 实现 RagService**（食物搜索、知识检索、三层匹配策略）
-- [ ] **Step 4: 实现 API 端点**（GET /knowledge/foods/search、GET /knowledge/foods/{id}）
+- [ ] **Step 3: 实现 RagService**（`search_foods` / `get_food_detail` / `search_knowledge` / `lookup_nutrition`）
+- [ ] **Step 4: 实现 API 端点**（`GET /knowledge/foods/search`、`GET /knowledge/foods/{id}`）
 - [ ] **Step 5: 运行种子脚本，验证搜索效果**
 - [ ] **Step 6: Commit**
 
 ---
 
-## Phase 4: 饮食记录模块
+## Phase 4: 饮食记录模块（diet_agent 驱动）
 
-**目标：** 实现饮食记录 CRUD、AI 文本解析、营养计算。
+**目标：** 实现饮食记录 CRUD、通过 `diet_agent` 完成文本/图片解析与营养计算。
 
-**参考 spec：** `01-core-modules/diet-recording.md`
+**参考 spec：** `01-core-modules/diet-recording.md`、`00-architecture/agents.md`
 
 ### Task 4.1: 饮食数据层
 
@@ -220,41 +224,74 @@ uvicorn app.main:app --reload
 - Create: `app/schemas/diet.py`
 
 - [ ] **Step 1: 创建 DietRecord 和 DietItem 数据库模型**
-- [ ] **Step 2: 创建饮食相关 schemas**（Create / Update / Response / ParseResult / Summary）
+- [ ] **Step 2: 创建饮食相关 schemas**（Create / Update / Response / ParseResult / Summary / ParsedFood）
 - [ ] **Step 3: 实现 DietRepository**（CRUD + 按日期范围查询 + 汇总统计）
 - [ ] **Step 4: 生成迁移并测试**
 - [ ] **Step 5: Commit**
 
 ---
 
-### Task 4.2: AI 解析与营养计算
+### Task 4.2: DietService（纯 CRUD + 营养算法）
 
 **Files:**
-- Create: `app/integrations/llm/prompts/diet_parse.py`
 - Create: `app/services/diet_service.py`
 
-- [ ] **Step 1: 编写饮食解析 prompt 模板**（文本 → 结构化食物列表）
-- [ ] **Step 2: 实现 AI 解析流程**（LLM 解析 → RAG 匹配营养数据 → 计算汇总）
-- [ ] **Step 3: 实现 DietService**（create / update / delete / parse / daily_summary / weekly_summary）
-- [ ] **Step 4: 编写测试**（mock LLM 响应，验证解析和计算逻辑）
-- [ ] **Step 5: Commit**
+- [ ] **Step 1: 实现 `create_record_from_parsed`**（接收 Agent 已处理好的 ParsedFood 列表）
+- [ ] **Step 2: 实现 CRUD**（`get_record` / `list_records` / `update_record` / `delete_record`，软删除）
+- [ ] **Step 3: 实现营养汇总**（`get_daily_summary` / `get_weekly_summary`）
+- [ ] **Step 4: 内部辅助**（`_lookup_nutrition` 通过 RagService 查询营养；`_calculate_summary`）
+- [ ] **Step 5: 单元测试**（纯算法逻辑可 mock 依赖）
+- [ ] **Step 6: Commit**
+
+> 约束：本文件禁止 import `ChatOpenAI` 或 `openai`。任何 LLM 调用属于 diet_agent。
 
 ---
 
-### Task 4.3: 饮食 API 端点
+### Task 4.3: diet_agent（解析 + 记录流程）
+
+**Files:**
+- Create: `app/agents/diet/state.py`
+- Create: `app/agents/diet/nodes.py`
+- Create: `app/agents/diet/tools.py`
+- Create: `app/agents/diet/graph.py`
+- Create: `app/agents/prompts/diet_parse.py`
+
+- [ ] **Step 1: 定义 `DietState`**（mode / input_text / image_url / parsed_foods / confidence / ...）
+- [ ] **Step 2: 实现 prompt 模板** — `agents/prompts/diet_parse.py` 含模糊单位换算表、few-shot
+- [ ] **Step 3: 实现节点**
+  - `route_input`（conditional edge：text / photo）
+  - `parse_text`（`ChatOpenAI.with_structured_output(ParseResult)`）
+  - `parse_photo_mock`（V1 返回固定 ParseResult）
+  - `standardize_units`（代码确定性换算）
+  - `enrich_nutrition`（Tool: `RagService.lookup_nutrition`，未命中调 LLM 估算子节点）
+  - `infer_meal_type`（按时间或已传值）
+  - `save_record`（Tool: `DietService.create_record_from_parsed`，conditional：mode == "create" 时执行）
+  - `trigger_memory`（异步 `memory_agent.ainvoke(trigger="diet_record", ...)`）
+- [ ] **Step 4: 组装 Graph** — `build_diet_agent()` 返回 compiled graph（MemorySaver）
+- [ ] **Step 5: 单元测试** — mock ChatOpenAI 与 RagService，验证节点串联
+- [ ] **Step 6: Commit**
+
+---
+
+### Task 4.4: 饮食 API 端点
 
 **Files:**
 - Create: `app/api/v1/diet.py`
+- Update: `app/dependencies.py`（注入 diet_agent 单例）
 
-- [ ] **Step 1: 实现 8 个端点**（CRUD + parse + daily/weekly summary）
-- [ ] **Step 2: 端到端测试**（创建记录 → 查询 → 汇总）
+- [ ] **Step 1: 实现端点**
+  - `POST /diet/records` → `diet_agent.ainvoke(mode="create", ...)`
+  - `POST /diet/parse` → `diet_agent.ainvoke(mode="parse", ...)`
+  - `GET /diet/records` / `GET /diet/records/{id}` / `PUT /diet/records/{id}` / `DELETE /diet/records/{id}` → 直接调 DietService
+  - `GET /diet/daily-summary` / `GET /diet/weekly-summary` → DietService
+- [ ] **Step 2: 端到端测试**（mock LLM 节点返回固定 ParseResult，验证创建 → 查询 → 汇总链路）
 - [ ] **Step 3: Commit**
 
 ---
 
 ## Phase 5: 身体数据追踪模块
 
-**目标：** 实现 6 类身体数据的 CRUD、趋势计算、异常检测。
+**目标：** 实现 6 类身体数据的 CRUD、趋势计算、异常检测。该模块不涉及 LLM。
 
 **参考 spec：** `01-core-modules/body-tracking.md`
 
@@ -268,7 +305,7 @@ uvicorn app.main:app --reload
 - Create: `app/api/v1/body.py`
 
 - [ ] **Step 1: 创建数据库模型**（WeightRecord、体围、睡眠、运动、饮水、排便）
-- [ ] **Step 2: 创建 schemas**（各类型的 Create / Response + TrendData）
+- [ ] **Step 2: 创建 schemas**
 - [ ] **Step 3: 实现 BodyRepository**（CRUD + 趋势查询 + 最新值）
 - [ ] **Step 4: 实现 BodyService**（数据校验、异常值检测、趋势计算）
 - [ ] **Step 5: 实现 API 端点**（各类型 CRUD + trends + latest）
@@ -277,129 +314,182 @@ uvicorn app.main:app --reload
 
 ---
 
-## Phase 6: AI 记忆系统
+## Phase 6: AI 记忆系统（memory_agent）
 
-**目标：** 实现三层记忆架构（短期/中期/长期），记忆的写入、召回、衰减。
+**目标：** 实现三层记忆架构（短期/中期/长期），通过 `memory_agent` 完成提取/评分/存储；`MemoryService` 只做 CRUD + 召回算法。
 
-**参考 spec：** `02-ai-modules/ai-memory.md`
+**参考 spec：** `02-ai-modules/ai-memory.md`、`00-architecture/agents.md`
 
-### Task 6.1: 记忆数据层
+### Task 6.1: 记忆数据层与 MemoryService
 
 **Files:**
 - Create: `app/db/models/memory.py`
 - Create: `app/db/repositories/memory_repo.py`
 - Create: `app/schemas/memory.py`
+- Create: `app/services/memory_service.py`
 
 - [ ] **Step 1: 创建 Memory 和 MemorySummary 数据库模型**（含 vector 列）
 - [ ] **Step 2: 创建记忆 schemas**
-- [ ] **Step 3: 实现 MemoryRepository**（CRUD + 向量召回 + 按类型/时间过滤）
-- [ ] **Step 4: 生成迁移**
-- [ ] **Step 5: Commit**
+- [ ] **Step 3: 实现 MemoryRepository**
+- [ ] **Step 4: 实现 MemoryService**（`store_memory` / `recall_memories` / `get_long_term_profile` / `on_profile_updated`；**不含 LLM 调用**）
+- [ ] **Step 5: 生成迁移**
+- [ ] **Step 6: 单元测试**（时间衰减、类型权重、多因子评分）
+- [ ] **Step 7: Commit**
 
 ---
 
-### Task 6.2: 记忆服务与 LangGraph 流程
+### Task 6.2: memory_agent
 
 **Files:**
-- Create: `app/integrations/llm/prompts/memory_extract.py`
-- Create: `app/services/memory_service.py`
-- Create: `app/graphs/memory_graph.py`
+- Create: `app/agents/memory/state.py`
+- Create: `app/agents/memory/nodes.py`
+- Create: `app/agents/memory/tools.py`
+- Create: `app/agents/memory/graph.py`
+- Create: `app/agents/prompts/memory_extract.py`
+- Create: `app/agents/prompts/memory_score.py`
+- Create: `app/agents/prompts/consolidate.py`
 
-- [ ] **Step 1: 编写记忆提取 prompt**（从对话中提取关键信息 + 重要度评分）
-- [ ] **Step 2: 实现 MemoryService**（write / recall / consolidate / decay）
-- [ ] **Step 3: 实现 memory_graph**（LangGraph：提取 → 分类 → embedding → 存储）
-- [ ] **Step 4: 编写测试**
-- [ ] **Step 5: Commit**
+- [ ] **Step 1: 定义 MemoryExtractionState** — trigger_type / context_data / extracted / scored / approved
+- [ ] **Step 2: 实现 prompt 模板**（extract / score / consolidate）
+- [ ] **Step 3: 实现节点**（`extract` / `score` / `filter` / `embed_and_store`）— 最后一步通过 Tool 调 `MemoryService.store_memory`，节点内用 `EmbeddingClient.embed` 生成向量
+- [ ] **Step 4: 组装 Graph** — `build_memory_agent()`
+- [ ] **Step 5: 子图：consolidate_subgraph**（相似度检测 → LLM 摘要 → 归档原始）
+- [ ] **Step 6: 单元测试** — mock LLM 与 Embedding
+- [ ] **Step 7: Commit**
 
 ---
 
-## Phase 7: AI 对话系统
+## Phase 7: AI 对话系统（chat_agent）
 
-**目标：** 实现对话入口，串联记忆召回、prompt 组装、LLM 调用、记忆写入的完整链路。
+**目标：** 实现 `POST /ai/chat` 的端到端流程，通过 `chat_agent` 串联意图识别、记忆召回、知识检索、LLM 回复、记忆提取。
 
-**参考 spec：** `02-ai-modules/ai-memory.md`（对话部分）
+**参考 spec：** `02-ai-modules/ai-memory.md`、`00-architecture/agents.md`
 
-### Task 7.1: 对话数据层与服务
+### Task 7.1: 对话数据层与 ChatService
 
 **Files:**
 - Create: `app/db/models/chat.py`
 - Create: `app/db/repositories/chat_repo.py`
 - Create: `app/schemas/chat.py`
 - Create: `app/services/chat_service.py`
-- Create: `app/graphs/chat_graph.py`
-- Create: `app/api/v1/ai.py`
 
 - [ ] **Step 1: 创建 ChatMessage 数据库模型**
-- [ ] **Step 2: 创建对话 schemas**（ChatRequest / ChatResponse / ChatHistory）
-- [ ] **Step 3: 实现 chat_graph**（LangGraph：消息接收 → 记忆召回 → prompt 组装 → LLM → 记忆提取 → 响应）
-- [ ] **Step 4: 实现 ChatService**（chat / get_history）
-- [ ] **Step 5: 实现 API 端点**（POST /ai/chat、GET /ai/chat/history）
-- [ ] **Step 6: 端到端测试**（发送消息 → 获取回复 → 验证记忆写入）
-- [ ] **Step 7: Commit**
-
----
-
-## Phase 8: 计划系统
-
-**目标：** 实现计划的 AI 创建、CRUD、打卡、进度追踪。
-
-**参考 spec：** `02-ai-modules/plan-system.md`
-
-### Task 8.1: 计划数据层
-
-**Files:**
-- Create: `app/db/models/plan.py`
-- Create: `app/db/repositories/plan_repo.py`
-- Create: `app/schemas/plan.py`
-
-- [ ] **Step 1: 创建 Plan、PlanTarget、PlanExecution 数据库模型**
-- [ ] **Step 2: 创建计划 schemas**（Create / Update / Response / CheckIn / Progress）
-- [ ] **Step 3: 实现 PlanRepository**
+- [ ] **Step 2: 创建对话 schemas**（ChatRequest / ChatResponse / ChatMessageResponse）
+- [ ] **Step 3: 实现 ChatService**（`get_or_create_session` / `save_message` / `get_history` / `delete_session`；**不含 LLM 调用**）
 - [ ] **Step 4: 生成迁移**
 - [ ] **Step 5: Commit**
 
 ---
 
-### Task 8.2: 计划服务与 API
+### Task 7.2: chat_agent
 
 **Files:**
-- Create: `app/integrations/llm/prompts/plan_generate.py`
-- Create: `app/services/plan_service.py`
-- Create: `app/api/v1/plans.py`
+- Create: `app/agents/chat/state.py`
+- Create: `app/agents/chat/nodes.py`
+- Create: `app/agents/chat/tools.py`
+- Create: `app/agents/chat/graph.py`
+- Create: `app/agents/prompts/chat_system.py`
+- Create: `app/api/v1/ai.py`
 
-- [ ] **Step 1: 编写计划生成 prompt**（结合用户档案 + 记忆生成个性化计划）
-- [ ] **Step 2: 实现 PlanService**（AI 创建 / CRUD / check-in / progress / 自动修正触发）
-- [ ] **Step 3: 实现 API 端点**（8 个端点）
-- [ ] **Step 4: 编写测试**
-- [ ] **Step 5: Commit**
+- [ ] **Step 1: 定义 ChatState**
+- [ ] **Step 2: 实现节点**
+  - `identify_intent`（LLM + structured output）
+  - `recall_memories`（Tool: MemoryService.recall_memories）
+  - `search_knowledge`（Tool: RagService.search_knowledge）
+  - `assemble_prompt`（代码确定性组装）
+  - `call_llm`（get_chat_model, temperature=0.7）
+  - `trigger_memory_extract`（`asyncio.create_task(memory_agent.ainvoke(...))`，不阻塞）
+- [ ] **Step 3: 组装 Graph** — `build_chat_agent()`
+- [ ] **Step 4: 实现 API 端点**
+  - `POST /ai/chat` → ChatService 保存 user msg → `chat_agent.ainvoke` → ChatService 保存 assistant msg
+  - `GET /ai/chat/history` → ChatService
+  - `DELETE /ai/chat/sessions/{id}` → ChatService
+- [ ] **Step 5: 端到端测试**（mock LLM，验证记忆召回、对话保存）
+- [ ] **Step 6: Commit**
 
 ---
 
-## Phase 9: AI 建议系统
+## Phase 8: 计划系统（plan_agent）
 
-**目标：** 实现每日建议、餐食建议、健康洞察的生成与缓存。
+**目标：** 通过 `plan_agent` 实现 4 步对话创建、修改建议；`PlanService` 做 CRUD + BMR + 执行追踪。
+
+**参考 spec：** `02-ai-modules/plan-system.md`、`00-architecture/agents.md`
+
+### Task 8.1: 计划数据层与 PlanService
+
+**Files:**
+- Create: `app/db/models/plan.py`
+- Create: `app/db/repositories/plan_repo.py`
+- Create: `app/schemas/plan.py`
+- Create: `app/services/plan_service.py`
+
+- [ ] **Step 1: 创建 Plan、PlanTarget、PlanExecution、PlanCheckIn 数据库模型**
+- [ ] **Step 2: 创建计划 schemas**（Create / Update / Response / CheckIn / Progress / PlanDraft）
+- [ ] **Step 3: 实现 PlanRepository**
+- [ ] **Step 4: 实现 PlanService**
+  - CRUD：`create_plan_from_draft` / `get_plan` / `list_plans` / `update_plan` / `terminate_plan`
+  - 打卡 / 进度 / 执行记录
+  - 纯算法：`calculate_bmr` / `calculate_execution_status` / `safety_check`
+  - `has_active_plan` / `on_diet_record_created` / `run_modification_rules`
+  - **不含 LLM 调用**
+- [ ] **Step 5: 生成迁移**
+- [ ] **Step 6: 单元测试**（BMR、达标状态、安全校验）
+- [ ] **Step 7: Commit**
+
+---
+
+### Task 8.2: plan_agent + API
+
+**Files:**
+- Create: `app/agents/plan/state.py`
+- Create: `app/agents/plan/nodes.py`
+- Create: `app/agents/plan/tools.py`
+- Create: `app/agents/plan/graph.py`
+- Create: `app/agents/prompts/plan_confirm.py`
+- Create: `app/agents/prompts/plan_analyze.py`
+- Create: `app/agents/prompts/plan_draft.py`
+- Create: `app/api/v1/plans.py`
+
+- [ ] **Step 1: 定义 PlanState**
+- [ ] **Step 2: 实现节点**（`confirm_goal` / `analyze_status` / `draft_plan` / `safety_validate` / `persist_plan`）
+- [ ] **Step 3: 实现 modification_subgraph**（`analyze_deviation` / `suggest_modification`）
+- [ ] **Step 4: 组装 Graph** — `build_plan_agent()`（含创建主图和修改子图）
+- [ ] **Step 5: 实现 API 端点**
+  - `POST /plans` → PlanService.has_active_plan 校验 → `plan_agent.ainvoke`
+  - CRUD / check-ins / progress / execution → PlanService
+- [ ] **Step 6: 端到端测试**
+- [ ] **Step 7: Commit**
+
+---
+
+## Phase 9: AI 建议系统（suggestion_agent）
+
+**目标：** 通过 `suggestion_agent` 实现每日/餐食/洞察三类建议；`SuggestionService` 做缓存与反馈。
 
 **参考 spec：** `02-ai-modules/ai-suggestion.md`
 
-### Task 9.1: 建议数据层与服务
+### Task 9.1: suggestion_agent + Service + API
 
 **Files:**
 - Create: `app/db/models/suggestion.py`
 - Create: `app/db/repositories/suggestion_repo.py`
 - Create: `app/schemas/suggestion.py`
-- Create: `app/integrations/llm/prompts/suggestion_generate.py`
 - Create: `app/services/suggestion_service.py`
-- Create: `app/graphs/suggestion_graph.py`
+- Create: `app/agents/suggestion/state.py`
+- Create: `app/agents/suggestion/nodes.py`
+- Create: `app/agents/suggestion/tools.py`
+- Create: `app/agents/suggestion/graph.py`
+- Create: `app/agents/prompts/suggestion_daily.py`
+- Create: `app/agents/prompts/suggestion_meal.py`
+- Create: `app/agents/prompts/suggestion_insight.py`
 - Create: `app/api/v1/suggestions.py`
 
-- [ ] **Step 1: 创建 Suggestion 数据库模型**
-- [ ] **Step 2: 创建建议 schemas**
-- [ ] **Step 3: 编写建议生成 prompt**（每日/餐食/洞察三种模板）
-- [ ] **Step 4: 实现 suggestion_graph**（LangGraph：数据收集 → 分析 → 生成 → 质量检查）
-- [ ] **Step 5: 实现 SuggestionService**（daily / meal / insights + 缓存策略）
-- [ ] **Step 6: 实现 API 端点**（3 个端点）
-- [ ] **Step 7: 编写测试**
-- [ ] **Step 8: Commit**
+- [ ] **Step 1: 创建 Suggestion 数据库模型** + schemas
+- [ ] **Step 2: 实现 suggestion_agent** — 节点：collect_data / recall_memories / search_knowledge / generate_suggestions / deduplicate_filter
+- [ ] **Step 3: 实现 SuggestionService**（缓存读写、反馈写入、反馈后 `memory_agent.ainvoke(trigger="suggestion_feedback", ...)`；**不含 LLM 调用**）
+- [ ] **Step 4: 实现 API 端点**（`GET /suggestions/daily` / `meal` / `insights`、`POST /suggestions/{id}/feedback`）
+- [ ] **Step 5: 端到端测试**
+- [ ] **Step 6: Commit**
 
 ---
 
@@ -409,10 +499,10 @@ uvicorn app.main:app --reload
 
 ### Task 10.1: 跨模块集成
 
-- [ ] **Step 1: 饮食记录触发记忆更新**（diet_service → memory_service）
-- [ ] **Step 2: 身体数据变化触发记忆更新**（body_service → memory_service）
-- [ ] **Step 3: 档案更新触发记忆更新**（user_service → memory_service）
-- [ ] **Step 4: 饮食记录触发计划执行追踪**（diet_service → plan_service）
+- [ ] **Step 1: diet_agent 末节点触发 memory_agent** — 验证饮食记录后记忆提取异步执行
+- [ ] **Step 2: body_service 变化触发 memory_agent**（通过 API 层封装）
+- [ ] **Step 3: user_service 档案更新触发 MemoryService.on_profile_updated**
+- [ ] **Step 4: diet_service.on_record_created 触发 PlanService.on_diet_record_created**
 - [ ] **Step 5: Commit**
 
 ---
@@ -421,13 +511,14 @@ uvicorn app.main:app --reload
 
 - [ ] **Step 1: 验证 Auth 流程**（注册 → 登录 → 获取 token → 访问受保护端点）
 - [ ] **Step 2: 验证用户档案流程**（创建 → 更新 → onboarding）
-- [ ] **Step 3: 验证饮食流程**（AI 解析 → 创建记录 → 查询 → 汇总）
+- [ ] **Step 3: 验证饮食流程**（diet_agent 解析 → 创建记录 → 查询 → 汇总）
 - [ ] **Step 4: 验证身体数据流程**（记录 → 趋势 → 异常检测）
-- [ ] **Step 5: 验证 AI 对话流程**（发消息 → 记忆召回 → 回复 → 记忆写入）
-- [ ] **Step 6: 验证计划流程**（AI 创建 → 打卡 → 进度）
-- [ ] **Step 7: 验证建议流程**（每日建议 → 餐食建议 → 洞察）
-- [ ] **Step 8: 修复发现的问题**
-- [ ] **Step 9: Final Commit**
+- [ ] **Step 5: 验证 AI 对话流程**（chat_agent：发消息 → 记忆召回 → 回复 → 记忆写入）
+- [ ] **Step 6: 验证计划流程**（plan_agent 创建 → 打卡 → 进度）
+- [ ] **Step 7: 验证建议流程**（suggestion_agent：每日 → 餐食 → 洞察 → 反馈）
+- [ ] **Step 8: Lint 检查**：grep 整个 `app/services/` 确保没有 `ChatOpenAI` 或 `from openai`
+- [ ] **Step 9: 修复发现的问题**
+- [ ] **Step 10: Final Commit**
 
 ---
 
@@ -437,13 +528,13 @@ uvicorn app.main:app --reload
 |-------|------|---------|------|
 | 0 | 项目初始化与基础设施 | 3 | ⬜ 未开始 |
 | 1 | 认证与用户系统 | 2 | ✅ 已完成 |
-| 2 | LLM 与向量集成 | 2 | ⬜ 未开始 |
+| 2 | Agent 基础设施与向量能力 | 2 | ✅ 已完成（按新 spec 做 reverse-review） |
 | 3 | RAG 知识库 | 2 | ⬜ 未开始 |
-| 4 | 饮食记录模块 | 3 | ⬜ 未开始 |
+| 4 | 饮食记录模块（diet_agent） | 4 | ⬜ 未开始 |
 | 5 | 身体数据追踪模块 | 1 | ⬜ 未开始 |
-| 6 | AI 记忆系统 | 2 | ⬜ 未开始 |
-| 7 | AI 对话系统 | 1 | ⬜ 未开始 |
-| 8 | 计划系统 | 2 | ⬜ 未开始 |
-| 9 | AI 建议系统 | 1 | ⬜ 未开始 |
+| 6 | AI 记忆系统（memory_agent） | 2 | ⬜ 未开始 |
+| 7 | AI 对话系统（chat_agent） | 2 | ⬜ 未开始 |
+| 8 | 计划系统（plan_agent） | 2 | ⬜ 未开始 |
+| 9 | AI 建议系统（suggestion_agent） | 1 | ⬜ 未开始 |
 | 10 | 全局联调与收尾 | 2 | ⬜ 未开始 |
-| **总计** | | **21 Tasks** | |
+| **总计** | | **23 Tasks** | |

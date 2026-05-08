@@ -306,7 +306,7 @@ LIMIT :top_k
 
 ## 8. Service 接口
 
-`RagService` 类必须提供以下方法，供其他模块调用：
+`RagService` 仍然是知识检索与营养查询的纯服务，不承担 LLM 编排。它会被 `diet_agent`、`chat_agent`、`suggestion_agent`、`plan_agent` 通过 Tool 调用。
 
 ```python
 from uuid import UUID
@@ -314,90 +314,36 @@ from uuid import UUID
 class RagService:
     """RAG 知识库服务"""
 
-    async def search_foods(
-        self, query: str, limit: int = 10
-    ) -> list[FoodSearchResponse]:
-        """
-        食物搜索，三层匹配策略。
-        供 API 层和 diet_service 调用。
-        """
-        ...
-
-    async def get_food_detail(
-        self, food_id: UUID
-    ) -> FoodDetailResponse:
-        """
-        获取食物完整营养详情。
-        不存在时抛出 FoodNotFoundError。
-        """
-        ...
-
+    async def search_foods(self, query: str, limit: int = 10) -> list[FoodSearchResponse]: ...
+    async def get_food_detail(self, food_id: UUID) -> FoodDetailResponse: ...
     async def search_knowledge(
         self, query: str, category: str | None = None, top_k: int = 5
-    ) -> list[KnowledgeSearchResult]:
-        """
-        健康建议知识库向量检索。
-        供 suggestion_service 和 ai_chat_service 调用。
-        """
-        ...
-
+    ) -> list[KnowledgeSearchResult]: ...
     async def lookup_nutrition(
         self, food_name: str, amount: float = 100, unit: str = "g"
-    ) -> NutritionInfo:
-        """
-        按食物名称查询营养数据并按份量换算。
-        供 diet_service 在饮食记录时调用。
-        未找到时抛出 FoodNotFoundError。
-        """
-        ...
+    ) -> NutritionInfo: ...
 ```
 
-禁止其他模块绕过 `RagService` 直接访问 `foods` 或 `knowledge_docs` 表。
+**调用原则**：
 
----
+- Agent 节点可以通过 Tool 调 `RagService`。
+- 其他 service 不得绕过 `RagService` 直接查 `foods` / `knowledge_docs`。
+- 本模块**不直接调用 LLM**，只用 Embedding。
 
 ## 9. 模块依赖
 
-### 9.1 依赖关系
-
 | 方向 | 模块 | 说明 |
 |------|------|------|
-| 依赖 | DashScope Embedding (text-embedding-v3) | 向量生成 |
+| 依赖 | EmbeddingClient | 向量生成 |
 | 依赖 | pgvector | 向量索引与相似度检索 |
-| 被依赖 | diet_service | 调用 `lookup_nutrition()` 获取营养数据 |
-| 被依赖 | suggestion_service | 调用 `search_knowledge()` 获取建议上下文 |
-| 被依赖 | ai_chat_service | 调用 `search_knowledge()` 和 `search_foods()` 提供知识上下文 |
-
-### 9.2 依赖原则
-
-- 本模块禁止依赖 diet_service、suggestion_service 等上层模块，避免循环依赖
-- 本模块禁止直接调用 LLM（qwen-plus），仅使用 Embedding 模型
-- 其他模块必须通过 `RagService` 接口调用，禁止直接 SQL 查询
-
----
+| 被依赖 | diet_agent | 调用 `lookup_nutrition()` 获取营养数据 |
+| 被依赖 | suggestion_agent | 调用 `search_knowledge()` 获取建议上下文 |
+| 被依赖 | chat_agent | 调用 `search_knowledge()` 和 `search_foods()` 提供知识上下文 |
+| 被依赖 | plan_agent | 调用 `search_knowledge()` 作为计划生成参考 |
 
 ## 10. 实现约束
 
-### 10.1 性能要求
-
-| 指标 | 要求 |
-|------|------|
-| 食物搜索响应时间 | < 500ms |
-| 知识库检索响应时间 | < 1s |
-| Embedding 生成 | 种子数据导入时批量生成，禁止查询时为已有数据生成 |
-| 查询 Embedding | 搜索时实时生成查询文本的 Embedding |
-
-### 10.2 数据规范
-
-- 所有食物营养数据必须归一化为每 100g 基准
-- Embedding 维度必须为 1024（text-embedding-v3 默认维度）
-- 食物名称必须唯一，别名可重复（多个食物可共享别名，搜索时全部返回）
-- 知识文档 content 长度建议 200-500 字，禁止超过 2000 字（影响检索质量）
-
-### 10.3 错误处理
-
-| 错误码 | 场景 | HTTP 状态码 |
-|--------|------|------------|
-| `FOOD_NOT_FOUND` | 食物 ID 不存在 | 404 |
-| `INVALID_QUERY` | 搜索关键词为空 | 400 |
-| `EMBEDDING_SERVICE_ERROR` | Embedding 生成失败 | 503 |
+- Embedding 维度必须为 1024。
+- 食物名称必须唯一，别名可重复。
+- 知识文档 `content` 长度建议 200-500 字，禁止超过 2000 字。
+- 错误码统一使用 `FOOD_NOT_FOUND`、`INVALID_QUERY`、`EMBEDDING_SERVICE_ERROR`。
