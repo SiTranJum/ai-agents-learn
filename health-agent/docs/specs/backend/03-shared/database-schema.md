@@ -55,6 +55,9 @@ CREATE TABLE health_profiles (
     current_weight DECIMAL(5,1),      -- kg, 30.0-300.0
     target_weight  DECIMAL(5,1),      -- kg, 30.0-300.0
     activity_level VARCHAR(20),       -- sedentary / light / moderate / heavy
+    goal_type      VARCHAR(20),       -- lose_fat / gain_muscle / maintain / healthy_diet
+    daily_calorie_target INTEGER,     -- kcal, 500-6000
+    onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -68,7 +71,7 @@ CREATE INDEX idx_health_profiles_user_id ON health_profiles(user_id);
 CREATE TABLE user_preferences (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id         UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-    diet_type       VARCHAR(20) DEFAULT 'normal',  -- normal/vegetarian/vegan/keto/low_carb/low_fat
+    diet_type       VARCHAR(20),  -- balanced/low_carb/high_protein/vegetarian/vegan/keto/low_fat/mediterranean (nullable)
     allergies       TEXT[] DEFAULT '{}',
     forbidden_foods TEXT[] DEFAULT '{}',
     disliked_foods  TEXT[] DEFAULT '{}',

@@ -16,6 +16,7 @@ from app.dependencies import (
 )
 from app.schemas.common import ApiResponse
 from app.schemas.user import (
+    OnboardingPayload,
     UserFullResponse,
     UserHealthInfoResponse,
     UserHealthInfoUpdate,
@@ -38,6 +39,29 @@ async def get_me(user: CurrentUserWithProfileDep, service: UserServiceDep):
     会自动为其创建空档案。
     """
     data = await service.get_full_profile(user.id, email=user.email or "")
+    return success(data.model_dump(mode="json"))
+
+
+@router.post(
+    "/me/onboarding",
+    response_model=ApiResponse[UserFullResponse],
+    summary="提交 Onboarding 全量数据",
+)
+async def complete_onboarding(
+    payload: OnboardingPayload,
+    user: CurrentUserWithProfileDep,
+    service: UserServiceDep,
+):
+    """一次性提交 Onboarding 数据（profile + preferences + health_info）。
+
+    语义见 ``docs/specs/shared/api-contract.md`` §3.3：
+    - 未传字段不修改数据库原值；
+    - 成功后 ``onboarding_completed = true``；
+    - 幂等，已完成用户再次调用等价于一次聚合更新。
+    """
+    data = await service.complete_onboarding(
+        user.id, email=user.email or "", payload=payload
+    )
     return success(data.model_dump(mode="json"))
 
 

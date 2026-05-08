@@ -33,6 +33,7 @@ function toGlobalUserProfile(p: AuthUserProfile): GlobalUserProfile {
   const genderMap: Record<Gender, GlobalUserProfile['gender']> = {
     male: 'male',
     female: 'female',
+    other: 'other',
   };
   return {
     id: p.id,
