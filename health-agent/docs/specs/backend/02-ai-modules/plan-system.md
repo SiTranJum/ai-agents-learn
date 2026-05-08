@@ -253,47 +253,59 @@ class PlanProgress(BaseModel):
 
 ---
 
-## 4. AI 创建流程
+## 4. AI 创建流程（plan_agent）
 
-计划创建采用 4 步 AI 对话流程，必须按顺序执行，禁止跳步。
+**所有 LLM 推理通过 `plan_agent` (LangGraph) 发起**，`PlanService` 不做 LLM 编排（见 `00-architecture/agents.md`）。
 
-### 4.1 流程概览
+### 4.1 Agent 总览
 
 ```
-用户输入目标 (goal_description)
-    │
-    ▼
-[Step 1] 目标确认
-    │  AI 读取用户健康档案 + 记忆，确认目标合理性
-    │  不合理目标（如一周减 5kg）必须给出提醒
-    │
-    ▼
-[Step 2] 现状分析
-    │  AI 分析近期饮食记录 + 身体数据
-    │  输出：当前热量摄入均值、营养素分布、关键问题
-    │
-    ▼
-[Step 3] 方案制定
-    │  AI 生成个性化计划：目标值、任务列表、时间范围
-    │  方案必须通过安全校验（见第 9 节）
-    │
-    ▼
-[Step 4] 用户确认
-    │  展示完整计划摘要，用户确认或调整
-    │  确认后保存计划，状态设为 active
-    │
-    ▼
-返回 PlanResponse
+POST /api/v1/plans
+    ↓
+[API Router] 先校验活跃计划唯一性（PlanService.has_active_plan）
+    ↓
+[plan_agent.ainvoke] 输入 {user_id, goal_description, plan_type?}
+    ↓
+[Node: confirm_goal]      LLM 读取 profile + 记忆确认目标合理性
+    Tool: UserService.get_full_profile / MemoryService.recall_memories
+    ↓
+[Node: analyze_status]    LLM 基于近 7 天饮食/身体数据生成当前状况分析
+    Tool: DietService.get_weekly_summary / BodyService.get_trends
+    ↓
+[Node: draft_plan]        LLM 生成 PlanTargets + PlanTask 列表（structured output）
+    ↓
+[Node: safety_validate]   代码确定性：BMR / 减重速度 / 周期校验（Tool: PlanService.calculate_bmr / safety_check）
+    ├── 校验不通过 → 回到 draft_plan 重新生成（最多 2 次）
+    └── 通过 → 继续
+    ↓
+[Node: persist_plan]      Tool: PlanService.create_plan_from_draft(...)
+    ↓
+END (返回 PlanResponse)
 ```
 
-### 4.2 各步骤 AI 行为规范
+### 4.2 各步骤规范
 
-| 步骤 | AI 输入 | AI 输出 | 关键约束 |
-|------|---------|---------|---------|
-| Step 1 目标确认 | goal_description + health_profile + memory | 确认理解 + 目标合理性评估 | 必须引用用户档案数据 |
-| Step 2 现状分析 | 近 7 天饮食记录 + 身体数据 | 当前状况分析 + 关键问题 | 必须基于真实数据，禁止编造 |
-| Step 3 方案制定 | Step 1-2 结果 + 用户偏好 | PlanTargets + PlanTask 列表 | 必须通过安全校验 |
-| Step 4 确认启动 | 完整计划摘要 | 最终确认 | 用户明确确认后才保存 |
+| 步骤 | 输入 | 输出 | 约束 |
+|------|------|------|------|
+| confirm_goal | goal_description + profile + memories | 目标合理性评估 | 必须引用用户档案数据 |
+| analyze_status | 近 7 天饮食 + 身体数据 | 现状分析 + 关键问题 | 基于真实数据，禁止编造 |
+| draft_plan | 前两步结果 + user_preferences | PlanTargets + PlanTask 列表 | 通过安全校验 |
+| safety_validate | draft + profile | 通过/拒绝 + 拒绝原因 | BMR / 减重速度 / 周期全部通过 |
+| persist_plan | 已校验的 draft | 持久化结果 | 无活跃冲突（API 层已校验） |
+
+### 4.3 计划修改建议（plan_agent 的子图）
+
+`plan_agent` 额外暴露 `modification_subgraph`，由 `PlanService.run_modification_rules` 触发：
+
+```
+规则命中（连续未达标 / 热量过低 / 目标提前达成 / 计划过期）
+    ↓
+[Node: analyze_deviation]  LLM 分析当前执行 + 历史数据
+    ↓
+[Node: suggest_modification]  LLM 生成具体修改建议（structured output）
+    ↓
+返回 建议列表（不自动修改，由用户确认后调 PUT /plans/{id}）
+```
 
 ---
 
@@ -398,118 +410,90 @@ def calculate_bmr(
 
 ---
 
-## 7. Service 接口
+## 7. Service 接口（纯 CRUD + 算法）
+
+`PlanService` **不做 LLM 编排**，职责限定为 DB CRUD、执行追踪、BMR 等算法。LLM 创建/修改流程由 `plan_agent` 承担。
 
 ```python
 from uuid import UUID
 from datetime import date
 
 class PlanService:
-    """
-    计划系统核心服务。
-    依赖注入：llm_service, user_service, diet_service, memory_service
-    """
+    """计划 CRUD + BMR + 执行追踪。不含 LLM 调用。"""
 
-    async def create_plan(
-        self, user_id: UUID, data: PlanCreate
+    def __init__(
+        self, plan_repo: PlanRepository,
+        user_service: UserService,
+        diet_service: DietService,
+    ): ...
+
+    async def has_active_plan(self, user_id: UUID) -> bool:
+        """API 层在创建前检查。"""
+
+    async def create_plan_from_draft(
+        self, user_id: UUID, draft: PlanDraft
     ) -> PlanResponse:
-        """
-        创建计划。执行 4 步 AI 对话流程，通过安全校验后保存。
-        - 必须检查用户是否已有活跃计划，有则抛出 PLAN_ALREADY_ACTIVE
-        - 必须通过 BMR 校验和减重速度校验
-        """
-        ...
+        """由 plan_agent 的 persist_plan 节点调用，接收已完成安全校验的草案。"""
 
-    async def get_plan(self, user_id: UUID, plan_id: UUID) -> PlanResponse:
-        """查询单个计划详情。"""
-        ...
+    async def get_plan(self, user_id: UUID, plan_id: UUID) -> PlanResponse: ...
 
     async def list_plans(
         self, user_id: UUID, status: PlanStatus | None = None,
         page: int = 1, page_size: int = 20
-    ) -> list[PlanResponse]:
-        """查询计划列表，支持状态过滤和分页。"""
-        ...
+    ) -> list[PlanResponse]: ...
 
     async def update_plan(
         self, user_id: UUID, plan_id: UUID, data: PlanUpdate
     ) -> PlanResponse:
-        """
-        更新计划。
-        - 禁止更新非 active 状态的计划
-        - 更新后必须重新执行安全校验
-        """
-        ...
+        """直接 CRUD 更新。更新后重新跑 safety_check()。"""
 
     async def terminate_plan(
         self, user_id: UUID, plan_id: UUID, reason: str | None = None
-    ) -> None:
-        """终止计划，软删除。"""
-        ...
+    ) -> None: ...
 
     async def create_check_in(
         self, user_id: UUID, plan_id: UUID, data: CheckInCreate
-    ) -> CheckInResponse:
-        """
-        每日打卡。
-        - 禁止同一 date + task_id 重复打卡
-        """
-        ...
+    ) -> CheckInResponse: ...
 
-    async def get_progress(
-        self, user_id: UUID, plan_id: UUID
-    ) -> PlanProgress:
-        """查询计划进度统计。"""
-        ...
+    async def get_progress(self, user_id: UUID, plan_id: UUID) -> PlanProgress: ...
 
     async def list_execution_records(
         self, user_id: UUID, plan_id: UUID,
         start_date: date | None = None, end_date: date | None = None,
         status: ExecutionStatus | None = None,
         page: int = 1, page_size: int = 20
-    ) -> list[DailyExecution]:
-        """查询执行记录列表。"""
-        ...
+    ) -> list[DailyExecution]: ...
 
-    async def on_diet_record_created(
-        self, user_id: UUID, record_date: date
-    ) -> None:
-        """
-        饮食记录创建事件回调。
-        - 查询用户活跃计划，无则忽略
-        - 汇总当日营养数据，更新 DailyExecution
-        - 运行修改触发规则检测
-        """
-        ...
+    async def on_diet_record_created(self, user_id: UUID, record_date: date) -> None:
+        """饮食记录创建后更新 DailyExecution，若规则命中则调用 plan_agent 的 modification_subgraph。"""
 
-    async def run_modification_rules(
-        self, user_id: UUID, plan_id: UUID
-    ) -> list[str]:
-        """
-        运行计划修改触发规则。
-        返回触发的建议列表（可能为空）。
-        """
-        ...
+    async def run_modification_rules(self, user_id: UUID, plan_id: UUID) -> list[str]:
+        """运行修改触发规则，命中时通过 plan_agent 获取建议列表。"""
+
+    # 纯算法
+    def calculate_bmr(self, weight_kg: float, height_cm: float, age: int, gender: str) -> float: ...
+    def calculate_execution_status(self, consumed: float, target: float) -> ExecutionStatus: ...
+    def safety_check(self, draft: PlanDraft, profile: HealthProfile) -> list[str]:
+        """返回违规原因列表，空列表代表通过。plan_agent 的 safety_validate 节点也调用本方法。"""
 ```
-
----
 
 ## 8. 模块依赖
 
 ### 8.1 本模块依赖
 
-| 依赖模块 | 用途 |
+| 依赖对象 | 用途 |
 |---------|------|
-| `llm_service` | 4 步对话生成计划、修改建议生成 |
-| `user_service` | 读取用户健康档案（身高、体重、年龄、性别）用于 BMR 计算 |
-| `diet_service` | 查询每日营养摄入数据，用于执行追踪 |
-| `memory_service` | 回忆用户饮食偏好和历史计划执行模式 |
+| `plan_agent` | 4 步创建、修改建议生成（API 层 / service 层触发） |
+| `user_service` | 读取用户健康档案用于 BMR 计算 |
+| `diet_service` | 查询每日营养摄入数据 |
+| `memory_service` | 召回用户饮食偏好（在 plan_agent 内作为 Tool） |
 
 ### 8.2 被依赖
 
 | 下游模块 | 用途 |
 |---------|------|
 | `suggestion_service` | 读取计划进度数据，生成主动建议 |
+
 
 ---
 

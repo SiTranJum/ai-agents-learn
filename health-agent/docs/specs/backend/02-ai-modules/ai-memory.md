@@ -440,169 +440,150 @@ TYPE_WEIGHTS: dict[str, dict[str, float]] = {
 
 ---
 
-## 8. LangGraph 流程
+## 8. Agent 层流程
 
-### 8.1 对话流程（chat_graph）
+**所有 LLM 推理统一走 LangGraph Agent**（见 `00-architecture/agents.md`）。记忆模块包含两个 Agent：
+
+- **`chat_agent`**：承载 `POST /api/v1/ai/chat` 完整对话流程
+- **`memory_agent`**：承载记忆提取与评分流程，异步触发
+
+### 8.1 对话 Agent（chat_agent）
 
 ```python
+# app/agents/chat/state.py
 from typing import TypedDict
-from langgraph.graph import StateGraph, END
 
-class ChatState(TypedDict):
-    """对话流程状态"""
-    user_id: str                          # 用户 ID
-    session_id: str                       # 会话 ID
-    user_message: str                     # 用户输入
-    chat_history: list[dict]              # 短期记忆：最近对话历史（最多 10 轮）
-    long_term_memories: list[dict]        # 长期记忆：用户画像
-    recalled_memories: list[dict]         # 召回的中期记忆（Top 3）
-    knowledge: list[dict]                 # RAG 检索的知识片段
-    intent: str | None                    # 识别到的意图
-    prompt_messages: list[dict]           # 组装后的完整 prompt
-    ai_response: str                      # AI 回复
-    extracted_memories: list[dict]        # 本轮提取的记忆
-
-# 节点定义（与 00-architecture/integrations.md 对齐，6 个节点）
-# 1. identify_intent: LLM 识别用户意图（record_diet / ask_advice / general_chat 等）
-# 2. recall_memories: 生成 query embedding → pgvector 检索 → 多因子评分 → Top 3
-# 3. search_knowledge: 根据意图检索 RAG 知识库（饮食相关查食物库，健康问题查建议库）
-# 4. assemble_prompt: 组装完整 prompt（system + 长期记忆 + 召回记忆 + 知识 + 对话历史）
-# 5. call_llm: LLM 生成回复
-# 6. extract_memories: 异步触发记忆提取（不阻塞响应）
-
-chat_graph = StateGraph(ChatState)
-chat_graph.add_node("identify_intent", identify_intent_node)
-chat_graph.add_node("recall_memories", recall_memories_node)
-chat_graph.add_node("search_knowledge", search_knowledge_node)
-chat_graph.add_node("assemble_prompt", assemble_prompt_node)
-chat_graph.add_node("call_llm", call_llm_node)
-chat_graph.add_node("extract_memories", extract_memories_node)
-
-chat_graph.set_entry_point("identify_intent")
-chat_graph.add_edge("identify_intent", "recall_memories")
-chat_graph.add_edge("recall_memories", "search_knowledge")
-chat_graph.add_edge("search_knowledge", "assemble_prompt")
-chat_graph.add_edge("assemble_prompt", "call_llm")
-chat_graph.add_edge("call_llm", "extract_memories")
-chat_graph.add_edge("extract_memories", END)
+class ChatState(TypedDict, total=False):
+    user_id: str
+    session_id: str
+    user_message: str
+    chat_history: list[dict]              # 短期记忆：最近对话（最多 10 轮）
+    long_term_profile: list[dict]         # 长期记忆：用户画像
+    recalled_memories: list[dict]         # 召回的记忆（Top 3）
+    knowledge: list[dict]                 # RAG 检索片段
+    intent: str | None
+    prompt_messages: list[dict]
+    ai_response: str
 ```
 
-### 8.2 记忆提取流程（memory_graph）
+节点：
+
+| 节点 | 实现要点 |
+|------|---------|
+| `identify_intent` | LLM 识别意图：record_diet / ask_advice / general_chat 等。Prompt 在 `agents/prompts/chat_system.py` |
+| `recall_memories` | Tool: `MemoryService.recall_memories(user_id, query, intent)`，返回 Top 3 |
+| `search_knowledge` | Tool: `RagService.search_knowledge(query, category)` |
+| `assemble_prompt` | 组装 system + 长期记忆 + 召回记忆 + 知识 + 对话历史 |
+| `call_llm` | `get_chat_model(temperature=0.7)` 生成回复 |
+| `trigger_memory_extract` | `asyncio.create_task(memory_agent.ainvoke(...))` 异步触发，不阻塞响应 |
+
+边：`identify_intent → recall_memories → search_knowledge → assemble_prompt → call_llm → trigger_memory_extract → END`
+
+### 8.2 记忆 Agent（memory_agent）
 
 ```python
-class MemoryExtractionState(TypedDict):
-    """记忆提取流程状态"""
+# app/agents/memory/state.py
+class MemoryExtractionState(TypedDict, total=False):
     user_id: str
-    trigger_type: str                     # 触发类型：diet_record / user_correction / suggestion_feedback / plan_execution
-    context_data: dict                    # 触发上下文数据
-    extracted_memories: list[dict]        # 提取出的记忆片段
-    quality_scores: list[dict]            # 质量评分结果
-    approved_memories: list[dict]         # 通过质量检查的记忆
-
-# 节点定义
-# 1. extract: LLM 从上下文中提取记忆片段
-# 2. score: LLM 对每个片段进行质量评分
-# 3. filter: 根据评分过滤（≥80 直接存储，60-79 标记 pending，<60 拒绝）
-# 4. embed_and_store: 生成 embedding → 存入 memories 表
-
-memory_graph = StateGraph(MemoryExtractionState)
-memory_graph.add_node("extract", extract_memories_node)
-memory_graph.add_node("score", score_memories_node)
-memory_graph.add_node("filter", filter_memories_node)
-memory_graph.add_node("embed_and_store", embed_and_store_node)
-
-memory_graph.set_entry_point("extract")
-memory_graph.add_edge("extract", "score")
-memory_graph.add_edge("score", "filter")
-memory_graph.add_edge("filter", "embed_and_store")
-memory_graph.add_edge("embed_and_store", END)
+    trigger_type: str       # diet_record / user_correction / suggestion_feedback / plan_execution
+    context_data: dict
+    extracted: list[dict]
+    scored: list[dict]
+    approved: list[dict]
 ```
+
+节点：
+
+| 节点 | 实现要点 |
+|------|---------|
+| `extract` | LLM 从 context_data 提取记忆片段（structured output） |
+| `score` | LLM 给每条记忆多维度打分（relevance/accuracy/actionability/uniqueness） |
+| `filter` | 代码确定性过滤：≥80 直接存，60-79 标记 pending，<60 丢弃 |
+| `embed_and_store` | Tool: `MemoryService.store_memory(entry_with_embedding)`（节点内调用 `EmbeddingClient.embed` 生成向量） |
+
+边：`extract → score → filter → embed_and_store → END`
+
+### 8.3 触发方式
+
+| 触发点 | 触发方式 |
+|--------|---------|
+| 饮食记录创建后 | `diet_agent` 末节点 `asyncio.create_task(memory_agent.ainvoke(...))` |
+| 用户纠正 | API 直接触发 `memory_agent.ainvoke(...)` |
+| 建议反馈 | `SuggestionService.submit_feedback` 触发 |
+| 计划执行 | `PlanService.on_diet_record_created` 触发 |
+| 对话结束 | `chat_agent` 的 `trigger_memory_extract` 节点 |
+
+禁止在 `services/memory_service.py` 或其他 service 内直接实例化 ChatOpenAI 做记忆提取。
 
 ---
 
 ## 9. Service 接口
 
-### 9.1 MemoryService
+### 9.0 分层
+
+- **`MemoryService`**：纯 CRUD + 召回/衰减算法。**不含 LLM 调用**，作为 `memory_agent` / `chat_agent` 的 Tool 被调用。
+- **`ChatService`**：对话消息持久化、会话管理。AI 对话编排在 `chat_agent` 内完成，Service 只管数据。
+
+### 9.1 MemoryService（纯 CRUD + 算法）
 
 ```python
-# app/services/memory_service.py
-from uuid import UUID
-
 class MemoryService:
-    """记忆管理服务，负责记忆的提取、存储、召回和合并"""
+    """记忆存储/召回/衰减。不做 LLM 编排。"""
 
-    async def extract_memories(
-        self, user_id: UUID, trigger_type: str, context_data: dict
-    ) -> None:
-        """
-        异步提取记忆。由其他模块触发调用，禁止阻塞调用方。
-        - trigger_type: diet_record / user_correction / suggestion_feedback / plan_execution
-        - context_data: 触发上下文（如饮食记录内容、用户纠正前后对比等）
-        """
-        ...
+    def __init__(
+        self, memory_repo: MemoryRepository,
+        embedding_client: EmbeddingClient,
+        pgvector_client: PgVectorClient,
+    ): ...
+
+    async def store_memory(self, user_id: UUID, entry: MemoryEntry) -> MemoryEntry:
+        """由 memory_agent 的 embed_and_store 节点调用，写入 memories 表。"""
 
     async def recall_memories(
         self, user_id: UUID, query: str, intent: str | None = None, top_k: int = 3
     ) -> list[MemoryEntry]:
-        """
-        召回相关记忆。
-        1. 生成 query embedding
-        2. pgvector 检索 Top 10 候选
-        3. 多因子评分排序
-        4. 返回 Top K 结果
-        """
-        ...
+        """召回：query embedding → pgvector top-10 候选 → 多因子评分 → Top K。"""
 
     async def get_long_term_profile(self, user_id: UUID) -> list[MemoryEntry]:
-        """获取用户长期记忆（全量加载，用于 System Prompt）"""
-        ...
+        """获取长期记忆全量（用于 System Prompt）。"""
 
     async def consolidate_memories(self, user_id: UUID) -> None:
-        """
-        记忆合并。检测相似记忆 → LLM 摘要 → 归档原始记忆。
-        触发条件：每周一次 或 累积 20 条新记忆。
-        """
-        ...
+        """记忆合并协调：找相似组 → 触发 memory_agent 的合并子图 → 归档原始。
+        本方法本身不做 LLM 调用。"""
 
     async def on_profile_updated(self, user_id: UUID, updated_data: dict) -> None:
-        """用户档案更新时同步长期记忆（由 user_service 调用）"""
-        ...
+        """用户档案更新时同步长期记忆（由 user_service 调用）。"""
 ```
 
-### 9.2 AiChatService
+### 9.2 ChatService（会话与消息 CRUD）
 
 ```python
-# app/services/ai_chat_service.py
-from uuid import UUID
-from app.schemas.ai_memory import ChatRequest, ChatResponse, ChatMessageResponse
-from app.schemas.common import PaginatedResponse
+class ChatService:
+    """对话会话与消息管理。不含 AI 编排。"""
 
-class AiChatService:
-    """AI 对话服务，负责对话流程编排"""
-
-    async def chat(self, user_id: UUID, data: ChatRequest) -> ChatResponse:
-        """
-        主对话入口。
-        1. 获取/创建 session
-        2. 加载短期记忆（最近对话历史）
-        3. 召回长期 + 中期记忆
-        4. 执行 chat_graph
-        5. 保存消息到数据库
-        6. 异步触发记忆提取
-        7. 返回 AI 回复
-        """
-        ...
-
+    async def get_or_create_session(self, user_id: UUID, session_id: str | None) -> str: ...
+    async def save_message(self, user_id: UUID, session_id: str, role: str, content: str) -> None: ...
     async def get_history(
         self, user_id: UUID, session_id: str | None, page: int, page_size: int
-    ) -> PaginatedResponse[ChatMessageResponse]:
-        """查询对话历史，按 created_at 升序"""
-        ...
-
-    async def delete_session(self, user_id: UUID, session_id: str) -> None:
-        """软删除对话会话及其所有消息"""
-        ...
+    ) -> PaginatedResponse[ChatMessageResponse]: ...
+    async def delete_session(self, user_id: UUID, session_id: str) -> None: ...
 ```
+
+### 9.3 `POST /ai/chat` 的协作关系
+
+```
+API Router (ai.py)
+    ↓
+1. ChatService.get_or_create_session(...)
+2. chat_agent.ainvoke({user_id, session_id, user_message, ...})
+      ↳ 内部 identify_intent → recall_memories → search_knowledge
+      ↳   → assemble_prompt → call_llm → trigger_memory_extract (asyncio.create_task)
+3. ChatService.save_message(role="user", ...)
+4. ChatService.save_message(role="assistant", content=result["ai_response"])
+5. 返回 ChatResponse
+```
+
+原 spec 中的 `AiChatService.chat()` 不再存在，对话编排由 `chat_agent` 承担。
 
 ---
 
@@ -610,22 +591,22 @@ class AiChatService:
 
 ### 10.1 本模块依赖
 
-| 依赖模块 | 用途 |
+| 依赖对象 | 用途 |
 |---------|------|
-| DashScope LLM (qwen-plus) | 记忆提取、质量评分、记忆合并、对话生成 |
-| DashScope Embedding (text-embedding-v3) | 向量生成（1024 维） |
-| pgvector | 向量存储与相似度检索 |
-| user_service | 获取用户档案（长期记忆的一部分） |
+| `get_chat_model()` (langchain-openai, DashScope qwen-plus) | 记忆提取/评分/合并/对话回复（仅在 Agent 节点中调用） |
+| `EmbeddingClient` (text-embedding-v3) | 向量生成（1024 维） |
+| `PgVectorClient` | 向量存储与相似度检索 |
+| `user_service` | 获取用户档案（长期记忆的一部分） |
 
 ### 10.2 被其他模块依赖
 
 | 调用方 | 调用接口 | 场景 |
 |--------|---------|------|
-| `ai_chat_service` | `recall_memories()` | 对话时召回相关记忆 |
-| `diet_service` | `extract_memories()` | 饮食记录创建后触发记忆提取 |
-| `suggestion_service` | `recall_memories()` | 生成建议时召回用户偏好 |
-| `plan_service` | `extract_memories()` | 计划执行数据触发记忆提取 |
-| `user_service` | `on_profile_updated()` | 用户档案更新时同步记忆 |
+| `chat_agent` (本模块) | `MemoryService.recall_memories()` | 对话召回 |
+| `diet_agent` | `memory_agent.ainvoke(trigger="diet_record", ...)` | 饮食记录后异步提取 |
+| `suggestion_agent` | `MemoryService.recall_memories()` | 建议生成时召回偏好 |
+| `plan_agent` | `memory_agent.ainvoke(trigger="plan_execution", ...)` | 计划执行触发提取 |
+| `user_service` | `MemoryService.on_profile_updated()` | 档案更新同步 |
 
 ---
 
