@@ -93,6 +93,6 @@ class ExternalServiceException(AppException):
     default_message = "外部服务暂时不可用"
 
 
-class LLMServiceException(ExternalServiceException):
+class LLMProviderException(ExternalServiceException):
     code = "LLM_SERVICE_UNAVAILABLE"
     default_message = "LLM 服务暂时不可用"

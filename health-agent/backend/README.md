@@ -88,8 +88,8 @@ backend/
 │   │   ├── session.py       # AsyncEngine / AsyncSession
 │   │   ├── models/          # ORM 模型（按模块拆分）
 │   │   └── repositories/    # 数据访问层
-│   ├── integrations/        # LLM / Embedding / Supabase 等外部集成
-│   ├── graphs/              # LangGraph 流程定义
+│   ├── agents/              # LangGraph Agent：所有 LLM 推理的唯一入口
+│   ├── integrations/        # Embedding / pgvector / Supabase 等外部集成
 │   └── core/                # 异常、响应、安全、分页等通用工具
 ├── alembic/                 # 数据库迁移
 ├── scripts/                 # 工具脚本（seed_*, generate_embeddings 等）
@@ -100,12 +100,13 @@ backend/
 ### 分层依赖规则
 
 ```
-api/  →  services/  →  repositories/  →  db/models/
-                  ↘ integrations/
-                  ↘ graphs/
+api/  →  agents/  →  services/  →  repositories/  →  db/models/
+          │             ↘ integrations/
+          └──────────────↗
 ```
 
 - `api/` 严禁直接调用 `repositories/` 或 `integrations/`
+- 涉及 LLM 推理的业务必须通过 `agents/`，禁止在 `services/` 中直接调用 Chat/LLM SDK
 - `repositories/` 严禁调用 `services/` 或其它 repository
 - `integrations/` 严禁感知业务上下文
 
