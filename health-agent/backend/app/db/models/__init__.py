@@ -5,6 +5,7 @@
 """
 
 from app.db.base import Base  # 重新导出, 方便外部使用
+from app.db.models.diet import DietItem, DietRecord
 from app.db.models.knowledge import Food, KnowledgeDoc
 from app.db.models.user import (
     HealthProfile,
@@ -15,6 +16,8 @@ from app.db.models.user import (
 
 __all__ = [
     "Base",
+    "DietItem",
+    "DietRecord",
     "Food",
     "HealthProfile",
     "KnowledgeDoc",

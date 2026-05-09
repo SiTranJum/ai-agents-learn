@@ -3,6 +3,7 @@
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 export type DietRecordStatus = 'empty' | 'pending' | 'recorded' | 'editing';
+export type NutritionDataSource = 'database' | 'api' | 'llm_estimate';
 
 // 食物条目
 export interface FoodItem {
@@ -14,6 +15,10 @@ export interface FoodItem {
   amount: number;
   /** 单位（g、碗、个、片、杯、勺、份） */
   unit: string;
+  /** 标准克数，用于和后端 amount_grams 对齐 */
+  amountGrams?: number;
+  /** 烹饪方式 */
+  cookingMethod?: string;
   /** 该食物条目的热量（kcal） */
   calories: number;
   /** 蛋白质（g） */
@@ -22,6 +27,14 @@ export interface FoodItem {
   fat: number;
   /** 碳水（g） */
   carbs: number;
+  /** 膳食纤维（g） */
+  fiber?: number;
+  /** 钠（mg） */
+  sodium?: number;
+  /** 营养数据来源 */
+  dataSource?: NutritionDataSource;
+  /** 后端知识库食物 ID */
+  foodId?: string;
 }
 
 // 单餐记录

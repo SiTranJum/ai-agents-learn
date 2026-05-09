@@ -15,31 +15,40 @@
 - "单次 LLM 调用" 的场景同样以单节点 Graph 表达，保持一致的入口形态。
 - Embedding 和 pgvector 属于 **确定性工具能力**，不走 Graph，由 Agent 节点或 Service 直接调用。
 
-### 1.2 Agent 即业务 AI 入口
+### 1.2 唯一 Agent + 领域 Subgraph
 
-一个 Agent 对应一个**业务意图域**（饮食记录、对话、计划、建议、记忆），不以"任务大小"划分。
+后端**只有一个 Agent**：`chat_agent`（全局 AI 对话）。它是**唯一**对外暴露的 LLM 入口
+（API 端点 `POST /ai/chat`）。其他业务域（饮食、计划、记忆、建议）以 **subgraph** 形态
+被 `chat_graph` 组装，不独立暴露 API、不单独编译为 Agent。
 
-| Agent | 业务域 | 编译产物 |
-|-------|-------|---------|
-| `chat_agent` | 全局 AI 对话 | `app/agents/chat/graph.py` |
-| `diet_agent` | 饮食文本/照片解析与记录 | `app/agents/diet/graph.py` |
-| `plan_agent` | 计划 4 步对话创建、修改建议 | `app/agents/plan/graph.py` |
-| `memory_agent` | 记忆提取、评分、合并 | `app/agents/memory/graph.py` |
-| `suggestion_agent` | 每日建议、餐食建议、健康洞察 | `app/agents/suggestion/graph.py` |
+| 组件 | 定位 | 编译产物 | 对外暴露 |
+|-------|-------|---------|----------|
+| `chat_agent` | 全局 AI 对话（唯一 Agent） | `app/agents/chat/graph.py`（Phase 6 实现） | `POST /ai/chat` |
+| `diet_subgraph` | 饮食解析/记录 subgraph | `app/agents/diet/subgraph.py` | 仅被 `chat_graph` 挂载 |
+| `plan_subgraph` | 计划 4 步对话创建 subgraph | `app/agents/plan/subgraph.py` | 仅被 `chat_graph` 挂载 |
+| `memory_subgraph` | 记忆提取/合并 subgraph | `app/agents/memory/subgraph.py` | 仅被 `chat_graph` 挂载（或被其他节点调用） |
+| `suggestion_subgraph` | 建议生成 subgraph（可能被建议端点独立调用） | `app/agents/suggestion/subgraph.py` | `chat_graph` 挂载 + 建议缓存失效路径 |
+
+**路由由 Graph 决定**：
+- 绝大多数分流（例如"这条消息要走 diet 还是 body"）由 `chat_graph` 的**条件边**根据一个
+  轻量的意图识别节点产出的 `state["intent"]` 决定，**不花 token**。
+- 只有模糊/复杂场景才让 LLM 作为 Supervisor 决策，避免路由本身烧 token。
 
 ### 1.3 Agent-first 调用链（方案 A）
 
 ```
 FastAPI Router
-     ↓ 直接调用
-Agent.invoke(input)         ← 业务 AI 入口
-     ↓ Tool 调用
-Service / Repository        ← DB CRUD、RAG 检索等确定性能力
      ↓
-PostgreSQL / pgvector
+  /ai/chat  ─────────────────→ chat_agent.invoke(input)    # 唯一 AI 端点
+     ↓                                ↓ conditional edges
+  其他端点（纯 CRUD，多数）        diet_subgraph / body_subgraph / ...
+     ↓                                ↓ tools
+          Service / Repository        ← DB CRUD、RAG 检索等确定性能力
+                   ↓
+          PostgreSQL / pgvector
 ```
 
-**Service 层退化为"工具实现者"**：只负责 DB CRUD、营养计算、BMR 计算等纯业务/纯算法逻辑，不包含 LLM 调用编排。
+**Service 层退化为"工具实现者"**：只负责 DB CRUD、营养计算、BMR 计算等纯业务/纯算法逻辑，不包含 LLM 调用编排。**纯 CRUD 端点直接调用 Service，不经过 Agent**（见 `overview.md` §3.3）。
 
 ### 1.4 状态持久化策略
 
@@ -62,37 +71,38 @@ app/agents/
 │   ├── suggestion.py
 │   └── chat_system.py
 │
-├── chat/
+├── chat/                         # 唯一顶层 Agent：全局 AI 对话
 │   ├── __init__.py
-│   ├── state.py                  # ChatState TypedDict
-│   ├── nodes.py                  # 各节点函数
-│   ├── tools.py                  # Agent 可调用的工具（wrap service 方法）
-│   └── graph.py                  # build_chat_graph() + compiled agent
+│   ├── state.py                  # ChatState（全局共享 state，含所有领域字段）
+│   ├── nodes.py                  # router / general_chat / wrap_response ...（Phase 6）
+│   ├── tools.py                  # chat_agent 直接挂的工具（Phase 6）
+│   └── graph.py                  # build_chat_graph()，挂载各领域 subgraph（Phase 6）
 │
-├── diet/
-│   ├── state.py                  # DietState: input_text, parsed_foods, ...
+├── diet/                         # diet subgraph（非独立 Agent）
+│   ├── __init__.py               # 导出 build_diet_subgraph
 │   ├── nodes.py                  # parse_text / enrich_nutrition / save_record ...
-│   ├── tools.py                  # search_food / save_diet_record / get_user_preferences
-│   └── graph.py
+│   ├── tools.py                  # enrich_food_tool / save_diet_record_tool
+│   └── subgraph.py               # build_diet_subgraph()；节点读写 ChatState
 │
-├── plan/
-│   ├── state.py                  # PlanState: step (1-4), profile, targets, ...
+├── plan/                         # plan subgraph
 │   ├── nodes.py                  # confirm_goal / analyze_status / draft_plan / validate
 │   ├── tools.py                  # get_profile / get_recent_diet / save_plan / calc_bmr
-│   └── graph.py
+│   └── subgraph.py
 │
-├── memory/
-│   ├── state.py
+├── memory/                       # memory subgraph
 │   ├── nodes.py                  # extract / score / filter / embed_and_store
 │   ├── tools.py                  # save_memory / list_memories
-│   └── graph.py
+│   └── subgraph.py
 │
-└── suggestion/
-    ├── state.py
+└── suggestion/                   # suggestion subgraph
     ├── nodes.py                  # collect_data / recall_memories / search_kb / generate / dedup
     ├── tools.py                  # get_plan_progress / recall_memories / search_knowledge
-    └── graph.py
+    └── subgraph.py
 ```
+
+**变更说明**：
+- 领域包里原 `graph.py` 全部更名为 `subgraph.py`，签名是 `build_<domain>_subgraph() -> CompiledStateGraph`。
+- 领域包**不再**保留独立的 `state.py`；所有节点读写 `app/agents/chat/state.py` 中的 `ChatState`（单一大 TypedDict，字段按域加前缀如 `diet_*` / `plan_*`）。
 
 ---
 

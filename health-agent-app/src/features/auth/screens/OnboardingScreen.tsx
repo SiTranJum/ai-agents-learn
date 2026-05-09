@@ -108,6 +108,9 @@ const DIET_LABELS: Record<DietType, string> = {
   low_carb: '低碳水',
   high_protein: '高蛋白',
   vegetarian: '素食',
+  vegan: '纯素',
+  keto: '生酮',
+  low_fat: '低脂',
   mediterranean: '地中海',
 };
 
