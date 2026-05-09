@@ -31,7 +31,7 @@
 **Files:**
 - Create: `health-agent/backend/` (项目根目录)
 
-- [ ] **Step 1: 创建项目目录和 pyproject.toml**
+- [x] **Step 1: 创建项目目录和 pyproject.toml**
 
 ```bash
 mkdir -p health-agent/backend
@@ -40,25 +40,25 @@ cd health-agent/backend
 
 定义依赖：fastapi, uvicorn, sqlalchemy[asyncio], asyncpg, pydantic, pydantic-settings, python-jose[cryptography], openai, langgraph, alembic, pytest, httpx
 
-- [ ] **Step 2: 创建完整目录结构**
+- [x] **Step 2: 创建完整目录结构**
 
 按 `project-structure.md` 创建所有目录和 `__init__.py`。
 
-- [ ] **Step 3: 创建 FastAPI 入口 main.py**
+- [x] **Step 3: 创建 FastAPI 入口 main.py**
 
 配置 CORS、全局异常处理器、路由注册、lifespan 事件。
 
-- [ ] **Step 4: 创建配置管理 config.py**
+- [x] **Step 4: 创建配置管理 config.py**
 
 使用 pydantic-settings，从环境变量读取：DATABASE_URL、SUPABASE_URL、SUPABASE_JWT_SECRET、DASHSCOPE_API_KEY 等。
 
-- [ ] **Step 5: 验证项目启动**
+- [x] **Step 5: 验证项目启动**
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ---
 
@@ -71,11 +71,11 @@ uvicorn app.main:app --reload
 - Create: `app/db/base.py`
 - Create: `app/db/models/base.py`
 
-- [ ] **Step 1: 配置 SQLAlchemy async engine + session**
-- [ ] **Step 2: 创建 Base 模型**（id UUID、created_at、updated_at 通用字段）
-- [ ] **Step 3: 创建 TimestampMixin 和 SoftDeleteMixin**
-- [ ] **Step 4: 配置 Alembic 数据库迁移**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: 配置 SQLAlchemy async engine + session**
+- [x] **Step 2: 创建 Base 模型**（id UUID、created_at、updated_at 通用字段）
+- [x] **Step 3: 创建 TimestampMixin 和 SoftDeleteMixin**
+- [x] **Step 4: 配置 Alembic 数据库迁移**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -90,11 +90,11 @@ uvicorn app.main:app --reload
 - Create: `app/core/security.py`
 - Create: `app/core/deps.py`
 
-- [ ] **Step 1: 实现异常体系**（AppException → NotFoundException / ValidationException / ExternalServiceException）
-- [ ] **Step 2: 实现全局异常处理器**（注册到 FastAPI，返回统一错误 JSON）
-- [ ] **Step 3: 实现统一响应格式**（success() / paginated() 工具函数）
-- [ ] **Step 4: 实现分页工具**（offset-based，page / page_size / sort_by / sort_order）
-- [ ] **Step 5: Commit**
+- [x] **Step 1: 实现异常体系**（AppException → NotFoundException / ValidationException / ExternalServiceException）
+- [x] **Step 2: 实现全局异常处理器**（注册到 FastAPI，返回统一错误 JSON）
+- [x] **Step 3: 实现统一响应格式**（success() / paginated() 工具函数）
+- [x] **Step 4: 实现分页工具**（offset-based，page / page_size / sort_by / sort_order）
+- [x] **Step 5: Commit**
 
 ---
 
@@ -192,11 +192,11 @@ uvicorn app.main:app --reload
 - Create: `app/db/repositories/knowledge_repo.py`
 - Create: `app/schemas/knowledge.py`
 
-- [ ] **Step 1: 创建 Food 和 KnowledgeDoc 数据库模型**（含 vector 列）
-- [ ] **Step 2: 创建对应 schemas**
-- [ ] **Step 3: 实现 KnowledgeRepository**（向量搜索 + 关键词搜索）
-- [ ] **Step 4: 生成迁移，创建 IVFFlat 索引**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: 创建 Food 和 KnowledgeDoc 数据库模型**（含 vector 列）
+- [x] **Step 2: 创建对应 schemas**
+- [x] **Step 3: 实现 KnowledgeRepository**（向量搜索 + 关键词搜索）
+- [x] **Step 4: 生成迁移，创建 IVFFlat 索引**
+- [x] **Step 5: Commit**
 
 ---
 
@@ -209,20 +209,25 @@ uvicorn app.main:app --reload
 - Create: `data/foods.json`
 - Create: `data/health_tips.json`
 
-- [ ] **Step 1: 准备种子数据**（常见食物 100+、健康建议 50+，V1 精简版）
-- [ ] **Step 2: 实现种子数据导入脚本**（批量 embedding 生成 + 入库）
-- [ ] **Step 3: 实现 RagService**（`search_foods` / `get_food_detail` / `search_knowledge` / `lookup_nutrition`）
-- [ ] **Step 4: 实现 API 端点**（`GET /knowledge/foods/search`、`GET /knowledge/foods/{id}`）
-- [ ] **Step 5: 运行种子脚本，验证搜索效果**
-- [ ] **Step 6: Commit**
+- [x] **Step 1: 准备种子数据**（常见食物 100+、健康建议 50+，V1 精简版）
+- [x] **Step 2: 实现种子数据导入脚本**（批量 embedding 生成 + 入库）
+- [x] **Step 3: 实现 RagService**（`search_foods` / `get_food_detail` / `search_knowledge` / `lookup_nutrition`）
+- [x] **Step 4: 实现 API 端点**（`GET /knowledge/foods/search`、`GET /knowledge/foods/{id}`）
+- [x] **Step 5: 运行种子脚本，验证搜索效果**
+- [x] **Step 6: Commit**
 
 ---
 
-## Phase 4: 饮食记录模块（diet_agent 驱动）
+## Phase 4: 饮食记录模块（纯 CRUD + diet subgraph 预埋）
 
-**目标：** 实现饮食记录 CRUD、通过 `diet_agent` 完成文本/图片解析与营养计算。
+**目标：** 实现饮食记录 CRUD 与营养计算；**所有 LLM 入口统一走 `/ai/chat`**，本阶段在 `app/agents/diet/` 下提前搭好 diet subgraph（不对外暴露 API），供 Phase 6 的 `chat_graph` 挂载。
 
-**参考 spec：** `01-core-modules/diet-recording.md`、`00-architecture/agents.md`
+**架构变更（2026-05-09）**：
+- 原计划的"`POST /diet/records` 走 `diet_agent`"方案已被推翻。饮食端点全部回归**纯 CRUD**（`API → DietService → Repository`）。
+- `POST /diet/parse` 端点**已下线**；自然语言解析由 Phase 6 的 `/ai/chat` + diet subgraph 承担。
+- `app/agents/diet/` 里的 state 绑定到全局 `ChatState`（见 `app/agents/chat/state.py`），节点/工具不再设独立 DietState。
+
+**参考 spec：** `01-core-modules/diet-recording.md`、`00-architecture/agents.md`、`shared/api-contract.md` §5 §8
 
 ### Task 4.1: 饮食数据层
 
@@ -231,10 +236,10 @@ uvicorn app.main:app --reload
 - Create: `app/db/repositories/diet_repo.py`
 - Create: `app/schemas/diet.py`
 
-- [ ] **Step 1: 创建 DietRecord 和 DietItem 数据库模型**
-- [ ] **Step 2: 创建饮食相关 schemas**（Create / Update / Response / ParseResult / Summary / ParsedFood）
-- [ ] **Step 3: 实现 DietRepository**（CRUD + 按日期范围查询 + 汇总统计）
-- [ ] **Step 4: 生成迁移并测试**
+- [x] **Step 1: 创建 DietRecord 和 DietItem 数据库模型**
+- [x] **Step 2: 创建饮食相关 schemas**（Create / Update / Response / ParseResult / Summary / ParsedFood）
+- [x] **Step 3: 实现 DietRepository**（CRUD + 按日期范围查询 + 汇总统计）
+- [x] **Step 4: 生成迁移并测试**
 - [ ] **Step 5: Commit**
 
 ---
@@ -244,55 +249,58 @@ uvicorn app.main:app --reload
 **Files:**
 - Create: `app/services/diet_service.py`
 
-- [ ] **Step 1: 实现 `create_record_from_parsed`**（接收 Agent 已处理好的 ParsedFood 列表）
-- [ ] **Step 2: 实现 CRUD**（`get_record` / `list_records` / `update_record` / `delete_record`，软删除）
-- [ ] **Step 3: 实现营养汇总**（`get_daily_summary` / `get_weekly_summary`）
-- [ ] **Step 4: 内部辅助**（`_lookup_nutrition` 通过 RagService 查询营养；`_calculate_summary`）
-- [ ] **Step 5: 单元测试**（纯算法逻辑可 mock 依赖）
-- [ ] **Step 6: Commit**
+- [x] **Step 1: 实现 `create_record`**（API 直接调，结构化入口）
+- [x] **Step 2: 实现 `create_record_from_parsed`**（diet subgraph 内部调，接收 ParsedFood 列表）
+- [x] **Step 3: 实现 CRUD**（`get_record` / `list_records` / `update_record` / `delete_record`，软删除）
+- [x] **Step 4: 实现营养汇总**（`get_daily_summary` / `get_weekly_summary`）
+- [x] **Step 5: 内部辅助**（`food_input_to_parsed` 通过 RagService 查询营养；`_calculate_summary`）
+- [x] **Step 6: 单元测试**（纯算法逻辑可 mock 依赖）
+- [ ] **Step 7: Commit**
 
-> 约束：本文件禁止 import `ChatOpenAI` 或 `openai`。任何 LLM 调用属于 diet_agent。
+> 约束：本文件禁止 import `ChatOpenAI` 或 `openai`。任何 LLM 调用属于 chat_agent（Phase 6）。
 
 ---
 
-### Task 4.3: diet_agent（解析 + 记录流程）
+### Task 4.3: diet subgraph（为 Phase 6 预埋）
 
 **Files:**
-- Create: `app/agents/diet/state.py`
+- Create: `app/agents/chat/state.py`（全局 `ChatState`，含 `diet_*` 前缀字段）
 - Create: `app/agents/diet/nodes.py`
 - Create: `app/agents/diet/tools.py`
-- Create: `app/agents/diet/graph.py`
+- Create: `app/agents/diet/subgraph.py`
 - Create: `app/agents/prompts/diet_parse.py`
 
-- [ ] **Step 1: 定义 `DietState`**（mode / input_text / image_url / parsed_foods / confidence / ...）
-- [ ] **Step 2: 实现 prompt 模板** — `agents/prompts/diet_parse.py` 含模糊单位换算表、few-shot
-- [ ] **Step 3: 实现节点**
-  - `route_input`（conditional edge：text / photo）
+- [x] **Step 1: 定义 `ChatState`**（合并原 DietState，字段全部 Optional；后续新增领域再加前缀字段）
+- [x] **Step 2: 实现 prompt 模板** — `agents/prompts/diet_parse.py` 含模糊单位换算表、few-shot
+- [x] **Step 3: 实现节点**（节点签名全部 `state: ChatState -> dict`）
+  - `route_input`（conditional edge：text / photo / 已结构化）
   - `parse_text`（`ChatOpenAI.with_structured_output(ParseResult)`）
   - `parse_photo_mock`（V1 返回固定 ParseResult）
   - `standardize_units`（代码确定性换算）
-  - `enrich_nutrition`（Tool: `RagService.lookup_nutrition`，未命中调 LLM 估算子节点）
+  - `enrich_nutrition`（Tool: `enrich_food_tool`，未命中调 LLM 估算）
   - `infer_meal_type`（按时间或已传值）
-  - `save_record`（Tool: `DietService.create_record_from_parsed`，conditional：mode == "create" 时执行）
-  - `trigger_memory`（异步 `memory_agent.ainvoke(trigger="diet_record", ...)`）
-- [ ] **Step 4: 组装 Graph** — `build_diet_agent()` 返回 compiled graph（MemorySaver）
-- [ ] **Step 5: 单元测试** — mock ChatOpenAI 与 RagService，验证节点串联
+  - `save_record`（Tool: `save_diet_record_tool`，conditional：mode == "create" 时执行）
+  - `trigger_memory`（Phase 6 接 memory subgraph 时再实现）
+- [x] **Step 4: 组装 Subgraph** — `build_diet_subgraph()` 返回 compiled graph（in-memory checkpointer）
+- [x] **Step 5: 单元测试** — mock ChatOpenAI 与 DietService，验证节点串联
 - [ ] **Step 6: Commit**
+
+> 说明：diet subgraph 在本阶段**不**通过任何 API 端点暴露；Phase 6 构建全局 `chat_graph` 时用
+> `chat_graph.add_node("diet", build_diet_subgraph())` 挂载。
 
 ---
 
-### Task 4.4: 饮食 API 端点
+### Task 4.4: 饮食 API 端点（纯 CRUD）
 
 **Files:**
 - Create: `app/api/v1/diet.py`
-- Update: `app/dependencies.py`（注入 diet_agent 单例）
+- Update: `app/dependencies.py`（仅 `DietServiceDep`，**不**注入 Agent）
 
-- [ ] **Step 1: 实现端点**
-  - `POST /diet/records` → `diet_agent.ainvoke(mode="create", ...)`
-  - `POST /diet/parse` → `diet_agent.ainvoke(mode="parse", ...)`
-  - `GET /diet/records` / `GET /diet/records/{id}` / `PUT /diet/records/{id}` / `DELETE /diet/records/{id}` → 直接调 DietService
-  - `GET /diet/daily-summary` / `GET /diet/weekly-summary` → DietService
-- [ ] **Step 2: 端到端测试**（mock LLM 节点返回固定 ParseResult，验证创建 → 查询 → 汇总链路）
+- [x] **Step 1: 实现端点**（全部 `API → DietService`）
+  - `POST /diet/records`（结构化输入：meal_type + date + foods[]）
+  - `GET /diet/records` / `GET /diet/records/{id}` / `PUT /diet/records/{id}` / `DELETE /diet/records/{id}`
+  - `GET /diet/daily-summary` / `GET /diet/weekly-summary`
+- [x] **Step 2: 端到端测试**（纯 CRUD，无需 mock LLM；`/diet/parse` 已下线，测试断言 404）
 - [ ] **Step 3: Commit**
 
 ---
@@ -392,27 +400,30 @@ uvicorn app.main:app --reload
 ### Task 7.2: chat_agent
 
 **Files:**
-- Create: `app/agents/chat/state.py`
+- Update: `app/agents/chat/state.py`（Phase 4 已预建 `ChatState`，此处按需补 `chat_*` 字段）
 - Create: `app/agents/chat/nodes.py`
 - Create: `app/agents/chat/tools.py`
 - Create: `app/agents/chat/graph.py`
 - Create: `app/agents/prompts/chat_system.py`
 - Create: `app/api/v1/ai.py`
 
-- [ ] **Step 1: 定义 ChatState**
+- [ ] **Step 1: 补全 ChatState 字段**（在 Phase 4 的基础上按需增补，而不是新建）
 - [ ] **Step 2: 实现节点**
-  - `identify_intent`（LLM + structured output）
+  - `identify_intent`（LLM + structured output，写入 `state["intent"]`）
   - `recall_memories`（Tool: MemoryService.recall_memories）
   - `search_knowledge`（Tool: RagService.search_knowledge）
   - `assemble_prompt`（代码确定性组装）
   - `call_llm`（get_chat_model, temperature=0.7）
-  - `trigger_memory_extract`（`asyncio.create_task(memory_agent.ainvoke(...))`，不阻塞）
+  - `trigger_memory_extract`（`asyncio.create_task(memory_subgraph.ainvoke(...))`，不阻塞）
 - [ ] **Step 3: 组装 Graph** — `build_chat_agent()`
+  - 挂载既有 subgraph：`chat_graph.add_node("diet", build_diet_subgraph())`（来自 Phase 4 `app/agents/diet/subgraph.py`）
+  - 依次挂载 memory / plan / suggestion subgraph（随各 Phase 完工而增加）
+  - 条件边：按 `state["intent"]` 路由到对应 subgraph；`general` 走直接对话
 - [ ] **Step 4: 实现 API 端点**
-  - `POST /ai/chat` → ChatService 保存 user msg → `chat_agent.ainvoke` → ChatService 保存 assistant msg
+  - `POST /ai/chat` → ChatService 保存 user msg → `chat_agent.ainvoke` → ChatService 保存 assistant msg（含结构化 cards，参见 `api-contract.md` §8.1）
   - `GET /ai/chat/history` → ChatService
   - `DELETE /ai/chat/sessions/{id}` → ChatService
-- [ ] **Step 5: 端到端测试**（mock LLM，验证记忆召回、对话保存）
+- [ ] **Step 5: 端到端测试**（mock LLM，验证意图路由 → diet subgraph → 返回解析卡片）
 - [ ] **Step 6: Commit**
 
 ---
@@ -534,11 +545,11 @@ uvicorn app.main:app --reload
 
 | Phase | 名称 | Task 数 | 状态 |
 |-------|------|---------|------|
-| 0 | 项目初始化与基础设施 | 3 | ⬜ 未开始 |
+| 0 | 项目初始化与基础设施 | 3 | ✅ 已完成 |
 | 1 | 认证与用户系统 | 2 | ✅ 已完成 |
 | 2 | Agent 基础设施与向量能力 | 2 | ✅ 已完成（按新 spec 做 reverse-review） |
-| 3 | RAG 知识库 | 2 | ⬜ 未开始 |
-| 4 | 饮食记录模块（diet_agent） | 4 | ⬜ 未开始 |
+| 3 | RAG 知识库 | 2 | ✅ 已完成 |
+| 4 | 饮食记录模块（diet_agent） | 4 | ✅ 已完成（待 commit） |
 | 5 | 身体数据追踪模块 | 1 | ⬜ 未开始 |
 | 6 | AI 记忆系统（memory_agent） | 2 | ⬜ 未开始 |
 | 7 | AI 对话系统（chat_agent） | 2 | ⬜ 未开始 |

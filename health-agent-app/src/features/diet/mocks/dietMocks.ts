@@ -164,9 +164,11 @@ export function foodItemFromCandidate(c: FoodCandidate): FoodItem {
     name: c.name,
     amount: c.defaultAmount,
     unit: c.defaultUnit,
+    amountGrams: c.defaultUnit === 'g' ? c.defaultAmount : undefined,
     calories: c.caloriesPerPortion,
     protein: c.proteinPerPortion,
     fat: c.fatPerPortion,
     carbs: c.carbsPerPortion,
+    dataSource: 'database',
   };
 }

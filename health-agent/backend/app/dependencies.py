@@ -14,11 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import UnauthorizedException
 from app.core.security import claims_to_current_user, decode_supabase_jwt
+from app.db.repositories.diet_repo import DietRepository
 from app.db.repositories.knowledge_repo import KnowledgeRepository
 from app.db.repositories.user_repo import UserRepository
 from app.db.session import get_db_session
 from app.integrations.embedding import EmbeddingClient
 from app.schemas.auth import CurrentUser
+from app.services.diet_service import DietService
 from app.services.rag_service import RagService
 from app.services.user_service import UserService
 
@@ -118,5 +120,20 @@ async def get_rag_service(session: DbSession) -> RagService:
 
 
 RagServiceDep = Annotated[RagService, Depends(get_rag_service)]
+
+
+async def get_diet_service(
+    session: DbSession,
+    user: CurrentUserDep,
+    rag_service: RagServiceDep,
+) -> DietService:
+    """构造按当前用户隔离的饮食服务。"""
+    return DietService(
+        repo=DietRepository(session=session, user_id=user.id),
+        rag_service=rag_service,
+    )
+
+
+DietServiceDep = Annotated[DietService, Depends(get_diet_service)]
 
 

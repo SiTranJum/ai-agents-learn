@@ -313,18 +313,298 @@ efficiency | confirmation | learning
 
 以下模块的端点汇总见 `api-design.md` §7。详细请求/响应字段在各模块进入开发阶段时添加到本文档。
 
-- §5 饮食模块（`/diet/*`）
+- §5 饮食模块（`/diet/*`）✅ 已补充（**纯 CRUD**，自然语言解析改由 `/ai/chat` 承担）
 - §6 身体数据模块（`/body/*`）
 - §7 计划模块（`/plans/*`）
-- §8 AI 对话模块（`/ai/*`）
+- §8 AI 对话模块（`/ai/*`）✅ 草案
 - §9 AI 建议模块（`/suggestions/*`）
-- §10 知识库模块（`/knowledge/*`）
+- §10 知识库模块（`/knowledge/*`）✅ 已补充
 
 ---
 
-## 5. 变更日志
+## 5. 饮食模块接口契约（纯 CRUD）
+
+> **架构变更（2026-05-09）**：
+> - 原 `POST /diet/parse` 端点**已移除**。自然语言饮食解析改走 `/ai/chat` → diet subgraph，前端由对话 UI 承载"解析卡片 + 用户确认"的交互。
+> - `POST /diet/records` 仅接受**结构化输入**（meal_type + date + foods[]），`input_text` / `image_url` 字段已下线。
+> - 相关背景见 `docs/specs/backend/00-architecture/overview.md` §3.3 端点分类表。
+
+### 5.1 共享枚举
+
+`MealType`: `breakfast | lunch | dinner | snack`
+
+`DataSource`: `database | api | llm_estimate`
+
+> 前端 `DietRecord.status = empty | pending | recorded | editing` 是 UI 本地状态，不落库、不出现在后端响应中。
+
+### 5.2 POST /diet/records — 创建饮食记录（结构化）
+
+**认证**：Bearer JWT（必须）
+
+**请求体**：`DietRecordCreate`
+
+```jsonc
+{
+  "meal_type": "lunch",
+  "date": "2026-05-09",
+  "foods": [
+    {
+      "name": "米饭",
+      "amount": 1,
+      "unit": "碗",
+      "amount_grams": 200,          // 可选，后端会按常见单位估算
+      "cooking_method": null,
+      "calories": 232,              // 可选；缺失时后端通过 RAG 查询补全
+      "protein": 5.2,
+      "fat": 0.6,
+      "carbs": 51.8,
+      "fiber": 0.6,
+      "sodium": 4,
+      "data_source": "database",
+      "food_id": "uuid-or-null"
+    }
+  ]
+}
+```
+
+**约束**：`foods` 必填且非空；单条记录最多 20 个食物项；`date` 不能是未来日期。
+
+**响应**：`201 ApiResponse<DietRecordResponse>`
+
+**自然语言入口**：想让 LLM 从文本/图片解析出 foods，前端调用 `/ai/chat` 并等待 diet subgraph 返回解析卡片消息，用户确认后前端用**本接口**提交。
+
+### 5.3 GET /diet/records — 查询饮食记录列表
+
+**查询参数**：`start_date` 必填，`end_date` 可选，`meal_type` 可选，`page` 默认 1，`page_size` 默认 20 最大 50。
+
+**响应**：`200 PaginatedResponse<DietRecordResponse>`
+
+### 5.4 GET /diet/records/{id} — 饮食记录详情
+
+**响应**：`200 ApiResponse<DietRecordResponse>`；不存在返回 `404 DIET_RECORD_NOT_FOUND`。
+
+### 5.5 PUT /diet/records/{id} — 更新饮食记录
+
+**请求体**：`DietRecordUpdate`
+
+```jsonc
+{
+  "meal_type": "dinner",
+  "date": "2026-05-09",
+  "foods": [{ "name": "苹果", "amount": 1, "unit": "个", "amount_grams": 200 }]
+}
+```
+
+**响应**：`200 ApiResponse<DietRecordResponse>`
+
+### 5.6 DELETE /diet/records/{id} — 删除饮食记录
+
+软删除，幂等。
+
+```jsonc
+{ "data": null, "message": "删除成功" }
+```
+
+### 5.7 GET /diet/daily-summary — 每日汇总
+
+**查询参数**：`date=YYYY-MM-DD`
+
+**响应**：`200 ApiResponse<DailySummary>`
+
+```jsonc
+{
+  "data": {
+    "date": "2026-05-09",
+    "meals": { "breakfast": [], "lunch": [], "dinner": [], "snack": [] },
+    "total_nutrition": {
+      "total_calories": 930,
+      "total_protein": 50,
+      "total_fat": 28,
+      "total_carbs": 110,
+      "total_fiber": null,
+      "total_sodium": null
+    },
+    "target_nutrition": null,
+    "completion_rate": {}
+  },
+  "message": "ok"
+}
+```
+
+前端 `dietService.getDietByDate(date)` 推荐调用本接口。若某餐无记录，前端生成 `status: 'empty'` 卡片；`target_nutrition` 为空时可沿用 mock 默认目标 1800/225/90/60。
+
+### 5.8 GET /diet/weekly-summary — 每周汇总
+
+**查询参数**：`start_date=YYYY-MM-DD`
+
+**响应**：`200 ApiResponse<WeeklySummary>`
+
+### 5.9 字段模型
+
+#### DietRecordResponse
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | UUID | 记录 ID |
+| `meal_type` | MealType | 餐次 |
+| `date` | date | 记录日期 |
+| `foods` | FoodItemResponse[] | 食物条目 |
+| `nutrition_summary` | NutritionSummary | 单餐营养汇总 |
+| `created_at` | datetime | 创建时间 |
+| `updated_at` | datetime | 更新时间 |
+
+#### FoodItemResponse / ParsedFood
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | UUID | 食物条目 ID，`ParsedFood` 中无此字段 |
+| `name` | string | 食物名称 |
+| `amount` | number | 用户表达的数量，如 `1` |
+| `unit` | string | 用户表达的单位，如 `碗` |
+| `amount_grams` | number | 标准克数，用于营养计算 |
+| `cooking_method` | string \| null | 烹饪方式 |
+| `calories` | number | 当前份量热量 kcal |
+| `protein` | number | 当前份量蛋白质 g |
+| `fat` | number | 当前份量脂肪 g |
+| `carbs` | number | 当前份量碳水 g |
+| `fiber` | number \| null | 当前份量膳食纤维 g |
+| `sodium` | number \| null | 当前份量钠 mg |
+| `data_source` | DataSource | 营养数据来源 |
+| `food_id` | UUID \| null | 命中的知识库食物 ID |
+
+#### NutritionSummary
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `total_calories` | number | 总热量 kcal |
+| `total_protein` | number | 总蛋白质 g |
+| `total_fat` | number | 总脂肪 g |
+| `total_carbs` | number | 总碳水 g |
+| `total_fiber` | number \| null | 总膳食纤维 g |
+| `total_sodium` | number \| null | 总钠 mg |
+
+---
+
+## 8. AI 对话模块接口契约（草案）
+
+> Phase 6 正式落地。本节先锁定**契约轮廓**，供前端同步规划"对话式饮食记录"交互。
+
+### 8.1 POST /ai/chat — 统一 AI 对话入口
+
+**架构定位**：整个后端**唯一**的 LLM 触发端点。内部进入全局 ``chat_graph``，由条件边路由到各领域 subgraph（diet / body / plan / memory / suggestion / general）。
+
+**请求体**：
+
+```jsonc
+{
+  "session_id": "uuid-or-null",   // null 表示新会话
+  "message": "午饭吃了一碗米饭和100g鸡胸肉",
+  "context": {                     // 可选，前端附加的上下文
+    "image_url": null,             // 当前消息附带图片 URL
+    "referenced_date": "2026-05-09"
+  }
+}
+```
+
+**响应**（流式 SSE 或一次性 JSON，Phase 6 决定）：
+
+```jsonc
+{
+  "data": {
+    "session_id": "uuid",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "我识别到午餐有两项食物：",
+        "cards": [                 // 结构化卡片；饮食分支返回解析卡片
+          {
+            "type": "diet_parse",
+            "payload": {           // 字段与 §5.9 ParsedFood 一致
+              "foods": [ ... ],
+              "meal_type": "lunch",
+              "confidence": 0.86,
+              "suggested_date": "2026-05-09"
+            },
+            "actions": [
+              { "kind": "confirm_create_diet_record" },
+              { "kind": "edit_diet_items" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "message": "ok"
+}
+```
+
+**前端流程**（饮食场景）：
+
+1. 用户在对话框输入自然语言/上传图片 → `POST /ai/chat`
+2. 后端 Graph 路由到 diet subgraph，返回 `diet_parse` 卡片
+3. 前端渲染卡片（食物项、置信度、缺项高亮）
+4. 用户点击"确认保存" → 前端调用 `POST /diet/records`（§5.2），传入卡片中的 `foods`
+5. 后端持久化后返回 `DietRecordResponse`；前端追加到当天记录列表
+
+### 8.2 GET /ai/chat/history — 会话历史（草案）
+
+Phase 6 定义。预期返回 `{ sessions: [{ id, title, last_message_at }] }`。
+
+### 8.3 DELETE /ai/chat/sessions/{id} — 清除会话（草案）
+
+Phase 6 定义。纯 CRUD。
+
+---
+
+
+
+## 10. 知识库模块接口契约
+
+### 10.1 FoodCategory
+
+```
+grains | meat | vegetables | fruits | dairy | beverages | snacks | condiments | nuts | other
+```
+
+### 10.2 GET /knowledge/foods/search — 食物搜索
+
+**查询参数**：`q` 必填，`limit` 可选 1-50 默认 10。
+
+**响应**：`200 ApiResponse<FoodSearchResponse[]>`
+
+```jsonc
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "米饭",
+      "aliases": ["白米饭", "熟米饭"],
+      "category": "grains",
+      "calories_per_100g": 116.0,
+      "match_score": 1.0
+    }
+  ],
+  "message": "ok"
+}
+```
+
+### 10.3 GET /knowledge/foods/{id} — 食物详情
+
+**响应**：`200 ApiResponse<FoodDetailResponse>`；不存在返回 `404 FOOD_NOT_FOUND`。
+
+### 10.4 字段模型
+
+`FoodSearchResponse`: `id`, `name`, `aliases`, `category`, `calories_per_100g`, `match_score`。
+
+`FoodDetailResponse`: `id`, `name`, `aliases`, `category`, `nutrition_per_100g`, `common_portions`, `data_source`。
+
+---
+
+## 11. 变更日志
 
 | 日期 | 变更 |
 |------|------|
 | 2026-05-08 | 初版：用户模块全量契约（§1-§3），统一信封、枚举、映射关系 |
 | 2026-05-08 | Phase 3：补充知识库模块契约（§10），包含食物搜索与详情接口 |
+| 2026-05-09 | Phase 4：补充饮食模块契约（§5），包含 parse、records、summary 接口 |
+| 2026-05-09 | 架构重构：饮食模块改为**纯 CRUD**；下线 `/diet/parse`；`POST /diet/records` 收窄为结构化输入；新增 §8 AI 对话模块契约草案（`/ai/chat` 作为唯一 LLM 入口） |
