@@ -1,3 +1,4 @@
+
 """phase2 启用 pgvector 扩展
 
 Revision ID: 20260508_0002
