@@ -7,6 +7,10 @@ Create Date: 2026-05-06
 创建用户档案/偏好/健康信息/设置 4 张表。所有表通过 ``user_id`` 与
 Supabase Auth 的 ``auth.users`` 关联（外键由 Supabase 托管，本迁移
 仅声明列与索引）。
+
+字段与 ``docs/specs/shared/api-contract.md`` §2-§3 保持一致：
+- health_profiles 含 ``goal_type``/``daily_calorie_target``/``onboarding_completed``
+- user_preferences.diet_type 可空（无默认值），枚举见契约 §2.4
 """
 
 from __future__ import annotations
@@ -40,6 +44,15 @@ def upgrade() -> None:
         sa.Column("current_weight", sa.Float(), nullable=True),
         sa.Column("target_weight", sa.Float(), nullable=True),
         sa.Column("activity_level", sa.String(length=20), nullable=True),
+        # 目标字段（api-contract.md §2.3 / §3.1）
+        sa.Column("goal_type", sa.String(length=20), nullable=True),
+        sa.Column("daily_calorie_target", sa.Integer(), nullable=True),
+        sa.Column(
+            "onboarding_completed",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.false(),
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -59,16 +72,12 @@ def upgrade() -> None:
     )
 
     # ---------- user_preferences ----------
+    # diet_type 可空、无默认值（api-contract.md §2.4 枚举 balanced/low_carb/...）
     op.create_table(
         "user_preferences",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column(
-            "diet_type",
-            sa.String(length=20),
-            nullable=False,
-            server_default="normal",
-        ),
+        sa.Column("diet_type", sa.String(length=20), nullable=True),
         sa.Column(
             "allergies",
             postgresql.ARRAY(sa.String()),

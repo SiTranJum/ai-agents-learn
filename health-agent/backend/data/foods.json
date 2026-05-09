@@ -1,0 +1,3238 @@
+[
+  {
+    "name": "米饭",
+    "aliases": [
+      "白米饭",
+      "熟米饭"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 116,
+      "protein": 2.6,
+      "fat": 0.3,
+      "carbs": 25.9,
+      "fiber": 0.3,
+      "sodium": 2,
+      "sugar": 0.1
+    },
+    "common_portions": [
+      {
+        "name": "一碗",
+        "weight_grams": 200
+      },
+      {
+        "name": "半碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "鸡胸肉",
+    "aliases": [
+      "鸡胸",
+      "去皮鸡胸肉"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 133,
+      "protein": 24.6,
+      "fat": 1.9,
+      "carbs": 2.5,
+      "fiber": 0,
+      "sodium": 34,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一块",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "鸡蛋",
+    "aliases": [
+      "全蛋",
+      "煮鸡蛋"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 144,
+      "protein": 13.3,
+      "fat": 8.8,
+      "carbs": 2.8,
+      "fiber": 0,
+      "sodium": 131,
+      "sugar": 1.3
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 50
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "西兰花",
+    "aliases": [
+      "青花菜",
+      "绿菜花"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 36,
+      "protein": 4.1,
+      "fat": 0.6,
+      "carbs": 4.3,
+      "fiber": 1.6,
+      "sodium": 18,
+      "sugar": 1.7
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "苹果",
+    "aliases": [
+      "红苹果",
+      "青苹果"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 53,
+      "protein": 0.4,
+      "fat": 0.2,
+      "carbs": 13.7,
+      "fiber": 1.7,
+      "sodium": 1,
+      "sugar": 10.4
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 200
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "香蕉",
+    "aliases": [
+      "蕉"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 93,
+      "protein": 1.4,
+      "fat": 0.2,
+      "carbs": 22.0,
+      "fiber": 1.2,
+      "sodium": 1,
+      "sugar": 12.2
+    },
+    "common_portions": [
+      {
+        "name": "一根",
+        "weight_grams": 120
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "全脂牛奶",
+    "aliases": [
+      "牛奶",
+      "纯牛奶"
+    ],
+    "category": "dairy",
+    "nutrition_per_100g": {
+      "calories": 65,
+      "protein": 3.0,
+      "fat": 3.6,
+      "carbs": 5.0,
+      "fiber": 0,
+      "sodium": 37,
+      "sugar": 5.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "燕麦片",
+    "aliases": [
+      "燕麦",
+      "即食燕麦"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 377,
+      "protein": 15.0,
+      "fat": 6.7,
+      "carbs": 66.9,
+      "fiber": 5.3,
+      "sodium": 3,
+      "sugar": 1.2
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 40
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "花生",
+    "aliases": [
+      "熟花生",
+      "花生仁"
+    ],
+    "category": "nuts",
+    "nutrition_per_100g": {
+      "calories": 574,
+      "protein": 24.8,
+      "fat": 44.3,
+      "carbs": 21.7,
+      "fiber": 5.5,
+      "sodium": 6,
+      "sugar": 4.2
+    },
+    "common_portions": [
+      {
+        "name": "一小把",
+        "weight_grams": 25
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "橄榄油",
+    "aliases": [
+      "植物油"
+    ],
+    "category": "condiments",
+    "nutrition_per_100g": {
+      "calories": 899,
+      "protein": 0,
+      "fat": 99.9,
+      "carbs": 0,
+      "fiber": 0,
+      "sodium": 0,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一勺",
+        "weight_grams": 10
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "糙米饭",
+    "aliases": [
+      "常见糙米饭"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 105.6,
+      "protein": 2.8,
+      "fat": 0.8,
+      "carbs": 25.0,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "小米粥",
+    "aliases": [
+      "常见小米粥"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 112.8,
+      "protein": 2.9,
+      "fat": 0.8,
+      "carbs": 25.5,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "玉米",
+    "aliases": [
+      "常见玉米"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 120.0,
+      "protein": 3.0,
+      "fat": 0.8,
+      "carbs": 26.0,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "红薯",
+    "aliases": [
+      "常见红薯"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 127.2,
+      "protein": 3.1,
+      "fat": 0.8,
+      "carbs": 26.5,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "紫薯",
+    "aliases": [
+      "常见紫薯"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 134.4,
+      "protein": 3.2,
+      "fat": 0.8,
+      "carbs": 27.0,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "土豆",
+    "aliases": [
+      "常见土豆"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 105.6,
+      "protein": 2.8,
+      "fat": 0.8,
+      "carbs": 25.0,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "面条",
+    "aliases": [
+      "常见面条"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 112.8,
+      "protein": 2.9,
+      "fat": 0.8,
+      "carbs": 25.5,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "全麦面包",
+    "aliases": [
+      "常见全麦面包"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 120.0,
+      "protein": 3.0,
+      "fat": 0.8,
+      "carbs": 26.0,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "馒头",
+    "aliases": [
+      "常见馒头"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 127.2,
+      "protein": 3.1,
+      "fat": 0.8,
+      "carbs": 26.5,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "荞麦面",
+    "aliases": [
+      "常见荞麦面"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 134.4,
+      "protein": 3.2,
+      "fat": 0.8,
+      "carbs": 27.0,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "藜麦",
+    "aliases": [
+      "常见藜麦"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 105.6,
+      "protein": 2.8,
+      "fat": 0.8,
+      "carbs": 25.0,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "玉米粥",
+    "aliases": [
+      "常见玉米粥"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 112.8,
+      "protein": 2.9,
+      "fat": 0.8,
+      "carbs": 25.5,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "山药",
+    "aliases": [
+      "常见山药"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 120.0,
+      "protein": 3.0,
+      "fat": 0.8,
+      "carbs": 26.0,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "南瓜",
+    "aliases": [
+      "常见南瓜"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 127.2,
+      "protein": 3.1,
+      "fat": 0.8,
+      "carbs": 26.5,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "黑米饭",
+    "aliases": [
+      "常见黑米饭"
+    ],
+    "category": "grains",
+    "nutrition_per_100g": {
+      "calories": 134.4,
+      "protein": 3.2,
+      "fat": 0.8,
+      "carbs": 27.0,
+      "fiber": 1.8,
+      "sodium": 5,
+      "sugar": 1.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "鸡腿肉",
+    "aliases": [
+      "常见鸡腿肉"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 158.4,
+      "protein": 20.7,
+      "fat": 8.5,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "牛肉",
+    "aliases": [
+      "常见牛肉"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 169.2,
+      "protein": 21.3,
+      "fat": 8.2,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "瘦猪肉",
+    "aliases": [
+      "常见瘦猪肉"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 180.0,
+      "protein": 22.0,
+      "fat": 8.0,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "猪里脊",
+    "aliases": [
+      "常见猪里脊"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 190.8,
+      "protein": 22.7,
+      "fat": 7.8,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "三文鱼",
+    "aliases": [
+      "常见三文鱼"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 201.6,
+      "protein": 23.3,
+      "fat": 7.5,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "鳕鱼",
+    "aliases": [
+      "常见鳕鱼"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 158.4,
+      "protein": 20.7,
+      "fat": 8.5,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "虾仁",
+    "aliases": [
+      "常见虾仁"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 169.2,
+      "protein": 21.3,
+      "fat": 8.2,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "金枪鱼",
+    "aliases": [
+      "常见金枪鱼"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 180.0,
+      "protein": 22.0,
+      "fat": 8.0,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "鸭胸肉",
+    "aliases": [
+      "常见鸭胸肉"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 190.8,
+      "protein": 22.7,
+      "fat": 7.8,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "羊肉",
+    "aliases": [
+      "常见羊肉"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 201.6,
+      "protein": 23.3,
+      "fat": 7.5,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "猪排骨",
+    "aliases": [
+      "常见猪排骨"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 158.4,
+      "protein": 20.7,
+      "fat": 8.5,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "鸡翅",
+    "aliases": [
+      "常见鸡翅"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 169.2,
+      "protein": 21.3,
+      "fat": 8.2,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "牛腱子",
+    "aliases": [
+      "常见牛腱子"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 180.0,
+      "protein": 22.0,
+      "fat": 8.0,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "带鱼",
+    "aliases": [
+      "常见带鱼"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 190.8,
+      "protein": 22.7,
+      "fat": 7.8,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "鲈鱼",
+    "aliases": [
+      "常见鲈鱼"
+    ],
+    "category": "meat",
+    "nutrition_per_100g": {
+      "calories": 201.6,
+      "protein": 23.3,
+      "fat": 7.5,
+      "carbs": 1.0,
+      "fiber": 0,
+      "sodium": 60,
+      "sugar": 0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "菠菜",
+    "aliases": [
+      "常见菠菜"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 26.4,
+      "protein": 1.9,
+      "fat": 0.3,
+      "carbs": 4.8,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "生菜",
+    "aliases": [
+      "常见生菜"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 28.2,
+      "protein": 1.9,
+      "fat": 0.3,
+      "carbs": 4.9,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "白菜",
+    "aliases": [
+      "常见白菜"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 30.0,
+      "protein": 2.0,
+      "fat": 0.3,
+      "carbs": 5.0,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "油菜",
+    "aliases": [
+      "常见油菜"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 31.8,
+      "protein": 2.1,
+      "fat": 0.3,
+      "carbs": 5.1,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "芹菜",
+    "aliases": [
+      "常见芹菜"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 33.6,
+      "protein": 2.1,
+      "fat": 0.3,
+      "carbs": 5.2,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "黄瓜",
+    "aliases": [
+      "常见黄瓜"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 26.4,
+      "protein": 1.9,
+      "fat": 0.3,
+      "carbs": 4.8,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "番茄",
+    "aliases": [
+      "常见番茄"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 28.2,
+      "protein": 1.9,
+      "fat": 0.3,
+      "carbs": 4.9,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "胡萝卜",
+    "aliases": [
+      "常见胡萝卜"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 30.0,
+      "protein": 2.0,
+      "fat": 0.3,
+      "carbs": 5.0,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "茄子",
+    "aliases": [
+      "常见茄子"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 31.8,
+      "protein": 2.1,
+      "fat": 0.3,
+      "carbs": 5.1,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "青椒",
+    "aliases": [
+      "常见青椒"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 33.6,
+      "protein": 2.1,
+      "fat": 0.3,
+      "carbs": 5.2,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "洋葱",
+    "aliases": [
+      "常见洋葱"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 26.4,
+      "protein": 1.9,
+      "fat": 0.3,
+      "carbs": 4.8,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "冬瓜",
+    "aliases": [
+      "常见冬瓜"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 28.2,
+      "protein": 1.9,
+      "fat": 0.3,
+      "carbs": 4.9,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "蘑菇",
+    "aliases": [
+      "常见蘑菇"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 30.0,
+      "protein": 2.0,
+      "fat": 0.3,
+      "carbs": 5.0,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "金针菇",
+    "aliases": [
+      "常见金针菇"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 31.8,
+      "protein": 2.1,
+      "fat": 0.3,
+      "carbs": 5.1,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "海带",
+    "aliases": [
+      "常见海带"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 33.6,
+      "protein": 2.1,
+      "fat": 0.3,
+      "carbs": 5.2,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "豆角",
+    "aliases": [
+      "常见豆角"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 26.4,
+      "protein": 1.9,
+      "fat": 0.3,
+      "carbs": 4.8,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "莲藕",
+    "aliases": [
+      "常见莲藕"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 28.2,
+      "protein": 1.9,
+      "fat": 0.3,
+      "carbs": 4.9,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "苦瓜",
+    "aliases": [
+      "常见苦瓜"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 30.0,
+      "protein": 2.0,
+      "fat": 0.3,
+      "carbs": 5.0,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "菜花",
+    "aliases": [
+      "常见菜花"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 31.8,
+      "protein": 2.1,
+      "fat": 0.3,
+      "carbs": 5.1,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "卷心菜",
+    "aliases": [
+      "常见卷心菜"
+    ],
+    "category": "vegetables",
+    "nutrition_per_100g": {
+      "calories": 33.6,
+      "protein": 2.1,
+      "fat": 0.3,
+      "carbs": 5.2,
+      "fiber": 2.0,
+      "sodium": 20,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一小碗",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "橙子",
+    "aliases": [
+      "常见橙子"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 52.8,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 13.4,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "梨",
+    "aliases": [
+      "常见梨"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 56.4,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 13.7,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "葡萄",
+    "aliases": [
+      "常见葡萄"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 60.0,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 14.0,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "草莓",
+    "aliases": [
+      "常见草莓"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 63.6,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 14.3,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "蓝莓",
+    "aliases": [
+      "常见蓝莓"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 67.2,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 14.6,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "猕猴桃",
+    "aliases": [
+      "常见猕猴桃"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 52.8,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 13.4,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "西瓜",
+    "aliases": [
+      "常见西瓜"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 56.4,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 13.7,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "哈密瓜",
+    "aliases": [
+      "常见哈密瓜"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 60.0,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 14.0,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "桃子",
+    "aliases": [
+      "常见桃子"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 63.6,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 14.3,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "火龙果",
+    "aliases": [
+      "常见火龙果"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 67.2,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 14.6,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "芒果",
+    "aliases": [
+      "常见芒果"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 52.8,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 13.4,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "菠萝",
+    "aliases": [
+      "常见菠萝"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 56.4,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 13.7,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "柚子",
+    "aliases": [
+      "常见柚子"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 60.0,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 14.0,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "樱桃",
+    "aliases": [
+      "常见樱桃"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 63.6,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 14.3,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "李子",
+    "aliases": [
+      "常见李子"
+    ],
+    "category": "fruits",
+    "nutrition_per_100g": {
+      "calories": 67.2,
+      "protein": 0.8,
+      "fat": 0.3,
+      "carbs": 14.6,
+      "fiber": 1.8,
+      "sodium": 2,
+      "sugar": 10.0
+    },
+    "common_portions": [
+      {
+        "name": "一个",
+        "weight_grams": 150
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "低脂牛奶",
+    "aliases": [
+      "常见低脂牛奶"
+    ],
+    "category": "dairy",
+    "nutrition_per_100g": {
+      "calories": 61.6,
+      "protein": 3.8,
+      "fat": 3.2,
+      "carbs": 5.8,
+      "fiber": 0,
+      "sodium": 45,
+      "sugar": 5.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "脱脂牛奶",
+    "aliases": [
+      "常见脱脂牛奶"
+    ],
+    "category": "dairy",
+    "nutrition_per_100g": {
+      "calories": 65.8,
+      "protein": 3.9,
+      "fat": 3.1,
+      "carbs": 5.9,
+      "fiber": 0,
+      "sodium": 45,
+      "sugar": 5.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "无糖酸奶",
+    "aliases": [
+      "酸奶",
+      "常见无糖酸奶"
+    ],
+    "category": "dairy",
+    "nutrition_per_100g": {
+      "calories": 70.0,
+      "protein": 4.0,
+      "fat": 3.0,
+      "carbs": 6.0,
+      "fiber": 0,
+      "sodium": 45,
+      "sugar": 5.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "希腊酸奶",
+    "aliases": [
+      "常见希腊酸奶"
+    ],
+    "category": "dairy",
+    "nutrition_per_100g": {
+      "calories": 74.2,
+      "protein": 4.1,
+      "fat": 2.9,
+      "carbs": 6.1,
+      "fiber": 0,
+      "sodium": 45,
+      "sugar": 5.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "奶酪",
+    "aliases": [
+      "常见奶酪"
+    ],
+    "category": "dairy",
+    "nutrition_per_100g": {
+      "calories": 78.4,
+      "protein": 4.2,
+      "fat": 2.8,
+      "carbs": 6.2,
+      "fiber": 0,
+      "sodium": 45,
+      "sugar": 5.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "豆浆",
+    "aliases": [
+      "常见豆浆"
+    ],
+    "category": "dairy",
+    "nutrition_per_100g": {
+      "calories": 61.6,
+      "protein": 3.8,
+      "fat": 3.2,
+      "carbs": 5.8,
+      "fiber": 0,
+      "sodium": 45,
+      "sugar": 5.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "无糖豆浆",
+    "aliases": [
+      "豆浆",
+      "常见无糖豆浆"
+    ],
+    "category": "dairy",
+    "nutrition_per_100g": {
+      "calories": 65.8,
+      "protein": 3.9,
+      "fat": 3.1,
+      "carbs": 5.9,
+      "fiber": 0,
+      "sodium": 45,
+      "sugar": 5.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "羊奶",
+    "aliases": [
+      "常见羊奶"
+    ],
+    "category": "dairy",
+    "nutrition_per_100g": {
+      "calories": 70.0,
+      "protein": 4.0,
+      "fat": 3.0,
+      "carbs": 6.0,
+      "fiber": 0,
+      "sodium": 45,
+      "sugar": 5.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "乳清蛋白粉",
+    "aliases": [
+      "常见乳清蛋白粉"
+    ],
+    "category": "dairy",
+    "nutrition_per_100g": {
+      "calories": 74.2,
+      "protein": 4.1,
+      "fat": 2.9,
+      "carbs": 6.1,
+      "fiber": 0,
+      "sodium": 45,
+      "sugar": 5.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "酸奶饮品",
+    "aliases": [
+      "常见酸奶饮品"
+    ],
+    "category": "dairy",
+    "nutrition_per_100g": {
+      "calories": 78.4,
+      "protein": 4.2,
+      "fat": 2.8,
+      "carbs": 6.2,
+      "fiber": 0,
+      "sodium": 45,
+      "sugar": 5.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "白开水",
+    "aliases": [
+      "常见白开水"
+    ],
+    "category": "beverages",
+    "nutrition_per_100g": {
+      "calories": 30.8,
+      "protein": 0.2,
+      "fat": 0.1,
+      "carbs": 7.7,
+      "fiber": 0,
+      "sodium": 8,
+      "sugar": 7.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "无糖茶",
+    "aliases": [
+      "茶",
+      "常见无糖茶"
+    ],
+    "category": "beverages",
+    "nutrition_per_100g": {
+      "calories": 32.9,
+      "protein": 0.2,
+      "fat": 0.1,
+      "carbs": 7.8,
+      "fiber": 0,
+      "sodium": 8,
+      "sugar": 7.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "黑咖啡",
+    "aliases": [
+      "常见黑咖啡"
+    ],
+    "category": "beverages",
+    "nutrition_per_100g": {
+      "calories": 35.0,
+      "protein": 0.2,
+      "fat": 0.1,
+      "carbs": 8.0,
+      "fiber": 0,
+      "sodium": 8,
+      "sugar": 7.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "美式咖啡",
+    "aliases": [
+      "常见美式咖啡"
+    ],
+    "category": "beverages",
+    "nutrition_per_100g": {
+      "calories": 37.1,
+      "protein": 0.2,
+      "fat": 0.1,
+      "carbs": 8.2,
+      "fiber": 0,
+      "sodium": 8,
+      "sugar": 7.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "拿铁",
+    "aliases": [
+      "常见拿铁"
+    ],
+    "category": "beverages",
+    "nutrition_per_100g": {
+      "calories": 39.2,
+      "protein": 0.2,
+      "fat": 0.1,
+      "carbs": 8.3,
+      "fiber": 0,
+      "sodium": 8,
+      "sugar": 7.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "橙汁",
+    "aliases": [
+      "常见橙汁"
+    ],
+    "category": "beverages",
+    "nutrition_per_100g": {
+      "calories": 30.8,
+      "protein": 0.2,
+      "fat": 0.1,
+      "carbs": 7.7,
+      "fiber": 0,
+      "sodium": 8,
+      "sugar": 7.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "可乐",
+    "aliases": [
+      "常见可乐"
+    ],
+    "category": "beverages",
+    "nutrition_per_100g": {
+      "calories": 32.9,
+      "protein": 0.2,
+      "fat": 0.1,
+      "carbs": 7.8,
+      "fiber": 0,
+      "sodium": 8,
+      "sugar": 7.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "无糖可乐",
+    "aliases": [
+      "可乐",
+      "常见无糖可乐"
+    ],
+    "category": "beverages",
+    "nutrition_per_100g": {
+      "calories": 35.0,
+      "protein": 0.2,
+      "fat": 0.1,
+      "carbs": 8.0,
+      "fiber": 0,
+      "sodium": 8,
+      "sugar": 7.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "运动饮料",
+    "aliases": [
+      "常见运动饮料"
+    ],
+    "category": "beverages",
+    "nutrition_per_100g": {
+      "calories": 37.1,
+      "protein": 0.2,
+      "fat": 0.1,
+      "carbs": 8.2,
+      "fiber": 0,
+      "sodium": 8,
+      "sugar": 7.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "椰子水",
+    "aliases": [
+      "常见椰子水"
+    ],
+    "category": "beverages",
+    "nutrition_per_100g": {
+      "calories": 39.2,
+      "protein": 0.2,
+      "fat": 0.1,
+      "carbs": 8.3,
+      "fiber": 0,
+      "sodium": 8,
+      "sugar": 7.0
+    },
+    "common_portions": [
+      {
+        "name": "一杯",
+        "weight_grams": 250
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "薯片",
+    "aliases": [
+      "常见薯片"
+    ],
+    "category": "snacks",
+    "nutrition_per_100g": {
+      "calories": 396.0,
+      "protein": 5.6,
+      "fat": 23.3,
+      "carbs": 55.7,
+      "fiber": 2.0,
+      "sodium": 300,
+      "sugar": 20.0
+    },
+    "common_portions": [
+      {
+        "name": "一小包",
+        "weight_grams": 30
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "饼干",
+    "aliases": [
+      "常见饼干"
+    ],
+    "category": "snacks",
+    "nutrition_per_100g": {
+      "calories": 423.0,
+      "protein": 5.8,
+      "fat": 22.7,
+      "carbs": 56.8,
+      "fiber": 2.0,
+      "sodium": 300,
+      "sugar": 20.0
+    },
+    "common_portions": [
+      {
+        "name": "一小包",
+        "weight_grams": 30
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "巧克力",
+    "aliases": [
+      "常见巧克力"
+    ],
+    "category": "snacks",
+    "nutrition_per_100g": {
+      "calories": 450.0,
+      "protein": 6.0,
+      "fat": 22.0,
+      "carbs": 58.0,
+      "fiber": 2.0,
+      "sodium": 300,
+      "sugar": 20.0
+    },
+    "common_portions": [
+      {
+        "name": "一小包",
+        "weight_grams": 30
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "蛋糕",
+    "aliases": [
+      "常见蛋糕"
+    ],
+    "category": "snacks",
+    "nutrition_per_100g": {
+      "calories": 477.0,
+      "protein": 6.2,
+      "fat": 21.3,
+      "carbs": 59.2,
+      "fiber": 2.0,
+      "sodium": 300,
+      "sugar": 20.0
+    },
+    "common_portions": [
+      {
+        "name": "一小包",
+        "weight_grams": 30
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "面包干",
+    "aliases": [
+      "常见面包干"
+    ],
+    "category": "snacks",
+    "nutrition_per_100g": {
+      "calories": 504.0,
+      "protein": 6.4,
+      "fat": 20.7,
+      "carbs": 60.3,
+      "fiber": 2.0,
+      "sodium": 300,
+      "sugar": 20.0
+    },
+    "common_portions": [
+      {
+        "name": "一小包",
+        "weight_grams": 30
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "牛肉干",
+    "aliases": [
+      "常见牛肉干"
+    ],
+    "category": "snacks",
+    "nutrition_per_100g": {
+      "calories": 396.0,
+      "protein": 5.6,
+      "fat": 23.3,
+      "carbs": 55.7,
+      "fiber": 2.0,
+      "sodium": 300,
+      "sugar": 20.0
+    },
+    "common_portions": [
+      {
+        "name": "一小包",
+        "weight_grams": 30
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "海苔",
+    "aliases": [
+      "常见海苔"
+    ],
+    "category": "snacks",
+    "nutrition_per_100g": {
+      "calories": 423.0,
+      "protein": 5.8,
+      "fat": 22.7,
+      "carbs": 56.8,
+      "fiber": 2.0,
+      "sodium": 300,
+      "sugar": 20.0
+    },
+    "common_portions": [
+      {
+        "name": "一小包",
+        "weight_grams": 30
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "爆米花",
+    "aliases": [
+      "常见爆米花"
+    ],
+    "category": "snacks",
+    "nutrition_per_100g": {
+      "calories": 450.0,
+      "protein": 6.0,
+      "fat": 22.0,
+      "carbs": 58.0,
+      "fiber": 2.0,
+      "sodium": 300,
+      "sugar": 20.0
+    },
+    "common_portions": [
+      {
+        "name": "一小包",
+        "weight_grams": 30
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "冰淇淋",
+    "aliases": [
+      "常见冰淇淋"
+    ],
+    "category": "snacks",
+    "nutrition_per_100g": {
+      "calories": 477.0,
+      "protein": 6.2,
+      "fat": 21.3,
+      "carbs": 59.2,
+      "fiber": 2.0,
+      "sodium": 300,
+      "sugar": 20.0
+    },
+    "common_portions": [
+      {
+        "name": "一小包",
+        "weight_grams": 30
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "蛋黄酥",
+    "aliases": [
+      "常见蛋黄酥"
+    ],
+    "category": "snacks",
+    "nutrition_per_100g": {
+      "calories": 504.0,
+      "protein": 6.4,
+      "fat": 20.7,
+      "carbs": 60.3,
+      "fiber": 2.0,
+      "sodium": 300,
+      "sugar": 20.0
+    },
+    "common_portions": [
+      {
+        "name": "一小包",
+        "weight_grams": 30
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "食盐",
+    "aliases": [
+      "常见食盐"
+    ],
+    "category": "condiments",
+    "nutrition_per_100g": {
+      "calories": 105.6,
+      "protein": 0.9,
+      "fat": 6.4,
+      "carbs": 11.5,
+      "fiber": 0,
+      "sodium": 800,
+      "sugar": 8.0
+    },
+    "common_portions": [
+      {
+        "name": "一勺",
+        "weight_grams": 10
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "酱油",
+    "aliases": [
+      "常见酱油"
+    ],
+    "category": "condiments",
+    "nutrition_per_100g": {
+      "calories": 112.8,
+      "protein": 1.0,
+      "fat": 6.2,
+      "carbs": 11.8,
+      "fiber": 0,
+      "sodium": 800,
+      "sugar": 8.0
+    },
+    "common_portions": [
+      {
+        "name": "一勺",
+        "weight_grams": 10
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "醋",
+    "aliases": [
+      "常见醋"
+    ],
+    "category": "condiments",
+    "nutrition_per_100g": {
+      "calories": 120.0,
+      "protein": 1.0,
+      "fat": 6.0,
+      "carbs": 12.0,
+      "fiber": 0,
+      "sodium": 800,
+      "sugar": 8.0
+    },
+    "common_portions": [
+      {
+        "name": "一勺",
+        "weight_grams": 10
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "白糖",
+    "aliases": [
+      "常见白糖"
+    ],
+    "category": "condiments",
+    "nutrition_per_100g": {
+      "calories": 127.2,
+      "protein": 1.0,
+      "fat": 5.8,
+      "carbs": 12.2,
+      "fiber": 0,
+      "sodium": 800,
+      "sugar": 8.0
+    },
+    "common_portions": [
+      {
+        "name": "一勺",
+        "weight_grams": 10
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "蜂蜜",
+    "aliases": [
+      "常见蜂蜜"
+    ],
+    "category": "condiments",
+    "nutrition_per_100g": {
+      "calories": 134.4,
+      "protein": 1.1,
+      "fat": 5.6,
+      "carbs": 12.5,
+      "fiber": 0,
+      "sodium": 800,
+      "sugar": 8.0
+    },
+    "common_portions": [
+      {
+        "name": "一勺",
+        "weight_grams": 10
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "芝麻油",
+    "aliases": [
+      "常见芝麻油"
+    ],
+    "category": "condiments",
+    "nutrition_per_100g": {
+      "calories": 105.6,
+      "protein": 0.9,
+      "fat": 6.4,
+      "carbs": 11.5,
+      "fiber": 0,
+      "sodium": 800,
+      "sugar": 8.0
+    },
+    "common_portions": [
+      {
+        "name": "一勺",
+        "weight_grams": 10
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "花生油",
+    "aliases": [
+      "常见花生油"
+    ],
+    "category": "condiments",
+    "nutrition_per_100g": {
+      "calories": 112.8,
+      "protein": 1.0,
+      "fat": 6.2,
+      "carbs": 11.8,
+      "fiber": 0,
+      "sodium": 800,
+      "sugar": 8.0
+    },
+    "common_portions": [
+      {
+        "name": "一勺",
+        "weight_grams": 10
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "番茄酱",
+    "aliases": [
+      "常见番茄酱"
+    ],
+    "category": "condiments",
+    "nutrition_per_100g": {
+      "calories": 120.0,
+      "protein": 1.0,
+      "fat": 6.0,
+      "carbs": 12.0,
+      "fiber": 0,
+      "sodium": 800,
+      "sugar": 8.0
+    },
+    "common_portions": [
+      {
+        "name": "一勺",
+        "weight_grams": 10
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "沙拉酱",
+    "aliases": [
+      "常见沙拉酱"
+    ],
+    "category": "condiments",
+    "nutrition_per_100g": {
+      "calories": 127.2,
+      "protein": 1.0,
+      "fat": 5.8,
+      "carbs": 12.2,
+      "fiber": 0,
+      "sodium": 800,
+      "sugar": 8.0
+    },
+    "common_portions": [
+      {
+        "name": "一勺",
+        "weight_grams": 10
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "辣椒酱",
+    "aliases": [
+      "常见辣椒酱"
+    ],
+    "category": "condiments",
+    "nutrition_per_100g": {
+      "calories": 134.4,
+      "protein": 1.1,
+      "fat": 5.6,
+      "carbs": 12.5,
+      "fiber": 0,
+      "sodium": 800,
+      "sugar": 8.0
+    },
+    "common_portions": [
+      {
+        "name": "一勺",
+        "weight_grams": 10
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "核桃",
+    "aliases": [
+      "常见核桃"
+    ],
+    "category": "nuts",
+    "nutrition_per_100g": {
+      "calories": 510.4,
+      "protein": 18.8,
+      "fat": 50.9,
+      "carbs": 19.2,
+      "fiber": 7.0,
+      "sodium": 5,
+      "sugar": 4.0
+    },
+    "common_portions": [
+      {
+        "name": "一小把",
+        "weight_grams": 25
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "杏仁",
+    "aliases": [
+      "常见杏仁"
+    ],
+    "category": "nuts",
+    "nutrition_per_100g": {
+      "calories": 545.2,
+      "protein": 19.4,
+      "fat": 49.4,
+      "carbs": 19.6,
+      "fiber": 7.0,
+      "sodium": 5,
+      "sugar": 4.0
+    },
+    "common_portions": [
+      {
+        "name": "一小把",
+        "weight_grams": 25
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "腰果",
+    "aliases": [
+      "常见腰果"
+    ],
+    "category": "nuts",
+    "nutrition_per_100g": {
+      "calories": 580.0,
+      "protein": 20.0,
+      "fat": 48.0,
+      "carbs": 20.0,
+      "fiber": 7.0,
+      "sodium": 5,
+      "sugar": 4.0
+    },
+    "common_portions": [
+      {
+        "name": "一小把",
+        "weight_grams": 25
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "开心果",
+    "aliases": [
+      "常见开心果"
+    ],
+    "category": "nuts",
+    "nutrition_per_100g": {
+      "calories": 614.8,
+      "protein": 20.6,
+      "fat": 46.6,
+      "carbs": 20.4,
+      "fiber": 7.0,
+      "sodium": 5,
+      "sugar": 4.0
+    },
+    "common_portions": [
+      {
+        "name": "一小把",
+        "weight_grams": 25
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "榛子",
+    "aliases": [
+      "常见榛子"
+    ],
+    "category": "nuts",
+    "nutrition_per_100g": {
+      "calories": 649.6,
+      "protein": 21.2,
+      "fat": 45.1,
+      "carbs": 20.8,
+      "fiber": 7.0,
+      "sodium": 5,
+      "sugar": 4.0
+    },
+    "common_portions": [
+      {
+        "name": "一小把",
+        "weight_grams": 25
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "松子",
+    "aliases": [
+      "常见松子"
+    ],
+    "category": "nuts",
+    "nutrition_per_100g": {
+      "calories": 510.4,
+      "protein": 18.8,
+      "fat": 50.9,
+      "carbs": 19.2,
+      "fiber": 7.0,
+      "sodium": 5,
+      "sugar": 4.0
+    },
+    "common_portions": [
+      {
+        "name": "一小把",
+        "weight_grams": 25
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "巴旦木",
+    "aliases": [
+      "常见巴旦木"
+    ],
+    "category": "nuts",
+    "nutrition_per_100g": {
+      "calories": 545.2,
+      "protein": 19.4,
+      "fat": 49.4,
+      "carbs": 19.6,
+      "fiber": 7.0,
+      "sodium": 5,
+      "sugar": 4.0
+    },
+    "common_portions": [
+      {
+        "name": "一小把",
+        "weight_grams": 25
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "葵花籽",
+    "aliases": [
+      "常见葵花籽"
+    ],
+    "category": "nuts",
+    "nutrition_per_100g": {
+      "calories": 580.0,
+      "protein": 20.0,
+      "fat": 48.0,
+      "carbs": 20.0,
+      "fiber": 7.0,
+      "sodium": 5,
+      "sugar": 4.0
+    },
+    "common_portions": [
+      {
+        "name": "一小把",
+        "weight_grams": 25
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "南瓜子",
+    "aliases": [
+      "常见南瓜子"
+    ],
+    "category": "nuts",
+    "nutrition_per_100g": {
+      "calories": 614.8,
+      "protein": 20.6,
+      "fat": 46.6,
+      "carbs": 20.4,
+      "fiber": 7.0,
+      "sodium": 5,
+      "sugar": 4.0
+    },
+    "common_portions": [
+      {
+        "name": "一小把",
+        "weight_grams": 25
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "芝麻",
+    "aliases": [
+      "常见芝麻"
+    ],
+    "category": "nuts",
+    "nutrition_per_100g": {
+      "calories": 649.6,
+      "protein": 21.2,
+      "fat": 45.1,
+      "carbs": 20.8,
+      "fiber": 7.0,
+      "sodium": 5,
+      "sugar": 4.0
+    },
+    "common_portions": [
+      {
+        "name": "一小把",
+        "weight_grams": 25
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "北豆腐",
+    "aliases": [
+      "常见北豆腐"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 114.4,
+      "protein": 8.5,
+      "fat": 5.3,
+      "carbs": 11.5,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "南豆腐",
+    "aliases": [
+      "常见南豆腐"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 122.2,
+      "protein": 8.7,
+      "fat": 5.2,
+      "carbs": 11.8,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "豆腐干",
+    "aliases": [
+      "常见豆腐干"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 130.0,
+      "protein": 9.0,
+      "fat": 5.0,
+      "carbs": 12.0,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "腐竹",
+    "aliases": [
+      "常见腐竹"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 137.8,
+      "protein": 9.3,
+      "fat": 4.8,
+      "carbs": 12.2,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "毛豆",
+    "aliases": [
+      "常见毛豆"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 145.6,
+      "protein": 9.5,
+      "fat": 4.7,
+      "carbs": 12.5,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "黄豆",
+    "aliases": [
+      "常见黄豆"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 114.4,
+      "protein": 8.5,
+      "fat": 5.3,
+      "carbs": 11.5,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "绿豆",
+    "aliases": [
+      "常见绿豆"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 122.2,
+      "protein": 8.7,
+      "fat": 5.2,
+      "carbs": 11.8,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "红豆",
+    "aliases": [
+      "常见红豆"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 130.0,
+      "protein": 9.0,
+      "fat": 5.0,
+      "carbs": 12.0,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "黑豆",
+    "aliases": [
+      "常见黑豆"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 137.8,
+      "protein": 9.3,
+      "fat": 4.8,
+      "carbs": 12.2,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "鹌鹑蛋",
+    "aliases": [
+      "常见鹌鹑蛋"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 145.6,
+      "protein": 9.5,
+      "fat": 4.7,
+      "carbs": 12.5,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "皮蛋",
+    "aliases": [
+      "常见皮蛋"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 114.4,
+      "protein": 8.5,
+      "fat": 5.3,
+      "carbs": 11.5,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "魔芋",
+    "aliases": [
+      "常见魔芋"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 122.2,
+      "protein": 8.7,
+      "fat": 5.2,
+      "carbs": 11.8,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "粉丝",
+    "aliases": [
+      "常见粉丝"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 130.0,
+      "protein": 9.0,
+      "fat": 5.0,
+      "carbs": 12.0,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "凉粉",
+    "aliases": [
+      "常见凉粉"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 137.8,
+      "protein": 9.3,
+      "fat": 4.8,
+      "carbs": 12.2,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  },
+  {
+    "name": "海带豆腐汤",
+    "aliases": [
+      "常见海带豆腐汤"
+    ],
+    "category": "other",
+    "nutrition_per_100g": {
+      "calories": 145.6,
+      "protein": 9.5,
+      "fat": 4.7,
+      "carbs": 12.5,
+      "fiber": 3.0,
+      "sodium": 40,
+      "sugar": 2.0
+    },
+    "common_portions": [
+      {
+        "name": "一份",
+        "weight_grams": 100
+      }
+    ],
+    "data_source": "V1 手工整理营养数据"
+  }
+]

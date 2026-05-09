@@ -74,7 +74,9 @@ class PgVectorClient:
 
         distance = embedding_column.cosine_distance(query_embedding)
         score = (1 - distance).label("score")
-        stmt: Select[tuple[T, float]] = select(table_class, score)
+        stmt: Select[tuple[T, float]] = select(table_class, score).where(
+            embedding_column.is_not(None)
+        )
 
         stmt = self._apply_filters(stmt, table_class, filters or {})
         if score_threshold > 0:
@@ -105,4 +107,5 @@ class PgVectorClient:
 
 
 __all__ = ["PgVectorClient", "VectorSearchResult"]
+
 
