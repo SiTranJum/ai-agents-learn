@@ -314,7 +314,7 @@ efficiency | confirmation | learning
 以下模块的端点汇总见 `api-design.md` §7。详细请求/响应字段在各模块进入开发阶段时添加到本文档。
 
 - §5 饮食模块（`/diet/*`）✅ 已补充（**纯 CRUD**，自然语言解析改由 `/ai/chat` 承担）
-- §6 身体数据模块（`/body/*`）
+- §6 身体数据模块（`/body/*`）✅ 已补充
 - §7 计划模块（`/plans/*`）
 - §8 AI 对话模块（`/ai/*`）✅ 草案
 - §9 AI 建议模块（`/suggestions/*`）
@@ -485,6 +485,208 @@ efficiency | confirmation | learning
 
 ---
 
+## 6. 身体数据模块接口契约
+
+> **Phase 5 设计取舍**：身体数据模块是纯 CRUD，不触发 LLM。接口字段优先贴合前端 `features/data` mock：后端 HTTP 仍使用 snake_case，前端 Service 层映射为 camelCase。
+
+### 6.1 共享枚举
+
+`BodyRecordType`: `weight | measurement | sleep | exercise | water | bowel`
+
+`TimeRange`: `7d | 30d | 90d | 365d`
+
+`SleepQuality`: `excellent | good | fair | poor`
+
+`BowelStatus`: `normal | constipation | diarrhea`
+
+`MeasurementMetric`: `waist | hip | thigh | arm`
+
+### 6.2 端点总览
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/body/weight` | 创建体重记录 |
+| GET | `/body/weight` | 分页查询体重记录 |
+| PUT | `/body/weight/{id}` | 更新体重记录 |
+| DELETE | `/body/weight/{id}` | 删除体重记录（软删除） |
+| POST/GET/PUT/DELETE | `/body/measurement[/{id}]` | 围度记录 CRUD |
+| POST/GET/PUT/DELETE | `/body/sleep[/{id}]` | 睡眠记录 CRUD |
+| POST/GET/PUT/DELETE | `/body/exercise[/{id}]` | 运动记录 CRUD |
+| POST/GET/PUT/DELETE | `/body/water[/{id}]` | 饮水记录；POST 为按日期累加，PUT 为设置累计值 |
+| POST/GET/PUT/DELETE | `/body/bowel[/{id}]` | 排便记录 CRUD |
+| GET | `/body/today?date=YYYY-MM-DD` | 指定日期 6 类记录聚合，前端 `getTodayRecords()` 对接 |
+| GET | `/body/latest` | 每类最新一条记录聚合 |
+| GET | `/body/trends` | 趋势数据 |
+
+列表接口通用查询参数：`start_date` 可选，`end_date` 可选，`page` 默认 1，`page_size` 默认 20 最大 50。
+
+### 6.3 请求体
+
+#### WeightRecordCreate / Update
+
+```jsonc
+{
+  "date": "2026-05-09",
+  "weight": 66.0,
+  "note": "空腹称重"
+}
+```
+
+#### MeasurementRecordCreate / Update
+
+```jsonc
+{
+  "date": "2026-05-09",
+  "waist": 82.0,
+  "hip": 94.0,
+  "thigh": 54.0,
+  "arm": 29.0,
+  "note": null
+}
+```
+
+约束：`waist | hip | thigh | arm` 至少一项非空。
+
+#### SleepRecordCreate / Update
+
+```jsonc
+{
+  "date": "2026-05-09",
+  "bed_time": "23:30",
+  "wake_time": "07:00",
+  "quality": "good",
+  "note": null
+}
+```
+
+后端自动计算 `duration`（分钟），支持跨天睡眠。
+
+#### ExerciseRecordCreate / Update
+
+```jsonc
+{
+  "date": "2026-05-09",
+  "type": "跑步",
+  "duration": 30,
+  "calories": 260,
+  "note": null
+}
+```
+
+`calories` 可选；缺失时后端按常见 MET 值粗略估算。
+
+#### WaterRecordCreate / Update
+
+```jsonc
+{
+  "date": "2026-05-09",
+  "amount": 500,
+  "target": 2000
+}
+```
+
+语义：`POST /body/water` 的 `amount` 是“本次新增饮水量”，同日已有记录时累加；`PUT /body/water/{id}` 的 `amount` 是“当日累计饮水量”。
+
+#### BowelRecordCreate / Update
+
+```jsonc
+{
+  "date": "2026-05-09",
+  "time": "09:30",
+  "status": "normal",
+  "note": null
+}
+```
+
+### 6.4 响应模型
+
+#### WeightRecordResponse
+
+```jsonc
+{
+  "id": "uuid",
+  "date": "2026-05-09",
+  "weight": 66.0,
+  "bmi": 22.8,
+  "change": -0.2,
+  "note": "空腹称重",
+  "anomaly_warning": null,
+  "created_at": "2026-05-09T08:00:00Z",
+  "updated_at": "2026-05-09T08:00:00Z"
+}
+```
+
+#### 其他记录响应字段
+
+| 类型 | 字段 |
+|---|---|
+| `MeasurementRecordResponse` | `id`, `date`, `waist`, `hip`, `thigh`, `arm`, `note`, `anomaly_warning`, `created_at`, `updated_at` |
+| `SleepRecordResponse` | `id`, `date`, `bed_time`, `wake_time`, `duration`, `quality`, `note`, `created_at`, `updated_at` |
+| `ExerciseRecordResponse` | `id`, `date`, `type`, `duration`, `calories`, `note`, `created_at`, `updated_at` |
+| `WaterRecordResponse` | `id`, `date`, `amount`, `target`, `created_at`, `updated_at` |
+| `BowelRecordResponse` | `id`, `date`, `time`, `status`, `note`, `created_at`, `updated_at` |
+
+### 6.5 GET /body/today — 今日记录聚合
+
+**查询参数**：`date=YYYY-MM-DD`
+
+**响应**：`200 ApiResponse<TodayRecords>`
+
+```jsonc
+{
+  "data": {
+    "weight": null,
+    "measurement": null,
+    "sleep": null,
+    "exercise": null,
+    "water": { "id": "uuid", "date": "2026-05-09", "amount": 1500, "target": 2000, "created_at": "...", "updated_at": "..." },
+    "bowel": null
+  },
+  "message": "ok"
+}
+```
+
+前端空卡片仍由 UI 本地根据 `null` 生成，不落库。
+
+### 6.6 GET /body/trends — 趋势数据
+
+**查询参数**：
+
+- `type`: BodyRecordType，必填
+- `period`: TimeRange，默认 `30d`
+- `metric`: MeasurementMetric，可选；仅 `type=measurement` 时有效，默认 `waist`
+
+**响应**：`200 ApiResponse<TrendResponse>`
+
+```jsonc
+{
+  "data": {
+    "type": "weight",
+    "period": "30d",
+    "metric": "weight",
+    "data_points": [{ "date": "2026-05-09", "value": 66.0 }],
+    "statistics": { "min": 66.0, "max": 70.0, "average": 68.1, "latest": 66.0, "change": -4.0 },
+    "target": 60.0
+  },
+  "message": "ok"
+}
+```
+
+趋势值约定：`weight=kg`，`measurement=cm`，`sleep=小时`，`exercise=分钟`，`water=ml`，`bowel=次/天`。`365d` 返回自然周均值点。
+
+### 6.7 前端 mock/type 映射
+
+| 后端字段 | 前端字段 |
+|---|---|
+| `bed_time` / `wake_time` | `bedTime` / `wakeTime` |
+| `anomaly_warning` | `anomalyWarning` |
+| `created_at` / `updated_at` | `createdAt` / `updatedAt` |
+| `data_points` | `dataPoints` |
+
+其他字段（如 `weight`, `amount`, `target`, `duration`, `quality`, `status`）与前端 mock 保持同名。
+
+---
+
 ## 8. AI 对话模块接口契约（草案）
 
 > Phase 6 正式落地。本节先锁定**契约轮廓**，供前端同步规划"对话式饮食记录"交互。
@@ -608,3 +810,4 @@ grains | meat | vegetables | fruits | dairy | beverages | snacks | condiments | 
 | 2026-05-08 | Phase 3：补充知识库模块契约（§10），包含食物搜索与详情接口 |
 | 2026-05-09 | Phase 4：补充饮食模块契约（§5），包含 parse、records、summary 接口 |
 | 2026-05-09 | 架构重构：饮食模块改为**纯 CRUD**；下线 `/diet/parse`；`POST /diet/records` 收窄为结构化输入；新增 §8 AI 对话模块契约草案（`/ai/chat` 作为唯一 LLM 入口） |
+| 2026-05-09 | Phase 5：补充身体数据模块契约（§6），覆盖 6 类记录 CRUD、today/latest 聚合、trends 趋势与前端 mock 映射 |

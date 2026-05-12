@@ -245,7 +245,7 @@ export async function getRecentRecords(
     case 'water': {
       // 饮水按天构造历史
       return Array.from({ length: limit }).map((_, idx) => {
-        const d = new Date('2026-04-30T00:00:00');
+        const d = new Date(`${todayRecordsMock.water?.date ?? new Date().toISOString().slice(0, 10)}T00:00:00`);
         d.setDate(d.getDate() - (idx + 1));
         const dateStr = d.toISOString().slice(0, 10);
         return {

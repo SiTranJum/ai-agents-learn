@@ -18,10 +18,13 @@ export interface WeightRecord {
   id: string;
   date: string;
   weight: number;
-  bmi: number;
+  bmi: number | null;
   /** 与昨日体重差值（kg） */
   change: number;
   note?: string;
+  anomalyWarning?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MeasurementRecord {
@@ -32,6 +35,9 @@ export interface MeasurementRecord {
   thigh?: number;
   arm?: number;
   note?: string;
+  anomalyWarning?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type SleepQuality = 'excellent' | 'good' | 'fair' | 'poor';
@@ -47,6 +53,8 @@ export interface SleepRecord {
   duration: number;
   quality: SleepQuality;
   note?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ExerciseRecord {
@@ -59,6 +67,8 @@ export interface ExerciseRecord {
   /** 估算消耗 kcal */
   calories: number;
   note?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface WaterRecord {
@@ -68,6 +78,8 @@ export interface WaterRecord {
   amount: number;
   /** 目标（ml） */
   target: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type BowelStatus = 'normal' | 'constipation' | 'diarrhea';
@@ -79,6 +91,8 @@ export interface BowelRecord {
   time: string;
   status: BowelStatus;
   note?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type BodyRecord =

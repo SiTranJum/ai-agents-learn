@@ -320,12 +320,12 @@ uvicorn app.main:app --reload
 - Create: `app/services/body_service.py`
 - Create: `app/api/v1/body.py`
 
-- [ ] **Step 1: 创建数据库模型**（WeightRecord、体围、睡眠、运动、饮水、排便）
-- [ ] **Step 2: 创建 schemas**
-- [ ] **Step 3: 实现 BodyRepository**（CRUD + 趋势查询 + 最新值）
-- [ ] **Step 4: 实现 BodyService**（数据校验、异常值检测、趋势计算）
-- [ ] **Step 5: 实现 API 端点**（各类型 CRUD + trends + latest）
-- [ ] **Step 6: 编写测试**
+- [x] **Step 1: 创建数据库模型**（WeightRecord、体围、睡眠、运动、饮水、排便）
+- [x] **Step 2: 创建 schemas**
+- [x] **Step 3: 实现 BodyRepository**（CRUD + 趋势查询 + 最新值）
+- [x] **Step 4: 实现 BodyService**（数据校验、异常值检测、趋势计算）
+- [x] **Step 5: 实现 API 端点**（各类型 CRUD + trends + latest）
+- [x] **Step 6: 编写测试**
 - [ ] **Step 7: Commit**
 
 ---
@@ -550,7 +550,7 @@ uvicorn app.main:app --reload
 | 2 | Agent 基础设施与向量能力 | 2 | ✅ 已完成（按新 spec 做 reverse-review） |
 | 3 | RAG 知识库 | 2 | ✅ 已完成 |
 | 4 | 饮食记录模块（diet_agent） | 4 | ✅ 已完成（待 commit） |
-| 5 | 身体数据追踪模块 | 1 | ⬜ 未开始 |
+| 5 | 身体数据追踪模块 | 1 | ✅ 已完成（待 commit） |
 | 6 | AI 记忆系统（memory_agent） | 2 | ⬜ 未开始 |
 | 7 | AI 对话系统（chat_agent） | 2 | ⬜ 未开始 |
 | 8 | 计划系统（plan_agent） | 2 | ⬜ 未开始 |

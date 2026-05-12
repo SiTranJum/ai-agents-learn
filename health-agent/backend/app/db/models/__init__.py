@@ -5,6 +5,14 @@
 """
 
 from app.db.base import Base  # 重新导出, 方便外部使用
+from app.db.models.body import (
+    BowelRecord,
+    ExerciseRecord,
+    MeasurementRecord,
+    SleepRecord,
+    WaterRecord,
+    WeightRecord,
+)
 from app.db.models.diet import DietItem, DietRecord
 from app.db.models.knowledge import Food, KnowledgeDoc
 from app.db.models.user import (
@@ -16,12 +24,18 @@ from app.db.models.user import (
 
 __all__ = [
     "Base",
+    "BowelRecord",
     "DietItem",
     "DietRecord",
+    "ExerciseRecord",
     "Food",
     "HealthProfile",
     "KnowledgeDoc",
+    "MeasurementRecord",
+    "SleepRecord",
     "UserHealthInfo",
     "UserPreference",
     "UserSetting",
+    "WaterRecord",
+    "WeightRecord",
 ]
