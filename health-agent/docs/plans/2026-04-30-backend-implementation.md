@@ -344,12 +344,12 @@ uvicorn app.main:app --reload
 - Create: `app/schemas/memory.py`
 - Create: `app/services/memory_service.py`
 
-- [ ] **Step 1: 创建 Memory 和 MemorySummary 数据库模型**（含 vector 列）
-- [ ] **Step 2: 创建记忆 schemas**
-- [ ] **Step 3: 实现 MemoryRepository**
-- [ ] **Step 4: 实现 MemoryService**（`store_memory` / `recall_memories` / `get_long_term_profile` / `on_profile_updated`；**不含 LLM 调用**）
-- [ ] **Step 5: 生成迁移**
-- [ ] **Step 6: 单元测试**（时间衰减、类型权重、多因子评分）
+- [x] **Step 1: 创建 Memory 和 MemorySummary 数据库模型**（含 vector 列）
+- [x] **Step 2: 创建记忆 schemas**
+- [x] **Step 3: 实现 MemoryRepository**
+- [x] **Step 4: 实现 MemoryService**（`store_memory` / `recall_memories` / `get_long_term_profile` / `on_profile_updated`；**不含 LLM 调用**）
+- [x] **Step 5: 生成迁移**
+- [x] **Step 6: 单元测试**（时间衰减、类型权重、多因子评分）
 - [ ] **Step 7: Commit**
 
 ---
@@ -365,12 +365,12 @@ uvicorn app.main:app --reload
 - Create: `app/agents/prompts/memory_score.py`
 - Create: `app/agents/prompts/consolidate.py`
 
-- [ ] **Step 1: 定义 MemoryExtractionState** — trigger_type / context_data / extracted / scored / approved
-- [ ] **Step 2: 实现 prompt 模板**（extract / score / consolidate）
-- [ ] **Step 3: 实现节点**（`extract` / `score` / `filter` / `embed_and_store`）— 最后一步通过 Tool 调 `MemoryService.store_memory`，节点内用 `EmbeddingClient.embed` 生成向量
-- [ ] **Step 4: 组装 Graph** — `build_memory_agent()`
-- [ ] **Step 5: 子图：consolidate_subgraph**（相似度检测 → LLM 摘要 → 归档原始）
-- [ ] **Step 6: 单元测试** — mock LLM 与 Embedding
+- [x] **Step 1: 定义 MemoryExtractionState** — trigger_type / context_data / extracted / scored / approved
+- [x] **Step 2: 实现 prompt 模板**（extract / score / consolidate）
+- [x] **Step 3: 实现节点**（`extract` / `score` / `filter` / `embed_and_store`）— 最后一步通过 Tool 调 `MemoryService.store_memory`，节点内用 `EmbeddingClient.embed` 生成向量
+- [x] **Step 4: 组装 Graph** — `build_memory_agent()`
+- [x] **Step 5: 子图：consolidate_subgraph**（相似度检测 → LLM 摘要 → 归档原始）
+- [x] **Step 6: 单元测试** — mock LLM 与 Embedding
 - [ ] **Step 7: Commit**
 
 ---
@@ -551,7 +551,7 @@ uvicorn app.main:app --reload
 | 3 | RAG 知识库 | 2 | ✅ 已完成 |
 | 4 | 饮食记录模块（diet_agent） | 4 | ✅ 已完成（待 commit） |
 | 5 | 身体数据追踪模块 | 1 | ✅ 已完成（待 commit） |
-| 6 | AI 记忆系统（memory_agent） | 2 | ⬜ 未开始 |
+| 6 | AI 记忆系统（memory_agent） | 2 | ✅ 已完成（待 commit） |
 | 7 | AI 对话系统（chat_agent） | 2 | ⬜ 未开始 |
 | 8 | 计划系统（plan_agent） | 2 | ⬜ 未开始 |
 | 9 | AI 建议系统（suggestion_agent） | 1 | ⬜ 未开始 |

@@ -17,12 +17,14 @@ from app.core.security import claims_to_current_user, decode_supabase_jwt
 from app.db.repositories.body_repo import BodyRepository
 from app.db.repositories.diet_repo import DietRepository
 from app.db.repositories.knowledge_repo import KnowledgeRepository
+from app.db.repositories.memory_repo import MemoryRepository
 from app.db.repositories.user_repo import UserRepository
 from app.db.session import get_db_session
 from app.integrations.embedding import EmbeddingClient
 from app.schemas.auth import CurrentUser
 from app.services.body_service import BodyService
 from app.services.diet_service import DietService
+from app.services.memory_service import MemoryService
 from app.services.rag_service import RagService
 from app.services.user_service import UserService
 
@@ -153,5 +155,19 @@ async def get_body_service(
 
 
 BodyServiceDep = Annotated[BodyService, Depends(get_body_service)]
+
+
+async def get_memory_service(
+    session: DbSession,
+    user: CurrentUserDep,
+) -> MemoryService:
+    """构造按当前用户隔离的记忆服务。"""
+    return MemoryService(
+        repo=MemoryRepository(session=session, user_id=user.id),
+        embedding_client=EmbeddingClient(),
+    )
+
+
+MemoryServiceDep = Annotated[MemoryService, Depends(get_memory_service)]
 
 

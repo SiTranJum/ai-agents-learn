@@ -15,6 +15,7 @@ from app.db.models.body import (
 )
 from app.db.models.diet import DietItem, DietRecord
 from app.db.models.knowledge import Food, KnowledgeDoc
+from app.db.models.memory import Memory, MemorySummary
 from app.db.models.user import (
     HealthProfile,
     UserHealthInfo,
@@ -32,6 +33,8 @@ __all__ = [
     "HealthProfile",
     "KnowledgeDoc",
     "MeasurementRecord",
+    "Memory",
+    "MemorySummary",
     "SleepRecord",
     "UserHealthInfo",
     "UserPreference",
