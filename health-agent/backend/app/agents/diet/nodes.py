@@ -8,6 +8,7 @@
   也允许直接写入 state 里（key 仍用 ``diet_service``，但它不是 ChatState 的
   正式字段，仅临时携带）。
 """
+# ruff: noqa: RUF002
 
 from __future__ import annotations
 

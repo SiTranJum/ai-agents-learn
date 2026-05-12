@@ -16,6 +16,7 @@ LangGraph SDK/API 说明：
   由框架合并而不是覆盖，这是 LangChain 对话 Graph 的标准模式。
 - 所有未显式标注合并策略的字段，节点返回时均为**覆盖写入**。
 """
+# ruff: noqa: RUF002,RUF003
 
 from __future__ import annotations
 
@@ -63,6 +64,10 @@ class ChatState(TypedDict, total=False):
     # subgraph 产出
     diet_parse_result: Any
     diet_saved_record: Any
+    # Phase 4/6 过渡兼容字段：测试或 chat_graph 可临时携带这些值。
+    foods: list[Any]
+    mode: str | None
+    diet_service: Any
 
     # ---------- 元信息 ----------
     request_id: str | None

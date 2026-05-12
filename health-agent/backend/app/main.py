@@ -7,6 +7,7 @@
 - 在 ``/api/v1`` 下挂载 v1 路由
 - 通过 ``lifespan`` 管理异步数据库引擎的生命周期
 """
+# ruff: noqa: RUF001,RUF002,RUF003
 
 from __future__ import annotations
 
@@ -132,7 +133,7 @@ def _register_exception_handlers(app: FastAPI) -> None:
             for err in exc.errors()
         ]
         return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=422,
             content=error_body(
                 "VALIDATION_ERROR",
                 "请求参数校验失败",

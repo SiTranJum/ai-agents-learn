@@ -89,7 +89,7 @@ export function WeightCard({
         <Text style={styles.heroUnit}> kg</Text>
       </Text>
       <Text style={styles.subHint}>{changeText}</Text>
-      <Text style={styles.subSuccess}>BMI {record.bmi}（正常）</Text>
+      {record.bmi != null && <Text style={styles.subSuccess}>BMI {record.bmi}（正常）</Text>}
     </Card>
   );
 }

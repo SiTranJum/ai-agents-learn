@@ -13,8 +13,8 @@ import type {
   WeightRecord,
 } from '../types/data.types';
 
-const TODAY = '2026-04-30';
-const YESTERDAY = '2026-04-29';
+const TODAY = '2026-05-09';
+const YESTERDAY = '2026-05-08';
 
 // ===== 体重趋势 mock（30 天，70kg → 66kg 阶梯式下降） =====
 function generateWeightTrend(days: number): WeightRecord[] {
