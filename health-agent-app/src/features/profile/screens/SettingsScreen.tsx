@@ -37,14 +37,14 @@ const APP_VERSION = 'v1.0.0';
 
 const MODE_DESCRIPTIONS: Record<InteractionMode, string> = {
   efficiency: '最少确认，AI 直接执行操作',
-  confirm: '关键操作需要二次确认（推荐）',
-  learn: '提供操作提示和引导',
+  confirmation: '关键操作需要二次确认（推荐）',
+  learning: '提供操作提示和引导',
 };
 
 const MODE_LABELS: Record<InteractionMode, string> = {
   efficiency: '效率模式',
-  confirm: '确认模式',
-  learn: '学习模式',
+  confirmation: '确认模式',
+  learning: '学习模式',
 };
 
 export function SettingsScreen() {
@@ -117,7 +117,7 @@ export function SettingsScreen() {
   const sections: SettingsListSection[] = [
     {
       title: '交互模式',
-      items: (['efficiency', 'confirm', 'learn'] as InteractionMode[]).map(
+      items: (['efficiency', 'confirmation', 'learning'] as InteractionMode[]).map(
         (mode) => ({
           type: 'radio' as const,
           key: mode,

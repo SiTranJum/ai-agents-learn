@@ -19,14 +19,18 @@ export interface NutritionBottomSheetProps {
 
 const SOURCE_LABEL: Record<DataSource, string> = {
   local_db: '本地数据库',
+  database: '本地数据库',
   api: '在线 API',
   ai_estimate: 'AI 估算',
+  llm_estimate: 'AI 估算',
 };
 
 const SOURCE_VARIANT: Record<DataSource, 'success' | 'info' | 'warning'> = {
   local_db: 'success',
+  database: 'success',
   api: 'info',
   ai_estimate: 'warning',
+  llm_estimate: 'warning',
 };
 
 export function NutritionBottomSheet({

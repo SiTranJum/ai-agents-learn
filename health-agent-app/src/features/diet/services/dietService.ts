@@ -1,13 +1,33 @@
-// Diet Service - Mock 实现
-// 参考: docs/specs/frontend/modules/12-diet-module.md §7
+// Diet Service - 对接后端 /diet/* 与 /knowledge/foods/*
+// 契约: docs/specs/shared/api-contract.md §5、§10
 
-import type { DietPageData, DietRecord } from '../types/diet.types';
-import { partialDietMock, foodCandidates, foodItemFromCandidate } from '../mocks/dietMocks';
-import type { FoodCandidate } from '../types/diet.types';
+import { apiClient } from '@core/api/client';
+import type {
+  DietPageData,
+  DietRecord,
+  FoodCandidate,
+  MealType,
+} from '../types/diet.types';
+import {
+  BackendDailySummary,
+  BackendDietRecord,
+  BackendFoodSearchItem,
+  mapDailySummary,
+  mapFoodSearchItem,
+  mapFoodItem,
+  mergeRecordsToCard,
+  toDietRecordPayload,
+} from './dietMapper';
 
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// 兼容 editing 态的 Record 容器
+interface SaveableRecord extends Omit<DietRecord, 'status'> {
+  status: DietRecord['status'];
+}
 
-// 计算单餐的汇总（热量与三大营养素）
+/**
+ * 重算单餐的热量与三大营养素（编辑页即时预览用）
+ * 保存时后端会自己再算一次，前端结果仅用于展示，不会写入后端。
+ */
 export function recalcMeal(meal: DietRecord): DietRecord {
   const total = meal.foods.reduce(
     (acc, f) => ({
@@ -31,85 +51,150 @@ export function recalcMeal(meal: DietRecord): DietRecord {
 
 export interface DietService {
   getDietByDate(date: string): Promise<DietPageData>;
-  saveDietRecord(record: DietRecord): Promise<DietRecord>;
+  /**
+   * 新增/更新饮食记录。
+   * - 无 id → POST /diet/records 新建
+   * - 有 id → PUT /diet/records/{id} 更新
+   *
+   * 注：若同日同 mealType 存在多条记录，getDietByDate 已把它们合并到一张卡（id 取首条）。
+   * 保存时只更新首条记录，**不会**自动删除冗余记录（避免误删）。V2 再考虑 upsert。
+   */
+  saveDietRecord(record: SaveableRecord, date?: string): Promise<DietRecord>;
   deleteDietRecord(recordId: string): Promise<void>;
-  confirmPendingRecord(recordId: string): Promise<DietRecord>;
-  cancelPendingRecord(recordId: string): Promise<void>;
+  /** 确认 pending 卡片 = 直接调用 saveDietRecord 创建 recorded */
+  confirmPendingRecord(record: SaveableRecord, date?: string): Promise<DietRecord>;
+  /** pending 取消纯前端本地，不调后端 */
+  cancelPendingRecord(_recordId?: string): Promise<void>;
+}
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export const dietService: DietService = {
   async getDietByDate(date) {
-    await delay(500);
-    // Mock-First：默认返回部分记录态
-    return { ...partialDietMock, date };
+    const raw = await apiClient.get<BackendDailySummary>(
+      `/diet/daily-summary?date=${encodeURIComponent(date)}`
+    );
+    return mapDailySummary(raw);
   },
 
-  async saveDietRecord(record) {
-    await delay(600);
-    const recalculated = recalcMeal(record);
-    return {
-      ...recalculated,
-      id: record.id ?? `r-${Date.now()}`,
-      status: 'recorded',
-    };
+  async saveDietRecord(record, date) {
+    const effectiveDate = date ?? todayStr();
+    const payload = toDietRecordPayload(record as DietRecord, effectiveDate);
+    if (record.id) {
+      const raw = await apiClient.put<BackendDietRecord>(
+        `/diet/records/${record.id}`,
+        payload
+      );
+      return mergeRecordsToCard([raw], record.mealType);
+    } else {
+      const raw = await apiClient.post<BackendDietRecord>(
+        '/diet/records',
+        payload
+      );
+      return mergeRecordsToCard([raw], record.mealType);
+    }
   },
 
-  async deleteDietRecord(_recordId) {
-    await delay(400);
+  async deleteDietRecord(recordId) {
+    await apiClient.delete<null>(`/diet/records/${recordId}`);
   },
 
-  async confirmPendingRecord(recordId) {
-    await delay(400);
-    return {
-      id: recordId,
-      mealType: 'lunch',
-      status: 'recorded',
-      foods: [],
-      totalCalories: 0,
-      nutrients: { carbs: 0, protein: 0, fat: 0 },
-    };
+  async confirmPendingRecord(record, date) {
+    // pending 是前端 UI 态，确认 = 新建一条后端记录
+    const { id: _omit, ...rest } = record;
+    return dietService.saveDietRecord({ ...rest } as SaveableRecord, date);
   },
 
-  async cancelPendingRecord(_recordId) {
-    await delay(300);
+  async cancelPendingRecord() {
+    // noop：pending 仅存在于前端 state，调用方直接清除即可
   },
 };
 
 // ===== Food Service =====
+
 export interface FoodService {
+  /**
+   * 食物搜索。
+   * - 调用 /knowledge/foods/search，返回候选列表（仅含每 100g 热量）
+   * - 用户选中后，前端按默认 100g 提交，用户可再修改份量
+   *   （蛋白质/脂肪/碳水按每 100g 比例自动填充为 0，等用户输入或由后端 RAG 补全）
+   */
   searchFood(keyword: string): Promise<FoodCandidate[]>;
-  getFoodNutrition(foodName: string, amount: number, unit: string): Promise<FoodCandidate | null>;
+  /**
+   * 获取食物详情（详情页/编辑页选中后按实际份量推算营养素）
+   * - 调用 /knowledge/foods/{id}
+   * - V1 暂不使用（D1 方案：选中后用户手动输入份量）
+   */
+  getFoodDetail(foodId: string): Promise<FoodDetailRaw>;
+}
+
+export interface FoodDetailRaw {
+  id: string;
+  name: string;
+  aliases: string[];
+  category: string;
+  nutrition_per_100g: {
+    calories: number;
+    protein: number;
+    fat: number;
+    carbs: number;
+    fiber?: number | null;
+    sodium?: number | null;
+  };
+  common_portions: Array<{
+    name: string;
+    amount: number;
+    unit: string;
+    amount_grams: number;
+  }>;
+  data_source: string;
 }
 
 export const foodService: FoodService = {
   async searchFood(keyword) {
-    await delay(200);
-    if (!keyword.trim()) return [];
-    const kw = keyword.trim().toLowerCase();
-    return foodCandidates
-      .filter((f) => f.name.toLowerCase().includes(kw))
-      .slice(0, 5);
+    const kw = keyword.trim();
+    if (!kw) return [];
+    const raw = await apiClient.get<BackendFoodSearchItem[]>(
+      `/knowledge/foods/search?q=${encodeURIComponent(kw)}&limit=10`
+    );
+    return raw.map(mapFoodSearchItem);
   },
 
-  async getFoodNutrition(foodName, amount, unit) {
-    await delay(150);
-    const candidate = foodCandidates.find((f) => f.name === foodName);
-    if (!candidate) return null;
-    // 单位匹配时按比例缩放，否则按默认份返回
-    if (candidate.defaultUnit === unit) {
-      const ratio = amount / candidate.defaultAmount;
-      return {
-        ...candidate,
-        defaultAmount: amount,
-        caloriesPerPortion: Math.round(candidate.caloriesPerPortion * ratio),
-        proteinPerPortion: Math.round(candidate.proteinPerPortion * ratio * 10) / 10,
-        fatPerPortion: Math.round(candidate.fatPerPortion * ratio * 10) / 10,
-        carbsPerPortion: Math.round(candidate.carbsPerPortion * ratio * 10) / 10,
-      };
-    }
-    return candidate;
+  async getFoodDetail(foodId) {
+    return apiClient.get<FoodDetailRaw>(`/knowledge/foods/${foodId}`);
   },
 };
 
-// 工具导出
-export { foodItemFromCandidate };
+// ===== 工具：从 FoodCandidate 构造新的 FoodItem =====
+
+// V1 前端 FoodItem 本地临时 ID 生成器（保存后由后端 ID 替换）
+let LOCAL_FOOD_SEQ = Date.now();
+export function nextFoodItemId(): string {
+  return `local-${++LOCAL_FOOD_SEQ}`;
+}
+
+/**
+ * 从搜索候选构造 FoodItem。
+ * V1 方案（D1）：默认按 100g 生成，caloriesPerPortion 直接用作热量，
+ * 其他营养素先置 0，等用户手动输入或保存时由后端 RAG 补全。
+ */
+export function foodItemFromCandidate(c: FoodCandidate) {
+  return {
+    id: nextFoodItemId(),
+    name: c.name,
+    amount: c.defaultAmount,
+    unit: c.defaultUnit,
+    amountGrams: c.defaultUnit === 'g' ? c.defaultAmount : undefined,
+    calories: c.caloriesPerPortion,
+    protein: c.proteinPerPortion,
+    fat: c.fatPerPortion,
+    carbs: c.carbsPerPortion,
+    dataSource: 'database' as const,
+    foodId: c.id,
+  };
+}
+
+// 导出 mapFoodItem 给 AI 对话模块复用（diet_parse 卡片里的食物项）
+export { mapFoodItem };

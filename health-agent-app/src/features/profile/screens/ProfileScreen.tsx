@@ -146,7 +146,7 @@ export function ProfileScreen() {
           emptyHint="暂无疾病信息"
           items={[
             { label: '疾病', value: profile.diseases.join('、') },
-            { label: '药物', value: profile.medications.join('、') },
+            { label: '药物', value: profile.medications || '' },
             { label: '医嘱', value: profile.medicalAdvice ?? '' },
           ]}
         />

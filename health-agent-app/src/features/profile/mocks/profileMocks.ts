@@ -20,12 +20,12 @@ export const userProfileMock: UserProfile = {
   restrictions: [],
   dislikedFoods: ['香菜'],
   diseases: ['高血压'],
-  medications: ['氨氯地平 5mg/日'],
+  medications: '氨氯地平 5mg/日',
   medicalAdvice: '低盐饮食，每日盐摄入不超过 6g',
 };
 
 export const appSettingsMock: AppSettings = {
-  interactionMode: 'confirm',
+  interactionMode: 'confirmation',
   notifications: {
     planReminder: true,
     dietReminder: true,
@@ -43,16 +43,14 @@ export const ACTIVITY_LEVEL_OPTIONS = [
   { label: '久坐（基本不运动）', value: 'sedentary' },
   { label: '轻度活动（每周 1-3 次）', value: 'light' },
   { label: '中度活动（每周 3-5 次）', value: 'moderate' },
-  { label: '积极活动（每周 6-7 次）', value: 'active' },
-  { label: '高强度活动（专业运动员）', value: 'very_active' },
+  { label: '高强度活动（每周 6 次以上）', value: 'heavy' },
 ] as const;
 
 export const ACTIVITY_LEVEL_LABEL: Record<string, string> = {
   sedentary: '久坐',
   light: '轻度',
   moderate: '中度',
-  active: '积极',
-  very_active: '高强度',
+  heavy: '高强度',
 };
 
 export const GOAL_TYPE_OPTIONS = [
