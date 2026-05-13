@@ -2,6 +2,8 @@
 // 参考: docs/specs/frontend/modules/16-ai-dialog-module.md §8
 
 import type { ChatMessage, NutritionData } from '../types/ai.types';
+import { apiClient } from '@core/api/client';
+import type { ChatCard, ChatResponseRaw } from '../types/ai.types';
 import {
   classifyIntent,
   estimateNutrition,
@@ -15,14 +17,47 @@ const makeId = () => `m-${Date.now()}-${++_id}`;
 const now = (): string =>
   new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 
+function mapCardActions(cards?: ChatCard[]) {
+  return cards?.flatMap((card) =>
+    card.actions.map((action) => ({
+      key: action.kind,
+      label:
+        action.label ??
+        (action.kind === 'confirm_create_diet_record'
+          ? '确认保存'
+          : action.kind === 'edit_diet_items'
+            ? '修改食物'
+            : action.kind),
+      action: action.kind === 'confirm_create_diet_record' ? 'confirm' as const : 'navigate' as const,
+      variant: action.kind === 'confirm_create_diet_record' ? 'primary' as const : 'secondary' as const,
+      params: { card },
+    }))
+  );
+}
+
+function mapBackendReply(raw: ChatResponseRaw): ChatMessage {
+  const message = raw.messages[0];
+  return {
+    id: message.id ?? makeId(),
+    role: message.role === 'assistant' ? 'ai' : message.role,
+    content: message.content,
+    timestamp: message.created_at
+      ? new Date(message.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+      : now(),
+    cards: message.cards,
+    actions: mapCardActions(message.cards),
+  };
+}
+
 export interface AIService {
   /**
    * 模拟发送消息给 AI，返回 AI 回复（可能携带 actions / nutritionData）
    */
   sendMessage(
     message: string,
+    sessionId?: string | null,
     context?: Record<string, unknown>
-  ): Promise<{ reply: ChatMessage; nutritionData?: NutritionData }>;
+  ): Promise<{ reply: ChatMessage; sessionId?: string; nutritionData?: NutritionData }>;
 
   /**
    * 营养查询
@@ -31,7 +66,18 @@ export interface AIService {
 }
 
 export const aiService: AIService = {
-  async sendMessage(message) {
+  async sendMessage(message, sessionId, context) {
+    try {
+      const raw = await apiClient.post<ChatResponseRaw>('/ai/chat', {
+        session_id: sessionId ?? null,
+        message,
+        context,
+      });
+      return { reply: mapBackendReply(raw), sessionId: raw.session_id };
+    } catch {
+      // 开发阶段允许后端未启动/未登录时回退到本地 mock，保证学习 UI 可用。
+    }
+
     await delay(700);
 
     const { intent, matchedFood } = classifyIntent(message);

@@ -48,9 +48,20 @@ class ChatState(TypedDict, total=False):
     messages: Annotated[list[BaseMessage], add_messages]
     user_id: str
     session_id: str | None
+    user_message: str
+    chat_history: list[dict[str, Any]]
+    context: dict[str, Any]
+    prompt_messages: list[Any]
+    ai_response: str
+    response_cards: list[dict[str, Any]]
 
     # ---------- 路由 ----------
     intent: Intent | None
+
+    # ---------- 记忆 / RAG ----------
+    long_term_profile: list[dict[str, Any]]
+    recalled_memories: list[dict[str, Any]]
+    knowledge: list[dict[str, Any]]
 
     # ---------- 领域字段：饮食（diet subgraph） ----------
     # 输入
@@ -68,6 +79,11 @@ class ChatState(TypedDict, total=False):
     foods: list[Any]
     mode: str | None
     diet_service: Any
+
+    # ---------- Agent 工具依赖（由 API 层按请求注入，不持久化） ----------
+    memory_service: Any
+    rag_service: Any
+    embedding_client: Any
 
     # ---------- 元信息 ----------
     request_id: str | None

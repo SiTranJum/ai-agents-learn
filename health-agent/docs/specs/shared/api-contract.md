@@ -687,9 +687,9 @@ efficiency | confirmation | learning
 
 ---
 
-## 8. AI 对话模块接口契约（草案）
+## 8. AI 对话模块接口契约
 
-> Phase 6 正式落地。本节先锁定**契约轮廓**，供前端同步规划"对话式饮食记录"交互。
+> Phase 7 正式落地。本节定义统一 AI 对话入口、消息历史分页与会话清除。
 
 ### 8.1 POST /ai/chat — 统一 AI 对话入口
 
@@ -708,16 +708,19 @@ efficiency | confirmation | learning
 }
 ```
 
-**响应**（流式 SSE 或一次性 JSON，Phase 6 决定）：
+**响应**：Phase 7 采用一次性 JSON；暂不做 SSE 流式输出。
 
 ```jsonc
 {
   "data": {
     "session_id": "uuid",
+    "intent": "diet",
     "messages": [
       {
+        "id": "uuid",
         "role": "assistant",
         "content": "我识别到午餐有两项食物：",
+        "created_at": "2026-05-12T10:00:00Z",
         "cards": [                 // 结构化卡片；饮食分支返回解析卡片
           {
             "type": "diet_parse",
@@ -748,13 +751,69 @@ efficiency | confirmation | learning
 4. 用户点击"确认保存" → 前端调用 `POST /diet/records`（§5.2），传入卡片中的 `foods`
 5. 后端持久化后返回 `DietRecordResponse`；前端追加到当天记录列表
 
-### 8.2 GET /ai/chat/history — 会话历史（草案）
+**字段说明**：
 
-Phase 6 定义。预期返回 `{ sessions: [{ id, title, last_message_at }] }`。
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `session_id` | string | 会话 ID；请求不传时后端新建，前端应保存并在后续消息继续传入 |
+| `intent` | `diet \| body \| plan \| memory \| suggestion \| general` | 本轮顶层意图；Phase 7 仅完整实现 `diet` 与 `general` |
+| `messages` | array | 本次返回的助手消息列表；Phase 7 通常只返回 1 条 |
+| `cards` | array | 结构化卡片；饮食解析使用 `diet_parse` |
 
-### 8.3 DELETE /ai/chat/sessions/{id} — 清除会话（草案）
+### 8.2 GET /ai/chat/history — 消息历史分页
 
-Phase 6 定义。纯 CRUD。
+**查询参数**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `session_id` | string | 否 | 会话 ID；不传时返回最近一个未删除会话的消息 |
+| `page` | int | 否 | 页码，从 1 开始，默认 1 |
+| `page_size` | int | 否 | 每页条数，1-50，默认 20 |
+
+**响应**：`200 PaginatedResponse<ChatMessageResponse>`，消息按 `created_at` 正序返回。
+
+```jsonc
+{
+  "data": [
+    {
+      "id": "uuid",
+      "role": "user",
+      "content": "午饭吃了一碗米饭",
+      "created_at": "2026-05-12T10:00:00Z",
+      "cards": []
+    },
+    {
+      "id": "uuid",
+      "role": "assistant",
+      "content": "我识别到 1 项食物，餐次暂定为 lunch。请确认后再保存到饮食记录。",
+      "created_at": "2026-05-12T10:00:02Z",
+      "cards": [
+        { "type": "diet_parse", "payload": { "foods": [] }, "actions": [] }
+      ]
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 20,
+    "total": 2,
+    "total_pages": 1
+  },
+  "message": "ok"
+}
+```
+
+### 8.3 DELETE /ai/chat/sessions/{session_id} — 清除会话
+
+按当前用户 + `session_id` 软删除该会话下所有消息；接口幂等，不存在也返回成功。
+
+**响应**：
+
+```jsonc
+{
+  "data": null,
+  "message": "删除成功"
+}
+```
 
 ---
 
@@ -811,3 +870,4 @@ grains | meat | vegetables | fruits | dairy | beverages | snacks | condiments | 
 | 2026-05-09 | Phase 4：补充饮食模块契约（§5），包含 parse、records、summary 接口 |
 | 2026-05-09 | 架构重构：饮食模块改为**纯 CRUD**；下线 `/diet/parse`；`POST /diet/records` 收窄为结构化输入；新增 §8 AI 对话模块契约草案（`/ai/chat` 作为唯一 LLM 入口） |
 | 2026-05-09 | Phase 5：补充身体数据模块契约（§6），覆盖 6 类记录 CRUD、today/latest 聚合、trends 趋势与前端 mock 映射 |
+| 2026-05-12 | Phase 7：AI 对话模块契约正式落地（§8），明确 `/ai/chat`、消息历史分页与会话软删除 |

@@ -1,7 +1,7 @@
 // AI 模块 Mock 数据
 // 参考: docs/specs/frontend/modules/16-ai-dialog-module.md §9
 
-import type { ChatMessage, NutritionData } from '../types/ai.types';
+import type { ChatCard, ChatMessage, NutritionData } from '../types/ai.types';
 
 const now = (): string =>
   new Date().toLocaleTimeString('zh-CN', {
@@ -85,6 +85,47 @@ export const NUTRITION_DB: Record<string, NutritionData> = {
     carbs: 23,
     dataSource: 'local_db',
   },
+};
+
+export const DIET_PARSE_CARD_MOCK: ChatCard = {
+  type: 'diet_parse',
+  payload: {
+    foods: [
+      {
+        name: '米饭',
+        amount: 1,
+        unit: '碗',
+        amount_grams: 200,
+        calories: 232,
+        protein: 5.2,
+        fat: 0.6,
+        carbs: 51.8,
+        fiber: 0.6,
+        sodium: 4,
+        data_source: 'database',
+        food_id: null,
+      },
+      {
+        name: '鸡胸肉',
+        amount: 100,
+        unit: 'g',
+        amount_grams: 100,
+        calories: 165,
+        protein: 31,
+        fat: 3.6,
+        carbs: 0,
+        data_source: 'database',
+        food_id: null,
+      },
+    ],
+    meal_type: 'lunch',
+    confidence: 0.9,
+    suggested_date: new Date().toISOString().slice(0, 10),
+  },
+  actions: [
+    { kind: 'confirm_create_diet_record', label: '确认保存' },
+    { kind: 'edit_diet_items', label: '修改食物' },
+  ],
 };
 
 /** AI 估算回退值 */

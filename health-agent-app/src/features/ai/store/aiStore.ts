@@ -7,11 +7,14 @@ import type { ChatMessage, NutritionData } from '../types/ai.types';
 interface AIStore {
   chatMessages: ChatMessage[];
   isAIThinking: boolean;
+  /** 后端 chat session_id；首条消息返回后保存，后续消息复用同一会话 */
+  currentSessionId: string | null;
   /** 当前展示的营养查询结果（用于触发 BottomSheet） */
   nutritionResult: NutritionData | null;
 
   addMessage: (message: ChatMessage) => void;
   setAIThinking: (thinking: boolean) => void;
+  setCurrentSessionId: (sessionId: string | null) => void;
   setNutritionResult: (data: NutritionData | null) => void;
   clearChat: () => void;
 }
@@ -19,12 +22,19 @@ interface AIStore {
 export const useAIStore = create<AIStore>((set) => ({
   chatMessages: [],
   isAIThinking: false,
+  currentSessionId: null,
   nutritionResult: null,
 
   addMessage: (message) =>
     set((s) => ({ chatMessages: [...s.chatMessages, message] })),
   setAIThinking: (thinking) => set({ isAIThinking: thinking }),
+  setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
   setNutritionResult: (data) => set({ nutritionResult: data }),
   clearChat: () =>
-    set({ chatMessages: [], isAIThinking: false, nutritionResult: null }),
+    set({
+      chatMessages: [],
+      isAIThinking: false,
+      currentSessionId: null,
+      nutritionResult: null,
+    }),
 }));

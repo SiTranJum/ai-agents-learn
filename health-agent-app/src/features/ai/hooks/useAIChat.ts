@@ -22,8 +22,10 @@ export function useAIChat() {
     addMessage,
     setAIThinking,
     setNutritionResult,
+    setCurrentSessionId,
     isAIThinking,
     chatMessages,
+    currentSessionId,
     clearChat,
   } = useAIStore();
 
@@ -44,7 +46,13 @@ export function useAIChat() {
       // 2. 触发 AI 思考
       setAIThinking(true);
       try {
-        const { reply, nutritionData } = await aiService.sendMessage(t);
+        const { reply, sessionId, nutritionData } = await aiService.sendMessage(
+          t,
+          currentSessionId
+        );
+        if (sessionId) {
+          setCurrentSessionId(sessionId);
+        }
         addMessage(reply);
         if (nutritionData) {
           // 营养数据存入 store，等用户点击 actions 时再展示
@@ -61,7 +69,14 @@ export function useAIChat() {
         setAIThinking(false);
       }
     },
-    [addMessage, setAIThinking, setNutritionResult, isAIThinking]
+    [
+      addMessage,
+      currentSessionId,
+      setAIThinking,
+      setCurrentSessionId,
+      setNutritionResult,
+      isAIThinking,
+    ]
   );
 
   const handleAction = useCallback(

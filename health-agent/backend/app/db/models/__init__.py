@@ -13,6 +13,7 @@ from app.db.models.body import (
     WaterRecord,
     WeightRecord,
 )
+from app.db.models.chat import ChatMessage
 from app.db.models.diet import DietItem, DietRecord
 from app.db.models.knowledge import Food, KnowledgeDoc
 from app.db.models.memory import Memory, MemorySummary
@@ -26,6 +27,7 @@ from app.db.models.user import (
 __all__ = [
     "Base",
     "BowelRecord",
+    "ChatMessage",
     "DietItem",
     "DietRecord",
     "ExerciseRecord",

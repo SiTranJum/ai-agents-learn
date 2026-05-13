@@ -389,10 +389,10 @@ uvicorn app.main:app --reload
 - Create: `app/schemas/chat.py`
 - Create: `app/services/chat_service.py`
 
-- [ ] **Step 1: 创建 ChatMessage 数据库模型**
-- [ ] **Step 2: 创建对话 schemas**（ChatRequest / ChatResponse / ChatMessageResponse）
-- [ ] **Step 3: 实现 ChatService**（`get_or_create_session` / `save_message` / `get_history` / `delete_session`；**不含 LLM 调用**）
-- [ ] **Step 4: 生成迁移**
+- [x] **Step 1: 创建 ChatMessage 数据库模型**
+- [x] **Step 2: 创建对话 schemas**（ChatRequest / ChatResponse / ChatMessageResponse）
+- [x] **Step 3: 实现 ChatService**（`get_or_create_session` / `save_message` / `get_history` / `delete_session`；**不含 LLM 调用**）
+- [x] **Step 4: 生成迁移**
 - [ ] **Step 5: Commit**
 
 ---
@@ -407,23 +407,23 @@ uvicorn app.main:app --reload
 - Create: `app/agents/prompts/chat_system.py`
 - Create: `app/api/v1/ai.py`
 
-- [ ] **Step 1: 补全 ChatState 字段**（在 Phase 4 的基础上按需增补，而不是新建）
-- [ ] **Step 2: 实现节点**
+- [x] **Step 1: 补全 ChatState 字段**（在 Phase 4 的基础上按需增补，而不是新建）
+- [x] **Step 2: 实现节点**
   - `identify_intent`（LLM + structured output，写入 `state["intent"]`）
   - `recall_memories`（Tool: MemoryService.recall_memories）
   - `search_knowledge`（Tool: RagService.search_knowledge）
   - `assemble_prompt`（代码确定性组装）
   - `call_llm`（get_chat_model, temperature=0.7）
   - `trigger_memory_extract`（`asyncio.create_task(memory_subgraph.ainvoke(...))`，不阻塞）
-- [ ] **Step 3: 组装 Graph** — `build_chat_agent()`
+- [x] **Step 3: 组装 Graph** — `build_chat_agent()`
   - 挂载既有 subgraph：`chat_graph.add_node("diet", build_diet_subgraph())`（来自 Phase 4 `app/agents/diet/subgraph.py`）
   - 依次挂载 memory / plan / suggestion subgraph（随各 Phase 完工而增加）
   - 条件边：按 `state["intent"]` 路由到对应 subgraph；`general` 走直接对话
-- [ ] **Step 4: 实现 API 端点**
+- [x] **Step 4: 实现 API 端点**
   - `POST /ai/chat` → ChatService 保存 user msg → `chat_agent.ainvoke` → ChatService 保存 assistant msg（含结构化 cards，参见 `api-contract.md` §8.1）
   - `GET /ai/chat/history` → ChatService
   - `DELETE /ai/chat/sessions/{id}` → ChatService
-- [ ] **Step 5: 端到端测试**（mock LLM，验证意图路由 → diet subgraph → 返回解析卡片）
+- [x] **Step 5: 端到端测试**（mock LLM，验证意图路由 → diet subgraph → 返回解析卡片）
 - [ ] **Step 6: Commit**
 
 ---
@@ -552,7 +552,7 @@ uvicorn app.main:app --reload
 | 4 | 饮食记录模块（diet_agent） | 4 | ✅ 已完成（待 commit） |
 | 5 | 身体数据追踪模块 | 1 | ✅ 已完成（待 commit） |
 | 6 | AI 记忆系统（memory_agent） | 2 | ✅ 已完成（待 commit） |
-| 7 | AI 对话系统（chat_agent） | 2 | ⬜ 未开始 |
+| 7 | AI 对话系统（chat_agent） | 2 | ✅ 已完成（待 commit） |
 | 8 | 计划系统（plan_agent） | 2 | ⬜ 未开始 |
 | 9 | AI 建议系统（suggestion_agent） | 1 | ⬜ 未开始 |
 | 10 | 全局联调与收尾 | 2 | ⬜ 未开始 |
