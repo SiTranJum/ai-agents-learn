@@ -6,6 +6,7 @@
 Phase 6 会在本包内填充 ``graph.py``；当前仅暴露 :class:`ChatState`，供领域
 subgraph 提前按照统一 state 签名开发。
 """
+# ruff: noqa: RUF002
 
 from app.agents.chat.state import ChatState
 

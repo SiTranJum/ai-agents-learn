@@ -12,9 +12,11 @@ from typing import Annotated
 from fastapi import Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.chat.graph import build_chat_agent
 from app.core.exceptions import UnauthorizedException
 from app.core.security import claims_to_current_user, decode_supabase_jwt
 from app.db.repositories.body_repo import BodyRepository
+from app.db.repositories.chat_repo import ChatRepository
 from app.db.repositories.diet_repo import DietRepository
 from app.db.repositories.knowledge_repo import KnowledgeRepository
 from app.db.repositories.memory_repo import MemoryRepository
@@ -23,6 +25,7 @@ from app.db.session import get_db_session
 from app.integrations.embedding import EmbeddingClient
 from app.schemas.auth import CurrentUser
 from app.services.body_service import BodyService
+from app.services.chat_service import ChatService
 from app.services.diet_service import DietService
 from app.services.memory_service import MemoryService
 from app.services.rag_service import RagService
@@ -169,5 +172,30 @@ async def get_memory_service(
 
 
 MemoryServiceDep = Annotated[MemoryService, Depends(get_memory_service)]
+
+
+async def get_chat_service(
+    session: DbSession,
+    user: CurrentUserDep,
+) -> ChatService:
+    """构造按当前用户隔离的聊天消息服务。"""
+    return ChatService(repo=ChatRepository(session=session, user_id=user.id))
+
+
+ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]
+
+
+_chat_agent_singleton = None
+
+
+def get_chat_agent():
+    """构造并复用全局 chat_agent 编译产物。"""
+    global _chat_agent_singleton
+    if _chat_agent_singleton is None:
+        _chat_agent_singleton = build_chat_agent()
+    return _chat_agent_singleton
+
+
+ChatAgentDep = Annotated[object, Depends(get_chat_agent)]
 
 
