@@ -2,14 +2,7 @@
 // 参考: docs/specs/frontend/modules/13-data-module.md §6
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  dataService,
-  getRecentRecords,
-  trendPointsFromExercise,
-  trendPointsFromMeasurement,
-  trendPointsFromSleep,
-  trendPointsFromWeight,
-} from '../services/dataService';
+import { dataService, getRecentRecords } from '../services/dataService';
 import { useDataStore } from '../store/dataStore';
 import type {
   BodyRecord,
@@ -32,31 +25,19 @@ export function useTrendData(tab: DataTabType, range: TimeRange) {
       switch (tab) {
         case 'weight': {
           const r = await dataService.getWeightTrend(range);
-          return { points: trendPointsFromWeight(r.records), unit: 'kg', label: '体重' };
+          return { points: r.points, unit: 'kg', label: '体重' };
         }
         case 'measurement': {
-          const r = await dataService.getMeasurementTrend(range);
-          return {
-            points: trendPointsFromMeasurement(r.records),
-            unit: 'cm',
-            label: '腰围',
-          };
+          const r = await dataService.getMeasurementTrend(range, 'waist');
+          return { points: r.points, unit: 'cm', label: '腰围' };
         }
         case 'sleep': {
           const r = await dataService.getSleepTrend(range);
-          return {
-            points: trendPointsFromSleep(r.records),
-            unit: 'h',
-            label: '睡眠时长',
-          };
+          return { points: r.points, unit: 'h', label: '睡眠时长' };
         }
         case 'exercise': {
           const r = await dataService.getExerciseTrend(range);
-          return {
-            points: trendPointsFromExercise(r.records),
-            unit: 'min',
-            label: '运动时长',
-          };
+          return { points: r.points, unit: 'min', label: '运动时长' };
         }
         case 'water': {
           // 饮水使用最近 7 天

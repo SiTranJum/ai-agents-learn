@@ -9,7 +9,7 @@ export interface UserProfile {
   height: number;
   weight: number;
   targetWeight: number;
-  activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  activityLevel: 'sedentary' | 'light' | 'moderate' | 'heavy';
   healthGoals: string[];
   dietPreferences: string[];
   allergies: string[];
@@ -18,7 +18,7 @@ export interface UserProfile {
   onboardingCompleted: boolean;
 }
 
-export type InteractionMode = 'efficiency' | 'confirm' | 'learn';
+export type InteractionMode = 'efficiency' | 'confirmation' | 'learning';
 
 interface GlobalState {
   // 用户认证
@@ -46,7 +46,7 @@ export const useGlobalStore = create<GlobalState>((set) => ({
   isAuthenticated: false,
   token: null,
   userProfile: null,
-  interactionMode: 'confirm',
+  interactionMode: 'confirmation',
   activePlanId: null,
 
   setToken: (token) =>

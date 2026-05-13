@@ -66,7 +66,7 @@ export function EditProfileScreen() {
   const [restrictions, setRestrictions] = useState<string[]>([]);
   const [dislikedFoods, setDislikedFoods] = useState<string[]>([]);
   const [diseases, setDiseases] = useState<string[]>([]);
-  const [medications, setMedications] = useState<string[]>([]);
+  const [medications, setMedications] = useState<string>('');
   const [medicalAdvice, setMedicalAdvice] = useState('');
 
   const [dirty, setDirty] = useState(false);
@@ -302,11 +302,13 @@ export function EditProfileScreen() {
               onChange={set(setDiseases)}
               options={DISEASE_OPTIONS}
             />
-            <MultiSelectTags
+            <TextInput
               label="服用药物"
               value={medications}
-              onChange={set(setMedications)}
-              options={MEDICATION_OPTIONS}
+              onChangeText={set(setMedications)}
+              multiline
+              maxLength={500}
+              placeholder="如 氨氯地平 5mg/日"
             />
             <TextInput
               label="医嘱限制"

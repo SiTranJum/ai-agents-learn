@@ -28,7 +28,7 @@ function toGlobalUserProfile(p: AuthUserProfile): GlobalUserProfile {
     sedentary: 'sedentary',
     light: 'light',
     moderate: 'moderate',
-    heavy: 'very_active',
+    heavy: 'heavy',
   };
   const genderMap: Record<Gender, GlobalUserProfile['gender']> = {
     male: 'male',
