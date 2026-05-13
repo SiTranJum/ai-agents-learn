@@ -442,17 +442,17 @@ uvicorn app.main:app --reload
 - Create: `app/schemas/plan.py`
 - Create: `app/services/plan_service.py`
 
-- [ ] **Step 1: 创建 Plan、PlanTarget、PlanExecution、PlanCheckIn 数据库模型**
-- [ ] **Step 2: 创建计划 schemas**（Create / Update / Response / CheckIn / Progress / PlanDraft）
-- [ ] **Step 3: 实现 PlanRepository**
-- [ ] **Step 4: 实现 PlanService**
+- [x] **Step 1: 创建 Plan、PlanTarget、PlanExecution、PlanCheckIn 数据库模型**
+- [x] **Step 2: 创建计划 schemas**（Create / Update / Response / CheckIn / Progress / PlanDraft）
+- [x] **Step 3: 实现 PlanRepository**
+- [x] **Step 4: 实现 PlanService**
   - CRUD：`create_plan_from_draft` / `get_plan` / `list_plans` / `update_plan` / `terminate_plan`
   - 打卡 / 进度 / 执行记录
   - 纯算法：`calculate_bmr` / `calculate_execution_status` / `safety_check`
   - `has_active_plan` / `on_diet_record_created` / `run_modification_rules`
   - **不含 LLM 调用**
-- [ ] **Step 5: 生成迁移**
-- [ ] **Step 6: 单元测试**（BMR、达标状态、安全校验）
+- [x] **Step 5: 生成迁移**
+- [x] **Step 6: 单元测试**（BMR、达标状态、安全校验）
 - [ ] **Step 7: Commit**
 
 ---
@@ -469,14 +469,14 @@ uvicorn app.main:app --reload
 - Create: `app/agents/prompts/plan_draft.py`
 - Create: `app/api/v1/plans.py`
 
-- [ ] **Step 1: 定义 PlanState**
-- [ ] **Step 2: 实现节点**（`confirm_goal` / `analyze_status` / `draft_plan` / `safety_validate` / `persist_plan`）
-- [ ] **Step 3: 实现 modification_subgraph**（`analyze_deviation` / `suggest_modification`）
-- [ ] **Step 4: 组装 Graph** — `build_plan_agent()`（含创建主图和修改子图）
-- [ ] **Step 5: 实现 API 端点**
+- [x] **Step 1: 定义 PlanState**
+- [x] **Step 2: 实现节点**（`confirm_goal` / `analyze_status` / `draft_plan` / `safety_validate` / `persist_plan`）
+- [x] **Step 3: 实现 modification_subgraph**（`analyze_deviation` / `suggest_modification`）
+- [x] **Step 4: 组装 Graph** — `build_plan_agent()`（含创建主图和修改子图）
+- [x] **Step 5: 实现 API 端点**
   - `POST /plans` → PlanService.has_active_plan 校验 → `plan_agent.ainvoke`
   - CRUD / check-ins / progress / execution → PlanService
-- [ ] **Step 6: 端到端测试**
+- [x] **Step 6: 端到端测试**
 - [ ] **Step 7: Commit**
 
 ---
@@ -553,7 +553,7 @@ uvicorn app.main:app --reload
 | 5 | 身体数据追踪模块 | 1 | ✅ 已完成（待 commit） |
 | 6 | AI 记忆系统（memory_agent） | 2 | ✅ 已完成（待 commit） |
 | 7 | AI 对话系统（chat_agent） | 2 | ✅ 已完成（待 commit） |
-| 8 | 计划系统（plan_agent） | 2 | ⬜ 未开始 |
+| 8 | 计划系统（plan_agent） | 2 | ✅ 已完成（待 commit） |
 | 9 | AI 建议系统（suggestion_agent） | 1 | ⬜ 未开始 |
 | 10 | 全局联调与收尾 | 2 | ⬜ 未开始 |
 | **总计** | | **23 Tasks** | |

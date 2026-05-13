@@ -17,6 +17,7 @@ from app.db.models.chat import ChatMessage
 from app.db.models.diet import DietItem, DietRecord
 from app.db.models.knowledge import Food, KnowledgeDoc
 from app.db.models.memory import Memory, MemorySummary
+from app.db.models.plan import Plan, PlanCheckIn, PlanExecution, PlanTarget
 from app.db.models.user import (
     HealthProfile,
     UserHealthInfo,
@@ -37,6 +38,10 @@ __all__ = [
     "MeasurementRecord",
     "Memory",
     "MemorySummary",
+    "Plan",
+    "PlanCheckIn",
+    "PlanExecution",
+    "PlanTarget",
     "SleepRecord",
     "UserHealthInfo",
     "UserPreference",

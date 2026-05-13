@@ -13,6 +13,7 @@ from fastapi import Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.chat.graph import build_chat_agent
+from app.agents.plan.graph import build_plan_agent
 from app.core.exceptions import UnauthorizedException
 from app.core.security import claims_to_current_user, decode_supabase_jwt
 from app.db.repositories.body_repo import BodyRepository
@@ -20,6 +21,7 @@ from app.db.repositories.chat_repo import ChatRepository
 from app.db.repositories.diet_repo import DietRepository
 from app.db.repositories.knowledge_repo import KnowledgeRepository
 from app.db.repositories.memory_repo import MemoryRepository
+from app.db.repositories.plan_repo import PlanRepository
 from app.db.repositories.user_repo import UserRepository
 from app.db.session import get_db_session
 from app.integrations.embedding import EmbeddingClient
@@ -28,6 +30,7 @@ from app.services.body_service import BodyService
 from app.services.chat_service import ChatService
 from app.services.diet_service import DietService
 from app.services.memory_service import MemoryService
+from app.services.plan_service import PlanService
 from app.services.rag_service import RagService
 from app.services.user_service import UserService
 
@@ -185,7 +188,22 @@ async def get_chat_service(
 ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]
 
 
+async def get_plan_service(
+    session: DbSession,
+    user: CurrentUserWithProfileDep,
+) -> PlanService:
+    """构造按当前用户隔离的计划服务。"""
+    return PlanService(
+        repo=PlanRepository(session=session, user_id=user.id),
+        profile=user.profile,
+    )
+
+
+PlanServiceDep = Annotated[PlanService, Depends(get_plan_service)]
+
+
 _chat_agent_singleton = None
+_plan_agent_singleton = None
 
 
 def get_chat_agent():
@@ -197,5 +215,16 @@ def get_chat_agent():
 
 
 ChatAgentDep = Annotated[object, Depends(get_chat_agent)]
+
+
+def get_plan_agent():
+    """构造并复用 plan_agent 编译产物。"""
+    global _plan_agent_singleton
+    if _plan_agent_singleton is None:
+        _plan_agent_singleton = build_plan_agent()
+    return _plan_agent_singleton
+
+
+PlanAgentDep = Annotated[object, Depends(get_plan_agent)]
 
 

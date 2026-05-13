@@ -3,6 +3,8 @@
 
 export type PlanType = 'lose_weight' | 'nutrition' | 'habit';
 export type PlanStatus = 'active' | 'paused' | 'completed' | 'terminated';
+export type BackendPlanType = 'weight_loss' | 'nutrition_adjustment' | 'habit_formation';
+export type BackendPlanStatus = 'active' | 'completed' | 'terminated';
 
 // 计划列表项
 export interface PlanListItem {
@@ -89,6 +91,36 @@ export interface PlanSummary {
   /** 阶段数（如 3 个阶段） */
   phases?: number;
   keyRules: string[];
+}
+
+export interface PlanTargetRaw {
+  daily_calories?: number | null;
+  protein_target?: number | null;
+  fat_target?: number | null;
+  carbs_target?: number | null;
+  weight_target?: number | null;
+}
+
+export interface PlanTaskRaw {
+  id: string;
+  description: string;
+  frequency: string;
+  time_period?: string | null;
+}
+
+// noinspection JSUnusedGlobalSymbols -- exported for service-layer backend mapping
+export interface PlanResponseRaw {
+  id: string;
+  name: string;
+  goal_description: string;
+  plan_type: BackendPlanType;
+  status: BackendPlanStatus;
+  start_date: string;
+  target_date: string;
+  targets: PlanTargetRaw;
+  tasks: PlanTaskRaw[];
+  created_at: string;
+  updated_at: string;
 }
 
 // 对话流程的步骤标识
