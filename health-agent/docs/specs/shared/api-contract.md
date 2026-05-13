@@ -687,6 +687,114 @@ efficiency | confirmation | learning
 
 ---
 
+## 7. 计划模块接口契约
+
+> Phase 8 正式落地。计划模块由 `plan_agent` 负责 AI 草案生成，`PlanService` 负责 CRUD、BMR、安全校验和进度计算。
+
+### 7.1 枚举
+
+```text
+PlanType = weight_loss | nutrition_adjustment | habit_formation
+PlanStatus = active | completed | terminated
+ExecutionStatus = on_track | deviation | missed
+```
+
+前端现有 UI 枚举映射：`lose_weight -> weight_loss`，`nutrition -> nutrition_adjustment`，`habit -> habit_formation`。
+
+### 7.2 POST /plans — AI 创建计划
+
+**请求体**：
+
+```jsonc
+{
+  "goal_description": "我想健康减重到70kg",
+  "plan_type": "weight_loss" // 可选；不传由 plan_agent 推断
+}
+```
+
+**响应**：`201 ApiResponse<PlanResponse>`；已有活跃计划返回 `409 PLAN_ALREADY_ACTIVE`。
+
+### 7.3 GET /plans — 计划列表
+
+查询参数：`status` 可选，`page` 默认 1，`page_size` 默认 20，最大 50。
+
+响应：`200 PaginatedResponse<PlanResponse>`，按 `created_at desc` 排序。
+
+### 7.4 GET /plans/{id} — 计划详情
+
+响应：`200 ApiResponse<PlanResponse>`；不存在返回 `404 PLAN_NOT_FOUND`。
+
+### 7.5 PUT /plans/{id} — 更新计划
+
+可更新字段：`daily_calories`、`protein_target`、`fat_target`、`carbs_target`、`weight_target`、`target_date`、`tasks`。
+
+已完成/已终止计划不可修改，返回 `400 PLAN_NOT_MODIFIABLE`；更新后重新执行安全校验。
+
+### 7.6 DELETE /plans/{id} — 终止计划
+
+请求体可选：
+
+```jsonc
+{ "reason": "用户主动终止" }
+```
+
+响应：
+
+```jsonc
+{ "data": null, "message": "计划已终止" }
+```
+
+### 7.7 POST /plans/{id}/check-ins — 每日打卡
+
+```jsonc
+{
+  "date": "2026-05-13",
+  "task_id": "uuid-or-null",
+  "completed": true,
+  "note": "今天完成"
+}
+```
+
+响应：`201 ApiResponse<CheckInResponse>`；同一 `plan_id + task_id + date` 重复打卡返回 `409 CHECK_IN_DUPLICATE`。
+
+### 7.8 GET /plans/{id}/progress — 计划进度
+
+响应：`200 ApiResponse<PlanProgress>`，包含 `total_days`、`elapsed_days`、`compliance_rate`、`streak_days`、`daily_records`。
+
+### 7.9 GET /plans/{id}/execution — 执行记录
+
+查询参数：`start_date`、`end_date`、`status`、`page`、`page_size`。
+
+响应：`200 PaginatedResponse<DailyExecution>`。
+
+### 7.10 PlanResponse 字段
+
+```jsonc
+{
+  "id": "uuid",
+  "name": "减重计划",
+  "goal_description": "我想健康减重到70kg",
+  "plan_type": "weight_loss",
+  "status": "active",
+  "start_date": "2026-05-13",
+  "target_date": "2026-08-04",
+  "targets": {
+    "daily_calories": 1800,
+    "protein_target": 90,
+    "fat_target": 55,
+    "carbs_target": 220,
+    "weight_target": 70
+  },
+  "tasks": [
+    { "id": "uuid", "description": "每日步行 30 分钟", "frequency": "每天", "time_period": null }
+  ],
+  "created_at": "2026-05-13T10:00:00Z",
+  "updated_at": "2026-05-13T10:00:00Z"
+}
+```
+
+---
+
 ## 8. AI 对话模块接口契约
 
 > Phase 7 正式落地。本节定义统一 AI 对话入口、消息历史分页与会话清除。
@@ -871,3 +979,4 @@ grains | meat | vegetables | fruits | dairy | beverages | snacks | condiments | 
 | 2026-05-09 | 架构重构：饮食模块改为**纯 CRUD**；下线 `/diet/parse`；`POST /diet/records` 收窄为结构化输入；新增 §8 AI 对话模块契约草案（`/ai/chat` 作为唯一 LLM 入口） |
 | 2026-05-09 | Phase 5：补充身体数据模块契约（§6），覆盖 6 类记录 CRUD、today/latest 聚合、trends 趋势与前端 mock 映射 |
 | 2026-05-12 | Phase 7：AI 对话模块契约正式落地（§8），明确 `/ai/chat`、消息历史分页与会话软删除 |
+| 2026-05-13 | Phase 8：补充计划模块契约（§7），覆盖 AI 创建、CRUD、打卡、进度与执行记录 |
