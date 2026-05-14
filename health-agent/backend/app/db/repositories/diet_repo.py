@@ -97,5 +97,18 @@ class DietRepository:
         record.deleted_at = datetime.now(UTC)
         await self.session.flush()
 
+    async def soft_delete_by_date_meal(self, record_date: date, meal_type: str) -> int:
+        """软删除指定日期+餐次的所有记录，返回删除数量。"""
+        stmt = self._base_stmt().where(
+            DietRecord.date == record_date,
+            DietRecord.meal_type == meal_type,
+        )
+        records = list((await self.session.execute(stmt)).scalars().all())
+        now_utc = datetime.now(UTC)
+        for record in records:
+            record.deleted_at = now_utc
+        await self.session.flush()
+        return len(records)
+
 
 __all__ = ["MEAL_SORT_ORDER", "DietRepository"]

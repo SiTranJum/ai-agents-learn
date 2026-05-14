@@ -79,19 +79,12 @@ export const dietService: DietService = {
   async saveDietRecord(record, date) {
     const effectiveDate = date ?? todayStr();
     const payload = toDietRecordPayload(record as DietRecord, effectiveDate);
-    if (record.id) {
-      const raw = await apiClient.put<BackendDietRecord>(
-        `/diet/records/${record.id}`,
-        payload
-      );
-      return mergeRecordsToCard([raw], record.mealType);
-    } else {
-      const raw = await apiClient.post<BackendDietRecord>(
-        '/diet/records',
-        payload
-      );
-      return mergeRecordsToCard([raw], record.mealType);
-    }
+    // 统一走 upsert：按 date + meal_type 替换为 1 条记录，彻底避免幽灵记录
+    const raw = await apiClient.put<BackendDietRecord>(
+      '/diet/records/upsert',
+      payload
+    );
+    return mergeRecordsToCard([raw], record.mealType);
   },
 
   async deleteDietRecord(recordId) {
