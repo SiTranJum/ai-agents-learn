@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from contextlib import suppress
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -31,6 +32,13 @@ SuggestionAgentDep = Annotated[Any, Depends(deps.get_suggestion_agent)]
 MemoryServiceDep = Annotated[MemoryService, Depends(deps.get_memory_service)]
 RagServiceDep = Annotated[RagService, Depends(deps.get_rag_service)]
 _BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
+
+
+def _discard_task(task: asyncio.Task[Any]) -> None:
+    _BACKGROUND_TASKS.discard(task)
+    if not task.cancelled():
+        with suppress(Exception):
+            task.exception()
 
 
 async def _run_agent(
@@ -144,12 +152,14 @@ async def submit_feedback(
             )
         )
         _BACKGROUND_TASKS.add(task)
-        task.add_done_callback(_BACKGROUND_TASKS.discard)
+        task.add_done_callback(_discard_task)
     except Exception:  # pragma: no cover - feedback persistence already succeeded
         pass
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 __all__ = ["router"]
+
+
 
 

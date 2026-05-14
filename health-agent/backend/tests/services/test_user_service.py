@@ -1,10 +1,16 @@
 """Phase 1 - UserService 单元测试（不依赖数据库）。"""
+# ruff: noqa: RUF002
 
 from __future__ import annotations
 
+import uuid
 from datetime import date
+from types import SimpleNamespace
+
+import pytest
 
 from app.db.models.user import HealthProfile
+from app.schemas.user import UserProfileUpdate
 from app.services.user_service import PROFILE_REQUIRED_FIELDS, UserService
 
 
@@ -37,3 +43,44 @@ def test_profile_completeness_full() -> None:
         activity_level="moderate",
     )
     assert UserService._calculate_completeness(profile) == 1.0
+
+
+class _FakeRepo:
+    def __init__(self) -> None:
+        self.session = SimpleNamespace(commit=self._commit)
+        self.profile = _make_profile(nickname="bob")
+        self.commits = 0
+
+    async def _commit(self) -> None:
+        self.commits += 1
+
+    async def update_profile(self, fields: dict[str, object]) -> HealthProfile:
+        for key, value in fields.items():
+            setattr(self.profile, key, value)
+        return self.profile
+
+
+class _FakeMemoryService:
+    def __init__(self) -> None:
+        self.updated: list[dict[str, object]] = []
+
+    async def on_profile_updated(self, updated_data: dict[str, object]):
+        self.updated.append(updated_data)
+        return None
+
+
+@pytest.mark.asyncio
+async def test_update_profile_syncs_profile_memory() -> None:
+    repo = _FakeRepo()
+    memory = _FakeMemoryService()
+    service = UserService(repo=repo, memory_service=memory)  # type: ignore[arg-type]
+
+    response = await service.update_profile(
+        user_id=uuid.uuid4(),
+        data=UserProfileUpdate.model_validate({"current_weight": 66.0}),
+    )
+
+    assert response.current_weight == 66.0
+    assert memory.updated == [{"current_weight": 66.0}]
+
+

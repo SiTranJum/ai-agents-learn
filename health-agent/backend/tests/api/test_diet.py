@@ -1,4 +1,5 @@
 """Phase 4 - 饮食 API 测试（纯 CRUD）。"""
+# ruff: noqa: RUF002
 
 from __future__ import annotations
 
@@ -8,7 +9,7 @@ from datetime import UTC, date, datetime
 import pytest
 from httpx import AsyncClient
 
-from app.dependencies import get_current_user, get_diet_service
+from app.dependencies import get_current_user, get_diet_service, get_plan_service
 from app.main import app
 from app.schemas.auth import CurrentUser
 from app.schemas.diet import (
@@ -82,6 +83,15 @@ class _FakeDietService:
         return None
 
 
+class _FakePlanService:
+    def __init__(self) -> None:
+        self.synced: list[tuple[date, NutritionSummary]] = []
+
+    async def on_diet_record_created(self, record_date: date, nutrition_summary: NutritionSummary | None = None) -> None:
+        if nutrition_summary is not None:
+            self.synced.append((record_date, nutrition_summary))
+
+
 @pytest.fixture
 def diet_overrides():
     async def _current_user() -> CurrentUser:
@@ -90,8 +100,12 @@ def diet_overrides():
     async def _service() -> _FakeDietService:
         return _FakeDietService()
 
+    async def _plan_service() -> _FakePlanService:
+        return _FakePlanService()
+
     app.dependency_overrides[get_current_user] = _current_user
     app.dependency_overrides[get_diet_service] = _service
+    app.dependency_overrides[get_plan_service] = _plan_service
     try:
         yield
     finally:

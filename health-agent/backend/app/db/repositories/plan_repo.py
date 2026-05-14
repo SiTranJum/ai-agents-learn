@@ -28,6 +28,14 @@ class PlanRepository:
         ).limit(1)
         return (await self.session.execute(stmt)).scalar_one_or_none() is not None
 
+    async def get_active_plan(self) -> Plan | None:
+        stmt = select(Plan).where(
+            Plan.user_id == self.user_id,
+            Plan.status == PlanStatus.active.value,
+            Plan.deleted_at.is_(None),
+        ).limit(1)
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
     async def create_plan(self, plan: Plan, target: PlanTarget) -> Plan:
         plan.user_id = self.user_id
         self.session.add(plan)
@@ -97,6 +105,30 @@ class PlanRepository:
         stmt = stmt.order_by(order_col).offset(offset).limit(limit)
         return list((await self.session.execute(stmt)).scalars().all())
 
+    async def get_execution(self, plan_id: uuid.UUID, target_date: date) -> PlanExecution | None:
+        stmt = select(PlanExecution).where(
+            PlanExecution.user_id == self.user_id,
+            PlanExecution.plan_id == plan_id,
+            PlanExecution.date == target_date,
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
+    async def upsert_execution(self, execution: PlanExecution) -> PlanExecution:
+        existing = await self.get_execution(execution.plan_id, execution.date)
+        if existing is None:
+            execution.user_id = self.user_id
+            self.session.add(execution)
+            await self.session.flush()
+            return execution
+        existing.calories_consumed = execution.calories_consumed
+        existing.calories_target = execution.calories_target
+        existing.protein = execution.protein
+        existing.fat = execution.fat
+        existing.carbs = execution.carbs
+        existing.status = execution.status
+        await self.session.flush()
+        return existing
+
     async def count_executions(
         self,
         plan_id: uuid.UUID,
@@ -145,5 +177,6 @@ class PlanRepository:
 
 
 __all__ = ["PlanRepository"]
+
 
 

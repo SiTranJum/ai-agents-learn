@@ -1,15 +1,20 @@
 """身体数据追踪 API 路由。"""
+# ruff: noqa: RUF002
 
 from __future__ import annotations
 
+import asyncio
 import uuid
+from contextlib import suppress
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, status
 
+from app.agents.memory.subgraph import build_memory_subgraph
 from app.core.responses import paginated, success
-from app.dependencies import BodyServiceDep, CurrentUserWithProfileDep
+from app.dependencies import BodyServiceDep, CurrentUserWithProfileDep, MemoryServiceDep
+from app.integrations.embedding import EmbeddingClient
 from app.schemas.body import (
     BodyRecordType,
     BowelRecordCreate,
@@ -38,12 +43,52 @@ from app.schemas.body import (
 from app.schemas.common import ApiResponse, PaginatedResponse
 
 router = APIRouter(prefix="/body", tags=["body"])
+_BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
 
 StartDateQuery = Annotated[date | None, Query()]
 EndDateQuery = Annotated[date | None, Query()]
 PageQuery = Annotated[int, Query(ge=1)]
 PageSizeQuery = Annotated[int, Query(ge=1, le=50)]
 TargetDateQuery = Annotated[date, Query(alias="date")]
+
+
+def _discard_task(task: asyncio.Task[Any]) -> None:
+    _BACKGROUND_TASKS.discard(task)
+    if not task.cancelled():
+        with suppress(Exception):
+            task.exception()
+
+
+def _schedule_body_memory_extract(
+    *,
+    user: Any,
+    memory_service: Any,
+    record_type: str,
+    action: str,
+    data: Any,
+) -> None:
+    """身体数据变更后异步触发 memory_agent；失败不影响主 CRUD 响应。"""
+    try:
+        graph = build_memory_subgraph()
+        task = asyncio.create_task(
+            graph.ainvoke(
+                {
+                    "user_id": str(user.id),
+                    "trigger_type": "body_record",
+                    "context_data": {
+                        "record_type": record_type,
+                        "action": action,
+                        "data": data.model_dump(mode="json") if hasattr(data, "model_dump") else data,
+                    },
+                    "memory_service": memory_service,
+                    "embedding_client": EmbeddingClient(),
+                }
+            )
+        )
+        _BACKGROUND_TASKS.add(task)
+        task.add_done_callback(_discard_task)
+    except Exception:
+        return
 
 
 @router.get("/today", response_model=ApiResponse[TodayRecords], summary="查询指定日期的身体数据聚合")
@@ -84,8 +129,10 @@ async def create_weight(
     payload: WeightRecordCreate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.create_weight(payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="weight", action="create", data=data)
     return success(data.model_dump(mode="json"))
 
 
@@ -113,8 +160,10 @@ async def update_weight(
     payload: WeightRecordUpdate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.update_weight(record_id, payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="weight", action="update", data=data)
     return success(data.model_dump(mode="json"))
 
 
@@ -134,8 +183,10 @@ async def create_measurement(
     payload: MeasurementRecordCreate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.create_measurement(payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="measurement", action="create", data=data)
     return success(data.model_dump(mode="json"))
 
 
@@ -167,8 +218,10 @@ async def update_measurement(
     payload: MeasurementRecordUpdate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.update_measurement(record_id, payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="measurement", action="update", data=data)
     return success(data.model_dump(mode="json"))
 
 
@@ -188,8 +241,10 @@ async def create_sleep(
     payload: SleepRecordCreate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.create_sleep(payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="sleep", action="create", data=data)
     return success(data.model_dump(mode="json"))
 
 
@@ -217,8 +272,10 @@ async def update_sleep(
     payload: SleepRecordUpdate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.update_sleep(record_id, payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="sleep", action="update", data=data)
     return success(data.model_dump(mode="json"))
 
 
@@ -238,8 +295,10 @@ async def create_exercise(
     payload: ExerciseRecordCreate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.create_exercise(payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="exercise", action="create", data=data)
     return success(data.model_dump(mode="json"))
 
 
@@ -267,8 +326,10 @@ async def update_exercise(
     payload: ExerciseRecordUpdate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.update_exercise(record_id, payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="exercise", action="update", data=data)
     return success(data.model_dump(mode="json"))
 
 
@@ -288,8 +349,10 @@ async def create_water(
     payload: WaterRecordCreate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.create_water(payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="water", action="create", data=data)
     return success(data.model_dump(mode="json"))
 
 
@@ -317,8 +380,10 @@ async def update_water(
     payload: WaterRecordUpdate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.update_water(record_id, payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="water", action="update", data=data)
     return success(data.model_dump(mode="json"))
 
 
@@ -338,8 +403,10 @@ async def create_bowel(
     payload: BowelRecordCreate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.create_bowel(payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="bowel", action="create", data=data)
     return success(data.model_dump(mode="json"))
 
 
@@ -367,8 +434,10 @@ async def update_bowel(
     payload: BowelRecordUpdate,
     user: CurrentUserWithProfileDep,
     service: BodyServiceDep,
+    memory_service: MemoryServiceDep,
 ):
     data = await service.update_bowel(record_id, payload)
+    _schedule_body_memory_extract(user=user, memory_service=memory_service, record_type="bowel", action="update", data=data)
     return success(data.model_dump(mode="json"))
 
 
