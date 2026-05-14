@@ -97,27 +97,6 @@ async def get_record(record_id: uuid.UUID, user: CurrentUserDep, service: DietSe
 
 
 @router.put(
-    "/records/{record_id}",
-    response_model=ApiResponse[DietRecordResponse],
-    summary="更新饮食记录",
-)
-async def update_record(
-    record_id: uuid.UUID,
-    payload: DietRecordUpdate,
-    user: CurrentUserDep,
-    service: DietServiceDep,
-):
-    data = await service.update_record(record_id, payload)
-    return success(data.model_dump(mode="json"))
-
-
-@router.delete("/records/{record_id}", response_model=ApiResponse[object], summary="删除饮食记录")
-async def delete_record(record_id: uuid.UUID, user: CurrentUserDep, service: DietServiceDep):
-    await service.delete_record(record_id)
-    return success(None, message="删除成功")
-
-
-@router.put(
     "/records/upsert",
     response_model=ApiResponse[DietRecordResponse],
     summary="按日期+餐次替换饮食记录（upsert）",
@@ -141,6 +120,27 @@ async def upsert_record(
     daily = await service.get_daily_summary(payload.date)
     await plan_service.on_diet_record_created(payload.date, daily.total_nutrition)
     return success(data.model_dump(mode="json"))
+
+
+@router.put(
+    "/records/{record_id}",
+    response_model=ApiResponse[DietRecordResponse],
+    summary="更新饮食记录",
+)
+async def update_record(
+    record_id: uuid.UUID,
+    payload: DietRecordUpdate,
+    user: CurrentUserDep,
+    service: DietServiceDep,
+):
+    data = await service.update_record(record_id, payload)
+    return success(data.model_dump(mode="json"))
+
+
+@router.delete("/records/{record_id}", response_model=ApiResponse[object], summary="删除饮食记录")
+async def delete_record(record_id: uuid.UUID, user: CurrentUserDep, service: DietServiceDep):
+    await service.delete_record(record_id)
+    return success(None, message="删除成功")
 
 
 @router.get(
