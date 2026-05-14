@@ -405,6 +405,29 @@ efficiency | confirmation | learning
 { "data": null, "message": "删除成功" }
 ```
 
+### 5.6.1 PUT /diet/records/upsert — 按日期+餐次替换记录（前端保存卡片的统一入口）
+
+**认证**：Bearer JWT（必须）
+
+**语义**：
+- 软删除该 `(user, date, meal_type)` 下所有现有记录
+- 创建一条新记录
+- **幂等**：同样请求重复调用，结果一致（数据库永远只有 1 条该 mealType 记录）
+
+**请求体**：`DietRecordCreate`（结构同 §5.2）
+
+```jsonc
+{
+  "meal_type": "lunch",
+  "date": "2026-05-09",
+  "foods": [/* 同 §5.2 */]
+}
+```
+
+**响应**：`200 ApiResponse<DietRecordResponse>`
+
+**前端调用**：`dietService.saveDietRecord(record, date)` 统一调用本端点。POST `/diet/records` 仍用于 AI 对话场景下的"追加一条记录"。
+
 ### 5.7 GET /diet/daily-summary — 每日汇总
 
 **查询参数**：`date=YYYY-MM-DD`

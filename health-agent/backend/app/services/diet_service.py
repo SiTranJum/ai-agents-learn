@@ -136,6 +136,38 @@ class DietService:
             await self.repo.soft_delete(record)
             await self.repo.session.commit()
 
+    async def upsert_record(
+        self,
+        *,
+        meal_type: MealType,
+        foods: list[FoodItemInput],
+        record_date: date,
+    ) -> DietRecordResponse:
+        """按 date + meal_type 替换为 1 条记录（upsert 语义）。
+
+        1. 软删除该日期+餐次的所有现有记录
+        2. 创建一条新记录
+        3. 返回新记录
+
+        前端"保存饮食卡片"统一走此端点，避免同 mealType 多条记录的幽灵问题。
+        """
+        if len(foods) > 20:
+            raise ValidationException(
+                "单条记录食物不能超过 20 项", code="DIET_RECORD_LIMIT_EXCEEDED"
+            )
+        # 1. 软删除旧记录
+        await self.repo.soft_delete_by_date_meal(record_date, meal_type.value)
+        # 2. 创建新记录
+        parsed = [await self.food_input_to_parsed(food) for food in foods]
+        items = [self._parsed_food_to_item(food) for food in parsed]
+        record = await self.repo.create_record(
+            meal_type=meal_type.value,
+            record_date=record_date,
+            items=items,
+        )
+        await self.repo.session.commit()
+        return self._record_to_response(record)
+
     async def get_daily_summary(self, target_date: date) -> DailySummary:
         records, _ = await self.list_records(start_date=target_date, end_date=target_date, page_size=50)
         meals = {meal: [] for meal in MealType}

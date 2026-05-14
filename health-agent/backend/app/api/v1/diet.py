@@ -117,6 +117,32 @@ async def delete_record(record_id: uuid.UUID, user: CurrentUserDep, service: Die
     return success(None, message="删除成功")
 
 
+@router.put(
+    "/records/upsert",
+    response_model=ApiResponse[DietRecordResponse],
+    summary="按日期+餐次替换饮食记录（upsert）",
+)
+async def upsert_record(
+    payload: DietRecordCreate,
+    user: CurrentUserDep,
+    service: DietServiceDep,
+    plan_service: PlanServiceDep,
+):
+    """按 date + meal_type 替换为 1 条记录。
+
+    语义：软删除该日期+餐次的所有现有记录，再创建一条新记录。
+    前端"保存饮食卡片"统一走此端点。
+    """
+    data = await service.upsert_record(
+        meal_type=payload.meal_type,
+        foods=payload.foods,
+        record_date=payload.date,
+    )
+    daily = await service.get_daily_summary(payload.date)
+    await plan_service.on_diet_record_created(payload.date, daily.total_nutrition)
+    return success(data.model_dump(mode="json"))
+
+
 @router.get(
     "/daily-summary",
     response_model=ApiResponse[DailySummary],
