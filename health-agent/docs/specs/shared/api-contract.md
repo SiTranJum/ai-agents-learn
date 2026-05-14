@@ -704,7 +704,7 @@ ExecutionStatus = on_track | deviation | missed
 ### 7.2 POST /plans — AI 创建计划
 
 **请求体**：
-
+474  818 311 501
 ```jsonc
 {
   "goal_description": "我想健康减重到70kg",
@@ -927,6 +927,83 @@ ExecutionStatus = on_track | deviation | missed
 
 
 
+## 9. AI 建议模块接口契约
+
+> Phase 9 正式落地。建议生成由 `suggestion_agent` 执行，`SuggestionService` 只做缓存、持久化和反馈。
+
+### 9.1 枚举
+
+```text
+SuggestionType = diet_advice | goal_advice | trend_advice | proactive_insight
+SuggestionPriority = high | medium | low
+FeedbackRating = helpful | not_helpful | dismissed
+```
+
+所有响应包含 `disclaimer`：本建议仅用于日常健康管理参考，不能替代专业医疗诊断或治疗。
+
+### 9.2 GET /suggestions/daily — 每日建议
+
+响应：`200 ApiResponse<DailySuggestionResponse>`。优先返回当天未过期缓存；缓存未命中时进入 `suggestion_agent` 生成并持久化，最多 3 条。
+
+```jsonc
+{
+  "data": {
+    "suggestions": [
+      {
+        "id": "uuid",
+        "type": "proactive_insight",
+        "title": "今日执行提醒",
+        "content": "今天先完成一个小目标：饮水达到 2000ml，并记录每一餐。",
+        "basis": "基于日常健康管理目标生成。",
+        "priority": "medium",
+        "expires_at": "2026-05-14T00:00:00Z",
+        "created_at": "2026-05-13T10:00:00Z"
+      }
+    ],
+    "generated_at": "2026-05-13T10:00:00Z",
+    "disclaimer": "..."
+  },
+  "message": "ok"
+}
+```
+
+### 9.3 GET /suggestions/meal — 餐食建议
+
+查询参数：`meal_type = breakfast | lunch | dinner | snack`。
+
+响应：`200 ApiResponse<MealSuggestionResponse>`。Phase 9 为便于反馈，也会持久化实时餐食建议并返回 `suggestion_id`。
+
+```jsonc
+{
+  "data": {
+    "suggestion_id": "uuid",
+    "meal_type": "lunch",
+    "consumed_today": { "calories": 0, "protein": 0, "fat": 0, "carbs": 0 },
+    "remaining": { "calories": 600, "protein": 30, "fat": 20, "carbs": 75 },
+    "suggestions": ["鸡蛋", "豆腐", "绿叶蔬菜"],
+    "reasoning": "根据今日摄入和计划目标，优先补充蛋白质与蔬菜。",
+    "disclaimer": "..."
+  },
+  "message": "ok"
+}
+```
+
+### 9.4 GET /suggestions/insights — 健康洞察
+
+响应：`200 ApiResponse<InsightResponse>`。优先返回本周未过期缓存；缓存未命中时生成并持久化，最多 3 条。
+
+### 9.5 POST /suggestions/{id}/feedback — 建议反馈
+
+请求体：
+
+```jsonc
+{ "rating": "helpful" }
+```
+
+响应：`204 No Content`。后端写入反馈，并异步触发 `memory_agent` 进行偏好沉淀；异步失败不影响反馈提交。
+
+---
+
 ## 10. 知识库模块接口契约
 
 ### 10.1 FoodCategory
@@ -980,3 +1057,4 @@ grains | meat | vegetables | fruits | dairy | beverages | snacks | condiments | 
 | 2026-05-09 | Phase 5：补充身体数据模块契约（§6），覆盖 6 类记录 CRUD、today/latest 聚合、trends 趋势与前端 mock 映射 |
 | 2026-05-12 | Phase 7：AI 对话模块契约正式落地（§8），明确 `/ai/chat`、消息历史分页与会话软删除 |
 | 2026-05-13 | Phase 8：补充计划模块契约（§7），覆盖 AI 创建、CRUD、打卡、进度与执行记录 |
+| 2026-05-13 | Phase 9：补充 AI 建议模块契约（§9），覆盖 daily/meal/insights 与反馈接口 |

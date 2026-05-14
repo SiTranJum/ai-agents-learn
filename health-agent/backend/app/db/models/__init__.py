@@ -18,6 +18,7 @@ from app.db.models.diet import DietItem, DietRecord
 from app.db.models.knowledge import Food, KnowledgeDoc
 from app.db.models.memory import Memory, MemorySummary
 from app.db.models.plan import Plan, PlanCheckIn, PlanExecution, PlanTarget
+from app.db.models.suggestion import Suggestion
 from app.db.models.user import (
     HealthProfile,
     UserHealthInfo,
@@ -43,6 +44,7 @@ __all__ = [
     "PlanExecution",
     "PlanTarget",
     "SleepRecord",
+    "Suggestion",
     "UserHealthInfo",
     "UserPreference",
     "UserSetting",

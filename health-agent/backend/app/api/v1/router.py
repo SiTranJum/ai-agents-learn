@@ -8,7 +8,7 @@
 
 from fastapi import APIRouter
 
-from app.api.v1 import ai, body, diet, knowledge, plans, users
+from app.api.v1 import ai, body, diet, knowledge, plans, suggestions, users
 
 api_router = APIRouter()
 api_router.include_router(users.router)
@@ -17,8 +17,8 @@ api_router.include_router(diet.router)
 api_router.include_router(body.router)
 api_router.include_router(ai.router)
 api_router.include_router(plans.router)
+api_router.include_router(suggestions.router)
 
 # 待后续阶段接入:
-# from app.api.v1 import suggestions
 
 __all__ = ["api_router"]
