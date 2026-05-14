@@ -29,7 +29,6 @@ import type { MainStackParamList } from '@app/navigation/types';
 import { TaskList } from '../components/TaskList';
 import {
   usePlanDetail,
-  useResumePlan,
   useTerminatePlan,
   useToggleTask,
 } from '../hooks/usePlanData';
@@ -40,7 +39,6 @@ type R = RouteProp<MainStackParamList, 'PlanDetail'>;
 
 const STATUS_CONFIG: Record<PlanStatus, { label: string; bg: string; text: string }> = {
   active: { label: '进行中', bg: '#E8F9ED', text: '#4CD964' },
-  paused: { label: '已暂停', bg: '#FFF5E0', text: '#E6A800' },
   completed: { label: '已完成', bg: '#E8F6FF', text: '#5AC8FA' },
   terminated: { label: '已终止', bg: '#F0F0F0', text: '#999999' },
 };
@@ -55,7 +53,6 @@ export function PlanDetailScreen() {
 
   const toggleMutation = useToggleTask(planId ?? '');
   const terminateMutation = useTerminatePlan();
-  const resumeMutation = useResumePlan();
 
   const [showTerminateConfirm, setShowTerminateConfirm] = useState(false);
 
@@ -81,16 +78,6 @@ export function PlanDetailScreen() {
     }
   }, [planId, terminateMutation, toast, navigation]);
 
-  const handleResume = useCallback(async () => {
-    if (!planId) return;
-    try {
-      await resumeMutation.mutateAsync(planId);
-      toast.show({ type: 'success', message: '计划已恢复' });
-    } catch {
-      toast.show({ type: 'error', message: '操作失败，请重试' });
-    }
-  }, [planId, resumeMutation, toast]);
-
   if (isLoading || !plan) {
     return (
       <PageContainer useSafeArea>
@@ -103,7 +90,6 @@ export function PlanDetailScreen() {
 
   const statusStyle = STATUS_CONFIG[plan.status];
   const isActive = plan.status === 'active';
-  const isPaused = plan.status === 'paused';
   const isCompleted = plan.status === 'completed';
   const chartWidth = Dimensions.get('window').width - 32 - 32;
 
@@ -193,27 +179,7 @@ export function PlanDetailScreen() {
 
         {/* 底部操作 */}
         <View style={styles.actions}>
-          {isPaused ? (
-            <>
-              <View style={styles.actionBtn}>
-                <Button
-                  variant="primary"
-                  onPress={handleResume}
-                  loading={resumeMutation.isPending}
-                >
-                  恢复计划
-                </Button>
-              </View>
-              <View style={styles.actionBtn}>
-                <Button
-                  variant="secondary"
-                  onPress={() => setShowTerminateConfirm(true)}
-                >
-                  终止计划
-                </Button>
-              </View>
-            </>
-          ) : isCompleted ? (
+          {isCompleted ? (
             <View style={styles.actionBtn}>
               <Button
                 variant="primary"

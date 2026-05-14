@@ -1,8 +1,8 @@
 // 计划模块类型定义
 // 参考: docs/specs/frontend/modules/14-plan-module.md §4
 
-export type PlanType = 'lose_weight' | 'nutrition' | 'habit';
-export type PlanStatus = 'active' | 'paused' | 'completed' | 'terminated';
+export type PlanType = 'weight_loss' | 'nutrition_adjustment' | 'habit_formation';
+export type PlanStatus = 'active' | 'completed' | 'terminated';
 export type BackendPlanType = 'weight_loss' | 'nutrition_adjustment' | 'habit_formation';
 export type BackendPlanStatus = 'active' | 'completed' | 'terminated';
 

@@ -101,10 +101,3 @@ export const DISEASE_OPTIONS = [
   { label: '痛风', value: '痛风' },
   { label: '甲状腺异常', value: '甲状腺异常' },
 ];
-
-export const MEDICATION_OPTIONS = [
-  { label: '氨氯地平 5mg/日', value: '氨氯地平 5mg/日' },
-  { label: '二甲双胍', value: '二甲双胍' },
-  { label: '阿司匹林', value: '阿司匹林' },
-  { label: '他汀类', value: '他汀类' },
-];

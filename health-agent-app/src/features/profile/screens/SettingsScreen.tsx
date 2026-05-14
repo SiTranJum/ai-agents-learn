@@ -162,10 +162,10 @@ export function SettingsScreen() {
         {
           type: 'link',
           key: 'delete',
-          label: '删除账号',
+          label: '删除账号 (V2)',
           icon: 'trash-2',
           danger: true,
-          onPress: () => setShowDeleteConfirm(true),
+          onPress: () => toast.show({ type: 'info', message: '删除账号功能将在 V2 版本上线' }),
         },
       ],
     },

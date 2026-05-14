@@ -1,8 +1,7 @@
-// Plan Service - Mock 实现
+// Plan Service - 对接后端 API
 // 参考: docs/specs/frontend/modules/14-plan-module.md §7
 
 import type {
-  BackendPlanType,
   ChatMessage,
   PlanDetail,
   PlanListItem,
@@ -14,8 +13,6 @@ import { apiClient } from '@core/api/client';
 import {
   buildDefaultSummary,
   DURATION_OPTIONS,
-  planDetailsMock,
-  planListMock,
   TYPE_OPTIONS,
 } from '../mocks/planMocks';
 
@@ -23,24 +20,8 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const STATUS_ORDER: Record<PlanListItem['status'], number> = {
   active: 0,
-  paused: 1,
-  completed: 2,
-  terminated: 3,
-};
-
-let LIST: PlanListItem[] = [...planListMock];
-let DETAILS: Record<string, PlanDetail> = { ...planDetailsMock };
-
-const FRONTEND_TO_BACKEND_TYPE: Record<PlanType, BackendPlanType> = {
-  lose_weight: 'weight_loss',
-  nutrition: 'nutrition_adjustment',
-  habit: 'habit_formation',
-};
-
-const BACKEND_TO_FRONTEND_TYPE: Record<BackendPlanType, PlanType> = {
-  weight_loss: 'lose_weight',
-  nutrition_adjustment: 'nutrition',
-  habit_formation: 'habit',
+  completed: 1,
+  terminated: 2,
 };
 
 interface PaginatedRaw<T> {
@@ -65,7 +46,7 @@ function progressFromDates(startDate: string, endDate: string): number {
 }
 
 function mapPlan(raw: PlanResponseRaw): PlanDetail {
-  const type = BACKEND_TO_FRONTEND_TYPE[raw.plan_type];
+  const type = raw.plan_type;
   const progress = raw.status === 'completed' ? 100 : progressFromDates(raw.start_date, raw.target_date);
   return {
     id: raw.id,
@@ -108,146 +89,46 @@ export interface PlanService {
 
 export const planService: PlanService = {
   async getPlans() {
-    try {
-      const raw = await apiClient.get<PaginatedRaw<PlanResponseRaw> | PlanResponseRaw[]>('/plans');
-      const items = Array.isArray(raw) ? raw : raw.data;
-      return items.map(mapPlan).map(toListItem).sort(
-        (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
-      );
-    } catch {
-      // 后端未启动/未登录时回退 mock，保证学习 UI 可用。
-    }
-    await delay(400);
-    return [...LIST].sort(
+    const raw = await apiClient.get<PaginatedRaw<PlanResponseRaw> | PlanResponseRaw[]>('/plans');
+    const items = Array.isArray(raw) ? raw : raw.data;
+    return items.map(mapPlan).map(toListItem).sort(
       (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
     );
   },
 
   async getPlanDetail(planId) {
-    try {
-      const raw = await apiClient.get<PlanResponseRaw>(`/plans/${planId}`);
-      return mapPlan(raw);
-    } catch {
-      // fallback to local mock
-    }
-    await delay(400);
-    const detail = DETAILS[planId];
-    if (!detail) {
-      throw new Error('计划不存在');
-    }
-    return { ...detail, tasks: [...detail.tasks] };
+    const raw = await apiClient.get<PlanResponseRaw>(`/plans/${planId}`);
+    return mapPlan(raw);
   },
 
   async createPlan(summary) {
-    try {
-      const raw = await apiClient.post<PlanResponseRaw>('/plans', {
-        goal_description: [
-          summary.name,
-          summary.targetWeight ? `目标体重 ${summary.targetWeight}kg` : undefined,
-          summary.dailyCalorieTarget ? `每日热量 ${summary.dailyCalorieTarget}kcal` : undefined,
-          `周期 ${summary.duration}`,
-          ...summary.keyRules,
-        ].filter(Boolean).join('；'),
-        plan_type: FRONTEND_TO_BACKEND_TYPE[summary.type],
-      });
-      return mapPlan(raw);
-    } catch {
-      // fallback to local mock
-    }
-    await delay(800);
-    const id = `plan-${Date.now()}`;
-    const start = new Date();
-    const end = new Date(start);
-    const months = Number(summary.duration.replace(/[^\d]/g, '')) || 3;
-    end.setMonth(end.getMonth() + months);
-
-    const startDate = start.toISOString().slice(0, 10);
-    const endDate = end.toISOString().slice(0, 10);
-
-    const detail: PlanDetail = {
-      id,
-      name: summary.name,
-      type: summary.type as PlanType,
-      status: 'active',
-      targetWeight: summary.targetWeight,
-      dailyCalorieTarget: summary.dailyCalorieTarget,
-      duration: summary.duration,
-      currentPhase: '第1阶段',
-      startDate,
-      endDate,
-      progress: 0,
-      tasks: summary.keyRules.map((text, idx) => ({
-        id: `t-${id}-${idx}`,
-        text,
-        completed: false,
-      })),
-      trendData: [],
-      aiSuggestion: '计划已创建，开始记录吧～',
-    };
-
-    DETAILS = { ...DETAILS, [id]: detail };
-    LIST = [
-      {
-        id,
-        name: detail.name,
-        type: detail.type,
-        status: 'active',
-        progress: 0,
-        startDate,
-        endDate,
-      },
-      ...LIST,
-    ];
-
-    return detail;
+    const raw = await apiClient.post<PlanResponseRaw>('/plans', {
+      goal_description: [
+        summary.name,
+        summary.targetWeight ? `目标体重 ${summary.targetWeight}kg` : undefined,
+        summary.dailyCalorieTarget ? `每日热量 ${summary.dailyCalorieTarget}kcal` : undefined,
+        `周期 ${summary.duration}`,
+        ...summary.keyRules,
+      ].filter(Boolean).join('；'),
+      plan_type: summary.type,
+    });
+    return mapPlan(raw);
   },
 
   async toggleTask(planId, taskId) {
-    try {
-      await apiClient.post(`/plans/${planId}/check-ins`, {
-        task_id: taskId,
-        completed: true,
-      });
-      return await this.getPlanDetail(planId);
-    } catch {
-      // fallback to local mock toggle
-    }
-    await delay(150);
-    const detail = DETAILS[planId];
-    if (!detail) throw new Error('计划不存在');
-    const tasks = detail.tasks.map((t) =>
-      t.id === taskId ? { ...t, completed: !t.completed } : t
-    );
-    const next = { ...detail, tasks };
-    DETAILS = { ...DETAILS, [planId]: next };
-    return { ...next, tasks: [...tasks] };
+    await apiClient.post(`/plans/${planId}/check-ins`, {
+      task_id: taskId,
+      completed: true,
+    });
+    return await this.getPlanDetail(planId);
   },
 
   async terminatePlan(planId) {
-    try {
-      await apiClient.delete(`/plans/${planId}`);
-      return;
-    } catch {
-      // fallback to local mock
-    }
-    await delay(400);
-    const detail = DETAILS[planId];
-    if (!detail) return;
-    DETAILS = {
-      ...DETAILS,
-      [planId]: { ...detail, status: 'terminated' },
-    };
-    LIST = LIST.map((p) =>
-      p.id === planId ? { ...p, status: 'terminated' } : p
-    );
+    await apiClient.delete(`/plans/${planId}`);
   },
 
-  async resumePlan(planId) {
-    await delay(300);
-    const detail = DETAILS[planId];
-    if (!detail) return;
-    DETAILS = { ...DETAILS, [planId]: { ...detail, status: 'active' } };
-    LIST = LIST.map((p) => (p.id === planId ? { ...p, status: 'active' } : p));
+  async resumePlan(_planId) {
+    throw new Error('暂不支持恢复计划');
   },
 };
 
@@ -266,9 +147,9 @@ export interface ChatStepResult {
 }
 
 const TYPE_TEXT_TO_KEY: Record<string, PlanType> = {
-  '\u51cf\u91cd\u8ba1\u5212': 'lose_weight',
-  '\u8425\u517b\u8c03\u6574': 'nutrition',
-  '\u4e60\u60ef\u517b\u6210': 'habit',
+  '\u51cf\u91cd\u8ba1\u5212': 'weight_loss',
+  '\u8425\u517b\u8c03\u6574': 'nutrition_adjustment',
+  '\u4e60\u60ef\u517b\u6210': 'habit_formation',
 };
 
 function makeId(): string {
@@ -290,9 +171,9 @@ export async function processChatStep(
 
   switch (step) {
     case 'ask_type': {
-      const planType = TYPE_TEXT_TO_KEY[userInput] ?? 'lose_weight';
+      const planType = TYPE_TEXT_TO_KEY[userInput] ?? 'weight_loss';
       // 减重计划：问目标体重；其他：直接问周期
-      if (planType === 'lose_weight') {
+      if (planType === 'weight_loss') {
         return {
           patch: { type: planType },
           nextStep: 'ask_target_weight',
@@ -336,7 +217,7 @@ export async function processChatStep(
     case 'ask_duration': {
       const duration = userInput || '3个月';
       const summary = buildDefaultSummary(
-        draft.type ?? 'lose_weight',
+        draft.type ?? 'weight_loss',
         draft.targetWeight ?? 70,
         duration
       );

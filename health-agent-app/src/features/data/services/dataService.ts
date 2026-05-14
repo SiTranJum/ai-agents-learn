@@ -2,6 +2,7 @@
 // 契约: docs/specs/shared/api-contract.md §6
 
 import { apiClient } from '@core/api/client';
+import { todayStr } from '@shared/utils/date';
 import type {
   AnalysisData,
   BodyRecord,
@@ -154,10 +155,6 @@ export interface DataService {
   getAnalysisData(range: TimeRange): Promise<AnalysisData>;
 }
 
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export const dataService: DataService = {
   async getTodayRecords(date) {
     const d = date ?? todayStr();
@@ -262,9 +259,20 @@ export const dataService: DataService = {
       case 'water': {
         // 编辑页直接改"当日累计值"对应 PUT，否则走 POST 累加
         const payload = toWaterPayload(record as Partial<WaterRecord>);
-        const raw = id
-          ? await apiClient.put<BackendWaterRecord>(`/body/water/${id}`, payload)
-          : await apiClient.post<BackendWaterRecord>('/body/water', payload);
+        if (id) {
+          const raw = await apiClient.put<BackendWaterRecord>(`/body/water/${id}`, payload);
+          return mapWaterRecord(raw);
+        }
+        // 没有 id → 检查当日是否已有饮水记录
+        const date = (record as Partial<WaterRecord>).date ?? todayStr();
+        const todayRecords = await this.getTodayRecords(date);
+        if (todayRecords.water?.id) {
+          // 已有记录 → 用已有记录的 id 做 PUT
+          const raw = await apiClient.put<BackendWaterRecord>(`/body/water/${todayRecords.water.id}`, payload);
+          return mapWaterRecord(raw);
+        }
+        // 没有记录 → POST 新增
+        const raw = await apiClient.post<BackendWaterRecord>('/body/water', payload);
         return mapWaterRecord(raw);
       }
       case 'bowel': {

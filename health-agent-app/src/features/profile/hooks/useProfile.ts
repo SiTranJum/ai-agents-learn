@@ -3,6 +3,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { profileService } from '../services/profileService';
+import { useGlobalStore } from '@core/store/globalStore';
 import type { AppSettings, UserProfile } from '../types/profile.types';
 
 export function useUserProfile() {
@@ -17,9 +18,27 @@ export function useUpdateUserProfile() {
   return useMutation({
     mutationFn: (data: Partial<UserProfile>) =>
       profileService.updateUserProfile(data),
-    onSuccess: (data) => {
-      qc.setQueryData(['profile'], data);
+    onSuccess: (profile) => {
+      qc.setQueryData(['profile'], profile);
       qc.invalidateQueries({ queryKey: ['home'] });
+      // 同步到 globalStore
+      useGlobalStore.getState().setUserProfile({
+        id: profile.id,
+        email: profile.email,
+        nickname: profile.nickname,
+        gender: profile.gender,
+        birthDate: profile.birthDate,
+        height: profile.height,
+        weight: profile.weight,
+        targetWeight: profile.targetWeight,
+        activityLevel: profile.activityLevel,
+        healthGoals: profile.goalType ? [profile.goalType] : [],
+        dietPreferences: profile.dietType ? [profile.dietType] : [],
+        allergies: profile.allergies,
+        restrictions: profile.restrictions,
+        diseases: profile.diseases,
+        onboardingCompleted: true,
+      });
     },
   });
 }
