@@ -503,11 +503,11 @@ uvicorn app.main:app --reload
 - Create: `app/agents/prompts/suggestion_insight.py`
 - Create: `app/api/v1/suggestions.py`
 
-- [ ] **Step 1: 创建 Suggestion 数据库模型** + schemas
-- [ ] **Step 2: 实现 suggestion_agent** — 节点：collect_data / recall_memories / search_knowledge / generate_suggestions / deduplicate_filter
-- [ ] **Step 3: 实现 SuggestionService**（缓存读写、反馈写入、反馈后 `memory_agent.ainvoke(trigger="suggestion_feedback", ...)`；**不含 LLM 调用**）
-- [ ] **Step 4: 实现 API 端点**（`GET /suggestions/daily` / `meal` / `insights`、`POST /suggestions/{id}/feedback`）
-- [ ] **Step 5: 端到端测试**
+- [x] **Step 1: 创建 Suggestion 数据库模型** + schemas
+- [x] **Step 2: 实现 suggestion_agent** — 节点：collect_data / recall_memories / search_knowledge / generate_suggestions / deduplicate_filter
+- [x] **Step 3: 实现 SuggestionService**（缓存读写、反馈写入、反馈后 `memory_agent.ainvoke(trigger="suggestion_feedback", ...)`；**不含 LLM 调用**）
+- [x] **Step 4: 实现 API 端点**（`GET /suggestions/daily` / `meal` / `insights`、`POST /suggestions/{id}/feedback`）
+- [x] **Step 5: 端到端测试**
 - [ ] **Step 6: Commit**
 
 ---
@@ -554,6 +554,6 @@ uvicorn app.main:app --reload
 | 6 | AI 记忆系统（memory_agent） | 2 | ✅ 已完成（待 commit） |
 | 7 | AI 对话系统（chat_agent） | 2 | ✅ 已完成（待 commit） |
 | 8 | 计划系统（plan_agent） | 2 | ✅ 已完成（待 commit） |
-| 9 | AI 建议系统（suggestion_agent） | 1 | ⬜ 未开始 |
+| 9 | AI 建议系统（suggestion_agent） | 1 | ✅ 已完成（待 commit） |
 | 10 | 全局联调与收尾 | 2 | ⬜ 未开始 |
 | **总计** | | **23 Tasks** | |

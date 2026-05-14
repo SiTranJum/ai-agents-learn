@@ -4,7 +4,7 @@
 //   - 热量/营养/餐次聚合：GET /diet/daily-summary
 //   - 饮水/睡眠/运动/排便卡片：GET /body/today
 //   - 当前活跃计划：Phase 8 未完成 → 暂返回 null
-//   - AI 洞察：Phase 9 未完成 → 暂使用 mock 文案
+//   - AI 洞察：GET /suggestions/daily
 
 import type {
   AuxiliaryItemType,
@@ -16,6 +16,7 @@ import type {
 } from '../types/home.types';
 import { dietService } from '@features/diet/services/dietService';
 import { dataService } from '@features/data/services/dataService';
+import { suggestionService } from '@features/suggestion/services/suggestionService';
 import type { DietPageData, DietRecord } from '@features/diet/types/diet.types';
 import type { TodayRecords } from '@features/data/types/data.types';
 
@@ -46,10 +47,6 @@ function dietRecordToHomeMeal(r: DietRecord): HomeMeal {
     calories: r.totalCalories,
     time: r.time,
   };
-}
-
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : `${n}`;
 }
 
 function formatSleepDuration(minutes: number): string {
@@ -119,9 +116,8 @@ async function fetchActivePlan(): Promise<HomePlan | null> {
   return null;
 }
 
-/** TODO(Phase 9): 改为 aiService.getDailyInsight() 或 suggestionService.getDailyTip() */
 async function fetchAIInsight(): Promise<string> {
-  return '记得多喝水、均衡饮食、保持运动。';
+  return suggestionService.getDailyInsightText();
 }
 
 // ===== Service 实现 =====

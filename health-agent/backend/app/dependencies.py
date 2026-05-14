@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.chat.graph import build_chat_agent
 from app.agents.plan.graph import build_plan_agent
+from app.agents.suggestion.graph import build_suggestion_agent
 from app.core.exceptions import UnauthorizedException
 from app.core.security import claims_to_current_user, decode_supabase_jwt
 from app.db.repositories.body_repo import BodyRepository
@@ -22,6 +23,7 @@ from app.db.repositories.diet_repo import DietRepository
 from app.db.repositories.knowledge_repo import KnowledgeRepository
 from app.db.repositories.memory_repo import MemoryRepository
 from app.db.repositories.plan_repo import PlanRepository
+from app.db.repositories.suggestion_repo import SuggestionRepository
 from app.db.repositories.user_repo import UserRepository
 from app.db.session import get_db_session
 from app.integrations.embedding import EmbeddingClient
@@ -32,6 +34,7 @@ from app.services.diet_service import DietService
 from app.services.memory_service import MemoryService
 from app.services.plan_service import PlanService
 from app.services.rag_service import RagService
+from app.services.suggestion_service import SuggestionService
 from app.services.user_service import UserService
 
 # 重新导出数据库会话依赖, 调用方可直接 ``from app.dependencies import DbSession``
@@ -202,8 +205,20 @@ async def get_plan_service(
 PlanServiceDep = Annotated[PlanService, Depends(get_plan_service)]
 
 
+async def get_suggestion_service(
+    session: DbSession,
+    user: CurrentUserDep,
+) -> SuggestionService:
+    """构造按当前用户隔离的建议服务。"""
+    return SuggestionService(repo=SuggestionRepository(session=session, user_id=user.id))
+
+
+SuggestionServiceDep = Annotated[SuggestionService, Depends(get_suggestion_service)]
+
+
 _chat_agent_singleton = None
 _plan_agent_singleton = None
+_suggestion_agent_singleton = None
 
 
 def get_chat_agent():
@@ -226,5 +241,16 @@ def get_plan_agent():
 
 
 PlanAgentDep = Annotated[object, Depends(get_plan_agent)]
+
+
+def get_suggestion_agent():
+    """构造并复用 suggestion_agent 编译产物。"""
+    global _suggestion_agent_singleton
+    if _suggestion_agent_singleton is None:
+        _suggestion_agent_singleton = build_suggestion_agent()
+    return _suggestion_agent_singleton
+
+
+SuggestionAgentDep = Annotated[object, Depends(get_suggestion_agent)]
 
 
