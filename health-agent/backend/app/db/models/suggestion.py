@@ -29,7 +29,7 @@ class Suggestion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     basis: Mapped[str | None] = mapped_column(Text, nullable=True)
     priority: Mapped[str] = mapped_column(String(20), nullable=False, default="medium")
-    meal_type: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
+    meal_type: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     dimension: Mapped[str | None] = mapped_column(String(50), nullable=True)
     context: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     data_support: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
