@@ -1,7 +1,6 @@
-// AI 建议 Service - 优先调用后端 API，失败回退 mock
+// AI 建议 Service - 调用后端 API
 
 import { apiClient } from '@core/api/client';
-import { dailySuggestionMock, insightMock, mealSuggestionMock } from '../mocks/suggestionMocks';
 import type {
   DailySuggestionResponseRaw,
   FeedbackRating,
@@ -20,35 +19,19 @@ export interface SuggestionService {
 // noinspection JSUnusedGlobalSymbols -- imported by homeService and future suggestion screens
 export const suggestionService: SuggestionService = {
   async getDailySuggestions() {
-    try {
-      return await apiClient.get<DailySuggestionResponseRaw>('/suggestions/daily');
-    } catch {
-      return dailySuggestionMock;
-    }
+    return await apiClient.get<DailySuggestionResponseRaw>('/suggestions/daily');
   },
 
   async getMealSuggestions(mealType) {
-    try {
-      return await apiClient.get<MealSuggestionResponseRaw>(`/suggestions/meal?meal_type=${mealType}`);
-    } catch {
-      return { ...mealSuggestionMock, meal_type: mealType };
-    }
+    return await apiClient.get<MealSuggestionResponseRaw>(`/suggestions/meal?meal_type=${mealType}`);
   },
 
   async getInsights() {
-    try {
-      return await apiClient.get<InsightResponseRaw>('/suggestions/insights');
-    } catch {
-      return insightMock;
-    }
+    return await apiClient.get<InsightResponseRaw>('/suggestions/insights');
   },
 
   async submitFeedback(suggestionId, rating) {
-    try {
-      await apiClient.post<void>(`/suggestions/${suggestionId}/feedback`, { rating });
-    } catch {
-      // mock fallback: ignore
-    }
+    await apiClient.post<void>(`/suggestions/${suggestionId}/feedback`, { rating });
   },
 
   async getDailyInsightText() {

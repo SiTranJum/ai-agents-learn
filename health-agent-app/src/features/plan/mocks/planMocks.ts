@@ -7,30 +7,21 @@ import type {
   PlanSummary,
 } from '../types/plan.types';
 
-// ===== 计划列表 mock：1 进行中 / 1 已暂停 / 1 已完成 =====
+// ===== 计划列表 mock：1 进行中 / 1 已完成 =====
 export const planListMock: PlanListItem[] = [
   {
     id: 'plan-001',
     name: '减脂计划',
-    type: 'lose_weight',
+    type: 'weight_loss',
     status: 'active',
     progress: 72,
     startDate: '2026-03-01',
     endDate: '2026-06-01',
   },
   {
-    id: 'plan-002',
-    name: '营养调整计划',
-    type: 'nutrition',
-    status: 'paused',
-    progress: 45,
-    startDate: '2026-04-01',
-    endDate: '2026-07-01',
-  },
-  {
     id: 'plan-003',
     name: '增肌计划',
-    type: 'habit',
+    type: 'habit_formation',
     status: 'completed',
     progress: 100,
     startDate: '2026-01-01',
@@ -43,7 +34,7 @@ export const planDetailsMock: Record<string, PlanDetail> = {
   'plan-001': {
     id: 'plan-001',
     name: '减脂计划',
-    type: 'lose_weight',
+    type: 'weight_loss',
     status: 'active',
     targetWeight: 70,
     dailyCalorieTarget: 1600,
@@ -69,28 +60,10 @@ export const planDetailsMock: Record<string, PlanDetail> = {
     aiSuggestion:
       '你最近 3 天晚餐热量偏高，建议把晚餐主食减少 1/4，并增加蔬菜比例。',
   },
-  'plan-002': {
-    id: 'plan-002',
-    name: '营养调整计划',
-    type: 'nutrition',
-    status: 'paused',
-    dailyCalorieTarget: 1800,
-    duration: '3个月',
-    currentPhase: '第1阶段',
-    startDate: '2026-04-01',
-    endDate: '2026-07-01',
-    progress: 45,
-    tasks: [
-      { id: 't-1', text: '蛋白质摄入 ≥ 80g', completed: false },
-      { id: 't-2', text: '蔬菜每餐 ≥ 1 份', completed: false },
-    ],
-    trendData: [],
-    aiSuggestion: '计划已暂停，恢复后将继续追踪进度。',
-  },
   'plan-003': {
     id: 'plan-003',
     name: '增肌计划',
-    type: 'habit',
+    type: 'habit_formation',
     status: 'completed',
     duration: '3个月',
     startDate: '2026-01-01',
@@ -98,36 +71,36 @@ export const planDetailsMock: Record<string, PlanDetail> = {
     progress: 100,
     tasks: [],
     trendData: [],
-    aiSuggestion: '计划已完成！平均蛋白质摄入提升 30%，恭喜达成目标 🎉',
+    aiSuggestion: '计划已完成！平均蛋白质摄入提升 30%，恭喜达成目标',
   },
 };
 
 // ===== 默认计划摘要 mock（对话流第 4 步生成） =====
 export function buildDefaultSummary(
-  type: 'lose_weight' | 'nutrition' | 'habit' = 'lose_weight',
+  type: 'weight_loss' | 'nutrition_adjustment' | 'habit_formation' = 'weight_loss',
   targetWeight: number = 70,
   duration: string = '3个月'
 ): PlanSummary {
   const NAME_MAP = {
-    lose_weight: '减重计划',
-    nutrition: '营养调整计划',
-    habit: '习惯养成计划',
+    weight_loss: '减重计划',
+    nutrition_adjustment: '营养调整计划',
+    habit_formation: '习惯养成计划',
   } as const;
   return {
     name: NAME_MAP[type],
     type,
-    targetWeight: type === 'lose_weight' ? targetWeight : undefined,
-    dailyCalorieTarget: type === 'lose_weight' ? 1600 : 1800,
+    targetWeight: type === 'weight_loss' ? targetWeight : undefined,
+    dailyCalorieTarget: type === 'weight_loss' ? 1600 : 1800,
     duration,
     phases: 3,
     keyRules:
-      type === 'lose_weight'
+      type === 'weight_loss'
         ? [
             '每日热量控制在 1600 kcal 以内',
             '每周至少 3 次有氧运动',
             '22:30 前入睡',
           ]
-        : type === 'nutrition'
+        : type === 'nutrition_adjustment'
         ? ['蛋白质 ≥ 80g/天', '蔬菜每餐 ≥ 1 份', '减少加工食品']
         : ['每日步数 ≥ 8000', '每天饮水 2000ml', '规律作息'],
   };

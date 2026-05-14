@@ -6,6 +6,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '@app/styles/theme';
+import { todayStr } from '@shared/utils/date';
 
 export interface DateSwitcherProps {
   /** 当前选中的日期 YYYY-MM-DD */
@@ -29,14 +30,6 @@ function formatDate(dateStr: string): string {
 function shiftDate(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00`);
   d.setDate(d.getDate() + days);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function todayStr(): string {
-  const d = new Date();
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');

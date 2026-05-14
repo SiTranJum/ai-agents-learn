@@ -38,7 +38,6 @@ import {
   DISLIKED_FOOD_OPTIONS,
   GENDER_OPTIONS,
   GOAL_TYPE_OPTIONS,
-  MEDICATION_OPTIONS,
   RESTRICTION_OPTIONS,
 } from '../mocks/profileMocks';
 import type { ActivityLevel, Gender } from '../types/profile.types';

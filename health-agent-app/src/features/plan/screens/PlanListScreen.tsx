@@ -106,7 +106,7 @@ export function PlanListScreen() {
 }
 
 function getTypeIcon(type: PlanListItem['type']): string {
-  return { lose_weight: '🏃', nutrition: '🥗', habit: '💪' }[type];
+  return { weight_loss: '🏃', nutrition_adjustment: '🥗', habit_formation: '💪' }[type];
 }
 
 function formatDate(d: string): string {
@@ -117,7 +117,7 @@ function formatDate(d: string): string {
     .padStart(2, '0')}`;
 }
 
-function mapStatus(s: PlanListItem['status']): 'active' | 'paused' | 'completed' {
+function mapStatus(s: PlanListItem['status']): 'active' | 'completed' {
   if (s === 'terminated') return 'completed';
   return s;
 }

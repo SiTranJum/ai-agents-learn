@@ -2,6 +2,7 @@
 // 契约: docs/specs/shared/api-contract.md §5、§10
 
 import { apiClient } from '@core/api/client';
+import { todayStr } from '@shared/utils/date';
 import type {
   DietPageData,
   DietRecord,
@@ -65,10 +66,6 @@ export interface DietService {
   confirmPendingRecord(record: SaveableRecord, date?: string): Promise<DietRecord>;
   /** pending 取消纯前端本地，不调后端 */
   cancelPendingRecord(_recordId?: string): Promise<void>;
-}
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 export const dietService: DietService = {
