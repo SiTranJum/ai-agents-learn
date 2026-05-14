@@ -10,6 +10,7 @@ import pytest
 
 from app.core.exceptions import ConflictException
 from app.db.models.plan import Plan, PlanCheckIn, PlanExecution, PlanTarget
+from app.schemas.diet import NutritionSummary
 from app.schemas.plan import (
     CheckInCreate,
     ExecutionStatus,
@@ -47,6 +48,9 @@ class _FakeRepo:
     async def has_active_plan(self) -> bool:
         return any(plan.status == "active" and plan.deleted_at is None for plan in self.plans)
 
+    async def get_active_plan(self) -> Plan | None:
+        return next((plan for plan in self.plans if plan.status == "active" and plan.deleted_at is None), None)
+
     async def create_plan(self, plan: Plan, target: PlanTarget) -> Plan:
         now = datetime.now(UTC)
         plan.id = uuid.uuid4()
@@ -59,7 +63,7 @@ class _FakeRepo:
         target.created_at = now
         target.updated_at = now
         self.plans.append(plan)
-        self.targets[plan.id] = target
+        self.targets[uuid.UUID(str(plan.id))] = target
         return plan
 
     async def get_plan(self, plan_id: uuid.UUID) -> Plan | None:
@@ -90,6 +94,23 @@ class _FakeRepo:
     async def list_executions(self, plan_id, **kwargs):
         _ = kwargs
         return [record for record in self.executions if record.plan_id == plan_id]
+
+    async def get_execution(self, plan_id, target_date):
+        return next((record for record in self.executions if record.plan_id == plan_id and record.date == target_date), None)
+
+    async def upsert_execution(self, execution: PlanExecution) -> PlanExecution:
+        existing = await self.get_execution(execution.plan_id, execution.date)
+        if existing is None:
+            execution.id = uuid.uuid4()
+            execution.user_id = self.user_id
+            execution.created_at = datetime.now(UTC)
+            execution.updated_at = execution.created_at
+            self.executions.append(execution)
+            return execution
+        existing.calories_consumed = execution.calories_consumed
+        existing.calories_target = execution.calories_target
+        existing.status = execution.status
+        return existing
 
     async def count_executions(self, plan_id, **kwargs) -> int:
         return len(await self.list_executions(plan_id, **kwargs))
@@ -152,4 +173,20 @@ def test_bmr_execution_status_and_safety_rules() -> None:
     profile = SimpleNamespace(current_weight=80, height=175, gender="male", birth_date=date(1990, 1, 1))
     unsafe = _draft().model_copy(update={"target_date": date.today() + timedelta(days=13)})
     assert "WEIGHT_LOSS_TOO_FAST" in service.safety_check(unsafe, profile)
+
+
+@pytest.mark.asyncio
+async def test_on_diet_record_created_upserts_active_plan_execution() -> None:
+    repo = _FakeRepo()
+    service = PlanService(repo=repo)  # type: ignore[arg-type]
+    created = await service.create_plan_from_draft(_draft())
+    nutrition = NutritionSummary(total_calories=1800, total_protein=90, total_fat=55, total_carbs=220)
+
+    await service.on_diet_record_created(created.start_date, nutrition)
+
+    assert len(repo.executions) == 1
+    assert repo.executions[0].status == ExecutionStatus.on_track.value
+    assert repo.session.commits == 2
+
+
 

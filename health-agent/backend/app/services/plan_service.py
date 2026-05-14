@@ -3,7 +3,7 @@
 This service is deterministic: CRUD, validation, BMR and progress calculation only.
 LLM orchestration belongs to ``app.agents.plan``.
 """
-# ruff: noqa: RUF001
+# ruff: noqa: RUF001,RUF002
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from datetime import UTC, date, datetime
 from app.core.exceptions import ConflictException, NotFoundException, ValidationException
 from app.db.models.plan import Plan, PlanCheckIn, PlanExecution, PlanTarget
 from app.db.repositories.plan_repo import PlanRepository
+from app.schemas.diet import NutritionSummary
 from app.schemas.plan import (
     CheckInCreate,
     CheckInResponse,
@@ -179,9 +180,40 @@ class PlanService:
         total = await self.repo.count_executions(plan.id, start_date=start_date, end_date=end_date, status=status)
         return [self._execution_response(record) for record in records], total
 
-    async def on_diet_record_created(self, record_date: date) -> None:
-        """Phase 10 will connect diet summaries to execution records."""
-        _ = record_date
+    async def on_diet_record_created(
+        self,
+        record_date: date,
+        nutrition_summary: NutritionSummary | None = None,
+    ) -> None:
+        """饮食记录变化后同步当天活跃计划执行记录。
+
+        Phase 10 最小闭环：API 层在饮食创建后传入当天营养汇总，
+        本方法按当前活跃计划目标计算 ``PlanExecution``，并用
+        ``(plan_id, date)`` 幂等 upsert。
+        """
+        plan = await self.repo.get_active_plan()
+        if plan is None:
+            return
+        target = await self.repo.get_target(plan.id)
+        nutrition = nutrition_summary
+        if nutrition is None:
+            return
+        calories_target = float(getattr(target, "daily_calories", None) or 0)
+        execution = PlanExecution(
+            plan_id=plan.id,
+            date=record_date,
+            calories_consumed=float(getattr(nutrition, "total_calories", 0) or 0),
+            calories_target=calories_target,
+            protein=float(getattr(nutrition, "total_protein", 0) or 0),
+            fat=float(getattr(nutrition, "total_fat", 0) or 0),
+            carbs=float(getattr(nutrition, "total_carbs", 0) or 0),
+            status=self.calculate_execution_status(
+                float(getattr(nutrition, "total_calories", 0) or 0),
+                calories_target,
+            ).value,
+        )
+        await self.repo.upsert_execution(execution)
+        await self.repo.session.commit()
 
     async def run_modification_rules(self, plan_id: uuid.UUID) -> list[str]:
         """Return deterministic rule hits only; LLM suggestions stay in plan_agent."""
@@ -308,9 +340,15 @@ class PlanService:
     @staticmethod
     def _profile_number(profile: object | None, field: str) -> float | None:
         value = getattr(profile, field, None) if profile is not None else None
-        return float(value) if value is not None else None
+        if isinstance(value, int | float | str):
+            return float(value)
+        return None
 
 
 __all__ = ["PlanService"]
+
+
+
+
 
 

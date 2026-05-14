@@ -3,6 +3,7 @@
 所有端点均为 ``API → DietService → Repository`` 直连，不经过 Agent。
 自然语言解析路径由 ``/ai/chat`` + diet subgraph 承担（见 ``docs/specs/shared/api-contract.md`` §5）。
 """
+# ruff: noqa: RUF001,RUF002
 
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from app.core.responses import paginated, success
-from app.dependencies import CurrentUserDep, DietServiceDep
+from app.dependencies import CurrentUserDep, DietServiceDep, PlanServiceDep
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.schemas.diet import (
     DailySummary,
@@ -44,12 +45,15 @@ async def create_record(
     payload: DietRecordCreate,
     user: CurrentUserDep,
     service: DietServiceDep,
+    plan_service: PlanServiceDep,
 ):
     data = await service.create_record(
         meal_type=payload.meal_type,
         foods=payload.foods,
         record_date=payload.date,
     )
+    daily = await service.get_daily_summary(payload.date)
+    await plan_service.on_diet_record_created(payload.date, daily.total_nutrition)
     return success(data.model_dump(mode="json"))
 
 
@@ -107,7 +111,7 @@ async def update_record(
     return success(data.model_dump(mode="json"))
 
 
-@router.delete("/records/{record_id}", response_model=ApiResponse[None], summary="删除饮食记录")
+@router.delete("/records/{record_id}", response_model=ApiResponse[object], summary="删除饮食记录")
 async def delete_record(record_id: uuid.UUID, user: CurrentUserDep, service: DietServiceDep):
     await service.delete_record(record_id)
     return success(None, message="删除成功")

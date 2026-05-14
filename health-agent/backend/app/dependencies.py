@@ -118,7 +118,11 @@ async def get_user_service(
 ) -> UserService:
     """构造按当前用户隔离的 :class:`UserService`。"""
     repo = UserRepository(session=session, user_id=user.id)
-    return UserService(repo=repo)
+    memory_service = MemoryService(
+        repo=MemoryRepository(session=session, user_id=user.id),
+        embedding_client=EmbeddingClient(),
+    )
+    return UserService(repo=repo, memory_service=memory_service)
 
 
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]

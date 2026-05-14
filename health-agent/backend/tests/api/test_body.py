@@ -8,7 +8,7 @@ from datetime import UTC, date, datetime
 import pytest
 from httpx import AsyncClient
 
-from app.dependencies import get_body_service, get_current_user_with_profile
+from app.dependencies import get_body_service, get_current_user_with_profile, get_memory_service
 from app.main import app
 from app.schemas.auth import CurrentUser
 from app.schemas.body import (
@@ -73,6 +73,10 @@ class _FakeBodyService:
         )
 
 
+class _FakeMemoryService:
+    pass
+
+
 @pytest.fixture
 async def body_overrides():
     async def _current_user() -> CurrentUser:
@@ -81,8 +85,12 @@ async def body_overrides():
     async def _service() -> _FakeBodyService:
         return _FakeBodyService()
 
+    async def _memory_service() -> _FakeMemoryService:
+        return _FakeMemoryService()
+
     app.dependency_overrides[get_current_user_with_profile] = _current_user
     app.dependency_overrides[get_body_service] = _service
+    app.dependency_overrides[get_memory_service] = _memory_service
     try:
         yield
     finally:

@@ -4,10 +4,10 @@
 依赖 :class:`UserRepository` 进行持久化；档案完整度计算和
 对外脱敏的 ``get_profile_for_ai`` 也在此实现。
 
-注：本 Service 不直接依赖 ``memory_service``。在 Phase 6 引入记忆模块
-后，可在 ``update_*`` 方法中通过事件或显式调用触发记忆同步
-（参见 spec §4.3）。
+Phase 10 起，本 Service 可选注入 ``MemoryService``，用于档案更新后的
+结构化 profile 记忆同步；不做 LLM 编排。
 """
+# ruff: noqa: RUF002,RUF003
 
 from __future__ import annotations
 
@@ -35,6 +35,7 @@ from app.schemas.user import (
     UserSettingsResponse,
     UserSettingsUpdate,
 )
+from app.services.memory_service import MemoryService
 
 # 档案完整度参与字段（spec §4.2）
 PROFILE_REQUIRED_FIELDS: tuple[str, ...] = (
@@ -51,8 +52,9 @@ PROFILE_REQUIRED_FIELDS: tuple[str, ...] = (
 class UserService:
     """用户系统业务服务。"""
 
-    def __init__(self, repo: UserRepository) -> None:
+    def __init__(self, repo: UserRepository, memory_service: MemoryService | None = None) -> None:
         self.repo = repo
+        self.memory_service = memory_service
 
     # ---------- 内部装配 ----------
 
@@ -170,6 +172,11 @@ class UserService:
 
     # ---------- 更新 ----------
 
+    async def _sync_profile_memory(self, fields: dict[str, object]) -> None:
+        if self.memory_service is None or not fields:
+            return
+        await self.memory_service.on_profile_updated(fields)
+
     async def update_profile(
         self, user_id: uuid.UUID, data: UserProfileUpdate
     ) -> UserProfileResponse:
@@ -178,7 +185,7 @@ class UserService:
         if profile is None:
             raise NotFoundException("用户档案不存在", code="USER_NOT_FOUND")
         await self.repo.session.commit()
-        # TODO(Phase 6): memory_service.on_profile_updated(user_id, data)
+        await self._sync_profile_memory(fields)
         return self._profile_to_response(profile)
 
     async def update_preferences(
@@ -187,7 +194,7 @@ class UserService:
         fields = data.model_dump(exclude_unset=True)
         instance = await self.repo.update_preferences(fields)
         await self.repo.session.commit()
-        # TODO(Phase 6): memory_service.on_profile_updated(user_id, data)
+        await self._sync_profile_memory({f"preferences.{key}": value for key, value in fields.items()})
         return self._preferences_to_response(instance)
 
     async def update_health_info(
@@ -196,7 +203,7 @@ class UserService:
         fields = data.model_dump(exclude_unset=True)
         instance = await self.repo.update_health_info(fields)
         await self.repo.session.commit()
-        # TODO(Phase 6): memory_service.on_profile_updated(user_id, data)
+        await self._sync_profile_memory({f"health_info.{key}": value for key, value in fields.items()})
         return self._health_info_to_response(instance)
 
     async def update_settings(
@@ -220,26 +227,27 @@ class UserService:
         - 幂等：已完成用户再次调用等价于一次聚合更新；
         - 返回完整 ``UserFullResponse``，前端可直接刷新本地 state。
         """
+        memory_fields: dict[str, object] = {}
         if payload.profile is not None:
-            await self.repo.update_profile(
-                payload.profile.model_dump(exclude_unset=True)
-            )
+            fields = payload.profile.model_dump(exclude_unset=True)
+            await self.repo.update_profile(fields)
+            memory_fields.update(fields)
         if payload.preferences is not None:
-            await self.repo.update_preferences(
-                payload.preferences.model_dump(exclude_unset=True)
-            )
+            fields = payload.preferences.model_dump(exclude_unset=True)
+            await self.repo.update_preferences(fields)
+            memory_fields.update({f"preferences.{key}": value for key, value in fields.items()})
         if payload.health_info is not None:
-            await self.repo.update_health_info(
-                payload.health_info.model_dump(exclude_unset=True)
-            )
+            fields = payload.health_info.model_dump(exclude_unset=True)
+            await self.repo.update_health_info(fields)
+            memory_fields.update({f"health_info.{key}": value for key, value in fields.items()})
 
         # 标记 onboarding 完成（update_profile 的 _apply_updates 会忽略 None，
         # 但 True 会被写入）
         await self.repo.update_profile({"onboarding_completed": True})
 
         await self.repo.session.commit()
-        # TODO(Phase 6): memory_service.on_profile_updated(user_id, ...)
+        await self._sync_profile_memory(memory_fields)
         return await self.get_full_profile(user_id, email=email)
 
 
-__all__ = ["UserService", "PROFILE_REQUIRED_FIELDS"]
+__all__ = ["PROFILE_REQUIRED_FIELDS", "UserService"]

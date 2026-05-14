@@ -12,14 +12,19 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
+from contextlib import suppress
 from datetime import datetime
 from typing import Any, cast
 
 from app.agents.base import get_chat_model
 from app.agents.chat.state import ChatState
 from app.agents.diet.tools import enrich_food_tool, save_diet_record_tool
+from app.agents.memory.subgraph import build_memory_subgraph
 from app.agents.prompts.diet_parse import build_diet_parse_messages
 from app.core.exceptions import BusinessRuleException, ValidationException
+from app.integrations.embedding import EmbeddingClient
 from app.schemas.diet import (
     DataSource,
     FoodItemInput,
@@ -28,6 +33,16 @@ from app.schemas.diet import (
     ParsedFood,
     ParseResult,
 )
+
+logger = logging.getLogger(__name__)
+_BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
+
+
+def _discard_task(task: asyncio.Task[Any]) -> None:
+    _BACKGROUND_TASKS.discard(task)
+    if not task.cancelled():
+        with suppress(Exception):
+            task.exception()
 
 
 def _get_service(state: ChatState):
@@ -210,7 +225,28 @@ async def save_record(state: ChatState) -> dict[str, Any]:
 
 
 async def trigger_memory(state: ChatState) -> dict[str, Any]:
-    """预留记忆触发节点（Phase 6 集成 memory_agent）。"""
+    """保存饮食记录后异步触发 memory_agent。"""
+    record = state.get("diet_saved_record")
+    memory_service = cast(Any, state).get("memory_service")
+    if record is None or memory_service is None:
+        return {}
+    try:
+        graph = build_memory_subgraph()
+        task = asyncio.create_task(
+            graph.ainvoke(
+                {
+                    "user_id": state.get("user_id", ""),
+                    "trigger_type": "record_diet",
+                    "context_data": record.model_dump(mode="json") if hasattr(record, "model_dump") else record,
+                    "memory_service": memory_service,
+                    "embedding_client": EmbeddingClient(),
+                }
+            )
+        )
+        _BACKGROUND_TASKS.add(task)
+        task.add_done_callback(_discard_task)
+    except Exception as exc:  # pragma: no cover
+        logger.warning("diet memory trigger failed: %s", exc)
     return {}
 
 

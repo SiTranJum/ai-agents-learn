@@ -518,25 +518,25 @@ uvicorn app.main:app --reload
 
 ### Task 10.1: 跨模块集成
 
-- [ ] **Step 1: diet_agent 末节点触发 memory_agent** — 验证饮食记录后记忆提取异步执行
-- [ ] **Step 2: body_service 变化触发 memory_agent**（通过 API 层封装）
-- [ ] **Step 3: user_service 档案更新触发 MemoryService.on_profile_updated**
-- [ ] **Step 4: diet_service.on_record_created 触发 PlanService.on_diet_record_created**
+- [x] **Step 1: diet_agent 末节点触发 memory_agent** — 验证饮食记录后记忆提取异步执行
+- [x] **Step 2: body_service 变化触发 memory_agent**（通过 API 层封装）
+- [x] **Step 3: user_service 档案更新触发 MemoryService.on_profile_updated**
+- [x] **Step 4: diet_service.on_record_created 触发 PlanService.on_diet_record_created**
 - [ ] **Step 5: Commit**
 
 ---
 
 ### Task 10.2: 完整流程验证
 
-- [ ] **Step 1: 验证 Auth 流程**（注册 → 登录 → 获取 token → 访问受保护端点）
-- [ ] **Step 2: 验证用户档案流程**（创建 → 更新 → onboarding）
-- [ ] **Step 3: 验证饮食流程**（diet_agent 解析 → 创建记录 → 查询 → 汇总）
-- [ ] **Step 4: 验证身体数据流程**（记录 → 趋势 → 异常检测）
-- [ ] **Step 5: 验证 AI 对话流程**（chat_agent：发消息 → 记忆召回 → 回复 → 记忆写入）
-- [ ] **Step 6: 验证计划流程**（plan_agent 创建 → 打卡 → 进度）
-- [ ] **Step 7: 验证建议流程**（suggestion_agent：每日 → 餐食 → 洞察 → 反馈）
-- [ ] **Step 8: Lint 检查**：grep 整个 `app/services/` 确保没有 `ChatOpenAI` 或 `from openai`
-- [ ] **Step 9: 修复发现的问题**
+- [x] **Step 1: 验证 Auth 流程**（注册 → 登录 → 获取 token → 访问受保护端点）
+- [x] **Step 2: 验证用户档案流程**（创建 → 更新 → onboarding）
+- [x] **Step 3: 验证饮食流程**（diet_agent 解析 → 创建记录 → 查询 → 汇总）
+- [x] **Step 4: 验证身体数据流程**（记录 → 趋势 → 异常检测）
+- [x] **Step 5: 验证 AI 对话流程**（chat_agent：发消息 → 记忆召回 → 回复 → 记忆写入）
+- [x] **Step 6: 验证计划流程**（plan_agent 创建 → 打卡 → 进度）
+- [x] **Step 7: 验证建议流程**（suggestion_agent：每日 → 餐食 → 洞察 → 反馈）
+- [x] **Step 8: Lint 检查**：grep 整个 `app/services/` 确保没有 `ChatOpenAI` 或 `from openai`
+- [x] **Step 9: 修复发现的问题**
 - [ ] **Step 10: Final Commit**
 
 ---
@@ -555,5 +555,5 @@ uvicorn app.main:app --reload
 | 7 | AI 对话系统（chat_agent） | 2 | ✅ 已完成（待 commit） |
 | 8 | 计划系统（plan_agent） | 2 | ✅ 已完成（待 commit） |
 | 9 | AI 建议系统（suggestion_agent） | 1 | ✅ 已完成（待 commit） |
-| 10 | 全局联调与收尾 | 2 | ⬜ 未开始 |
+| 10 | 全局联调与收尾 | 2 | ✅ 已完成（待 commit） |
 | **总计** | | **23 Tasks** | |
