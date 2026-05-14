@@ -19,6 +19,7 @@ import { theme } from '@app/styles/theme';
 import { PageContainer } from '@shared/layout/PageContainer/PageContainer';
 import { ConfirmDialog } from '@shared/feedback/ConfirmDialog';
 import { useToast } from '@shared/feedback/Toast';
+import { DevApiSettingsModal } from '@shared/dev/DevApiSettingsModal';
 import type { MainStackParamList } from '@app/navigation/types';
 import { useGlobalStore } from '@core/store/globalStore';
 
@@ -59,6 +60,7 @@ export function SettingsScreen() {
   const exportMutation = useExportData();
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDevApi, setShowDevApi] = useState(false);
 
   const handleSelectMode = useCallback(
     (mode: InteractionMode) => {
@@ -199,6 +201,21 @@ export function SettingsScreen() {
     },
   ];
 
+  if (__DEV__) {
+    sections.push({
+      title: '开发者',
+      items: [
+        {
+          type: 'link',
+          key: 'dev_api',
+          label: 'API 地址',
+          icon: 'settings',
+          onPress: () => setShowDevApi(true),
+        },
+      ],
+    });
+  }
+
   return (
     <PageContainer useSafeArea>
       {/* 顶部导航栏 */}
@@ -226,6 +243,11 @@ export function SettingsScreen() {
         variant="danger"
         onConfirm={handleDeleteAccount}
         onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <DevApiSettingsModal
+        visible={showDevApi}
+        onClose={() => setShowDevApi(false)}
       />
     </PageContainer>
   );

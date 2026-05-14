@@ -23,6 +23,7 @@ import { Button } from '@shared/ui/Button';
 import { TextInput } from '@shared/forms/TextInput';
 import { PasswordInput } from '@shared/forms/PasswordInput';
 import { PageContainer } from '@shared/layout/PageContainer/PageContainer';
+import { DevApiSettingsModal } from '@shared/dev/DevApiSettingsModal';
 import type { AuthStackParamList } from '@app/navigation/types';
 import { useAuth } from '../hooks/useAuth';
 
@@ -42,6 +43,7 @@ export function LoginScreen() {
   const navigation = useNavigation<Nav>();
   const { login, isLoading } = useAuth();
   const [topError, setTopError] = React.useState<string | null>(null);
+  const [showDevApi, setShowDevApi] = React.useState(false);
 
   const {
     control,
@@ -78,9 +80,15 @@ export function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <View style={styles.logo}>
-              <Text style={styles.logoText}>健</Text>
-            </View>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onLongPress={() => setShowDevApi(true)}
+              delayLongPress={800}
+            >
+              <View style={styles.logo}>
+                <Text style={styles.logoText}>健</Text>
+              </View>
+            </TouchableOpacity>
             <Text style={styles.brand}>健康管家</Text>
           </View>
 
@@ -145,8 +153,22 @@ export function LoginScreen() {
               还没有账号？<Text style={styles.bottomLinkAccent}>去注册</Text>
             </Text>
           </TouchableOpacity>
+
+          {__DEV__ && (
+            <TouchableOpacity
+              style={styles.devEntry}
+              onPress={() => setShowDevApi(true)}
+            >
+              <Text style={styles.devEntryText}>开发者：API 地址</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <DevApiSettingsModal
+        visible={showDevApi}
+        onClose={() => setShowDevApi(false)}
+      />
     </PageContainer>
   );
 }
@@ -228,5 +250,15 @@ const styles = StyleSheet.create({
   bottomLinkAccent: {
     color: theme.colors.primary,
     fontWeight: '500',
+  },
+  devEntry: {
+    marginTop: theme.spacing.lg,
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xs,
+  },
+  devEntryText: {
+    ...theme.typography.caption,
+    color: theme.colors.textTertiary,
+    textDecorationLine: 'underline',
   },
 });

@@ -3,9 +3,7 @@
 // 参考: docs/specs/backend/00-architecture/api-design.md
 
 import { supabase } from '@core/supabase/client';
-
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8000/api/v1';
+import { getApiBaseUrl } from './apiBaseUrl';
 
 const REQUEST_TIMEOUT = 15000; // 15s
 
@@ -76,7 +74,7 @@ async function requestWithRetry<T>(
     const headers = await buildHeaders();
     const options: RequestInit = { method, headers };
     if (body !== undefined) options.body = JSON.stringify(body);
-    return fetchWithTimeout(`${API_BASE_URL}${path}`, options);
+    return fetchWithTimeout(`${getApiBaseUrl()}${path}`, options);
   };
 
   let res = await doRequest();
@@ -122,7 +120,7 @@ export const apiClient = {
   async getPaginated<T>(path: string): Promise<{ data: T[]; pagination: { total: number; page: number; page_size: number; total_pages: number } }> {
     const doRequest = async (): Promise<Response> => {
       const headers = await buildHeaders();
-      return fetchWithTimeout(`${API_BASE_URL}${path}`, { method: 'GET', headers });
+      return fetchWithTimeout(`${getApiBaseUrl()}${path}`, { method: 'GET', headers });
     };
 
     let res = await doRequest();
