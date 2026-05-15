@@ -22,6 +22,7 @@ import { SectionBlock } from '@shared/layout/SectionBlock/SectionBlock';
 import type { MainStackParamList, TabParamList } from '@app/navigation/types';
 
 import { useHomeData } from '../hooks/useHomeData';
+import { useDataStore } from '@features/data/store/dataStore';
 import { HealthOverviewCard } from '../components/HealthOverviewCard';
 import { QuickActionBar } from '../components/QuickActionBar';
 import { MealTimelineCard } from '../components/MealTimelineCard';
@@ -83,9 +84,9 @@ export function HomeScreen() {
   }, [navigation]);
 
   const handleAuxItemPress = useCallback(
-    (_type: AuxiliaryItemType) => {
+    (type: AuxiliaryItemType) => {
+      useDataStore.getState().setSelectedTab(type as any);
       navigation.navigate('DataTab');
-      // DataTab 内部 tab 切换由 Phase 5 DataScreen 处理
     },
     [navigation]
   );

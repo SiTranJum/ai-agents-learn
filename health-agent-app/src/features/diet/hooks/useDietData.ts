@@ -4,7 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { dietService } from '../services/dietService';
 import { useDietStore } from '../store/dietStore';
-import type { DietRecord } from '../types/diet.types';
+import type { DietPageData, DietRecord } from '../types/diet.types';
 
 export function useDietData(dateOverride?: string) {
   const selectedDate = useDietStore((s) => s.selectedDate);
@@ -18,9 +18,18 @@ export function useDietData(dateOverride?: string) {
   });
 
   const saveMutation = useMutation({
-    mutationFn: (record: DietRecord) => dietService.saveDietRecord(record),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['diet', date] });
+    mutationFn: (record: DietRecord) => dietService.saveDietRecord(record, date),
+    onSuccess: (saved) => {
+      // 乐观更新：把保存后的 record 合并进当前 DietPageData
+      qc.setQueryData(['diet', date], (old: DietPageData | undefined) => {
+        if (!old) return old;
+        const meals = old.meals.map((m) =>
+          m.mealType === saved.mealType ? saved : m
+        );
+        // 重算 totalCalories
+        const totalCurrent = meals.reduce((s, m) => s + m.totalCalories, 0);
+        return { ...old, meals, totalCalories: { ...old.totalCalories, current: totalCurrent } };
+      });
       qc.invalidateQueries({ queryKey: ['home'] });
     },
   });

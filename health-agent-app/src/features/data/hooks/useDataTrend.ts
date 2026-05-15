@@ -85,8 +85,14 @@ export function useSaveBodyData() {
   return useMutation({
     mutationFn: (params: { type: DataTabType; record: Partial<BodyRecord> }) =>
       dataService.saveBodyData(params.type, params.record),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['data'] });
+    onSuccess: (saved, vars) => {
+      // 乐观更新：直接把返回值写入 today 缓存，避免等待 refetch
+      qc.setQueryData(['data', 'today'], (old: Record<string, unknown> | undefined) => {
+        if (!old) return old;
+        return { ...old, [vars.type]: saved };
+      });
+      qc.invalidateQueries({ queryKey: ['data', 'trend'] });
+      qc.invalidateQueries({ queryKey: ['data', 'recent'] });
       qc.invalidateQueries({ queryKey: ['home'] });
     },
   });
@@ -97,8 +103,12 @@ export function useAddWater() {
   return useMutation({
     mutationFn: (params: { date: string; amount: number }) =>
       dataService.addWaterAmount(params.date, params.amount),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['data', 'today'] });
+    onSuccess: (saved) => {
+      // 乐观更新：直接写入 water 记录
+      qc.setQueryData(['data', 'today'], (old: Record<string, unknown> | undefined) => {
+        if (!old) return old;
+        return { ...old, water: saved };
+      });
       qc.invalidateQueries({ queryKey: ['home'] });
     },
   });
