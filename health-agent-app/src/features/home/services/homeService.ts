@@ -116,8 +116,21 @@ async function fetchActivePlan(): Promise<HomePlan | null> {
   return null;
 }
 
+const DEFAULT_INSIGHT = '记得多喝水、均衡饮食、保持运动。';
+
+/** 带超时保护的 AI 洞察获取（5 秒超时用默认文案，不阻塞首页） */
 async function fetchAIInsight(): Promise<string> {
-  return suggestionService.getDailyInsightText();
+  try {
+    const result = await Promise.race([
+      suggestionService.getDailyInsightText(),
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 5000)
+      ),
+    ]);
+    return result || DEFAULT_INSIGHT;
+  } catch {
+    return DEFAULT_INSIGHT;
+  }
 }
 
 // ===== Service 实现 =====
