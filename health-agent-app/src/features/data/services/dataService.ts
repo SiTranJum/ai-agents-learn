@@ -17,7 +17,6 @@ import type {
   WaterRecord,
   WeightRecord,
 } from '../types/data.types';
-import { analysisDataMock } from '../mocks/dataMocks';
 import {
   BackendBowelRecord,
   BackendExerciseRecord,
@@ -41,6 +40,40 @@ import {
   toWaterPayload,
   toWeightPayload,
 } from './bodyMapper';
+
+// ===== 分析页后端响应类型 =====
+interface BackendWeeklySummary {
+  start_date: string;
+  end_date: string;
+  daily_summaries: Array<{
+    date: string;
+    total_nutrition: { total_calories: number; total_protein: number; total_fat: number; total_carbs: number };
+    target_nutrition: { total_calories: number } | null;
+  }>;
+  total_nutrition: { total_calories: number; total_protein: number; total_fat: number; total_carbs: number };
+}
+interface BackendPlanListRaw {
+  data?: Array<{ id: string }>;
+  [key: string]: unknown;
+}
+interface BackendInsightsRaw {
+  insights: Array<{ dimension: string; finding: string; suggestion: string }>;
+}
+
+/** 后端 insight dimension → 前端 AnalysisInsight.type */
+function mapInsightDimension(dim: string): 'calorie' | 'nutrition' | 'weight' | 'habit' | 'achievement' {
+  const map: Record<string, 'calorie' | 'nutrition' | 'weight' | 'habit' | 'achievement'> = {
+    calorie: 'calorie',
+    nutrition: 'nutrition',
+    weight: 'weight',
+    habit: 'habit',
+    achievement: 'achievement',
+    diet: 'calorie',
+    exercise: 'habit',
+    sleep: 'habit',
+  };
+  return map[dim] ?? 'nutrition';
+}
 
 // ===== MET 值表（运动消耗即时估算，UI 本地使用，非后端逻辑）=====
 const MET_VALUES: Record<string, number> = {
@@ -286,10 +319,101 @@ export const dataService: DataService = {
   },
 
   async getAnalysisData(range) {
-    // V1: 分析页数据依赖多个模块（饮食/身体/计划/建议），Phase 8/9 完成前保持 mock。
-    // TODO(Phase 8/9): 改为前端组合调用 /diet/weekly-summary + /body/trends + /plans + /suggestions
-    await new Promise((r) => setTimeout(r, 300));
-    return { ...analysisDataMock, timeRange: range };
+    // 根据 range 计算 start_date
+    const now = new Date();
+    const days = range === '7d' ? 7 : range === '30d' ? 30 : range === '90d' ? 90 : 365;
+    const start = new Date(now.getTime() - days * 86400000);
+    const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+
+    // 并行拉取 4 个维度，每个独立容错
+    const [dietResult, weightResult, plansResult, insightsResult] = await Promise.allSettled([
+      apiClient.get<BackendWeeklySummary>(`/diet/weekly-summary?start_date=${startDate}`),
+      apiClient.get<BackendTrendResponse>(`/body/trends?type=weight&period=${range}`),
+      apiClient.get<BackendPlanListRaw>('/plans?status=active&page_size=1'),
+      apiClient.get<BackendInsightsRaw>('/suggestions/insights'),
+    ]);
+
+    // 热量趋势
+    let caloriesTrend: AnalysisData['caloriesTrend'] = [];
+    if (dietResult.status === 'fulfilled') {
+      const ds = dietResult.value;
+      caloriesTrend = ds.daily_summaries.map((d: any) => ({
+        date: d.date,
+        intake: Math.round(d.total_nutrition?.total_calories ?? 0),
+        target: Math.round(d.target_nutrition?.total_calories ?? 1800),
+      }));
+    }
+
+    // 营养分布（取最近一天的汇总）
+    let nutritionDistribution: AnalysisData['nutritionDistribution'] = {
+      carbs: 0, protein: 0, fat: 0,
+      carbsPercent: 33, proteinPercent: 33, fatPercent: 34,
+    };
+    if (dietResult.status === 'fulfilled') {
+      const total = dietResult.value.total_nutrition;
+      const c = total.total_carbs ?? 0;
+      const p = total.total_protein ?? 0;
+      const f = total.total_fat ?? 0;
+      const sum = c + p + f || 1;
+      nutritionDistribution = {
+        carbs: Math.round(c), protein: Math.round(p), fat: Math.round(f),
+        carbsPercent: Math.round((c / sum) * 100),
+        proteinPercent: Math.round((p / sum) * 100),
+        fatPercent: Math.round((f / sum) * 100),
+      };
+    }
+
+    // 体重趋势
+    let weightTrend: AnalysisData['weightTrend'] = [];
+    let currentWeight = 0;
+    let targetWeight = 0;
+    if (weightResult.status === 'fulfilled') {
+      const wr = weightResult.value;
+      weightTrend = wr.data_points.map((p: any) => ({ date: p.date, weight: p.value }));
+      currentWeight = wr.statistics?.latest ?? 0;
+      targetWeight = wr.target ?? 0;
+    }
+
+    // 计划达成
+    let planCompletion: AnalysisData['planCompletion'] = {
+      totalDays: 0, completedDays: 0, completionRate: 0,
+    };
+    if (plansResult.status === 'fulfilled') {
+      const plans = plansResult.value;
+      const activePlan = Array.isArray(plans) ? plans[0] : plans?.data?.[0];
+      if (activePlan?.id) {
+        try {
+          const progress = await apiClient.get<any>(`/plans/${activePlan.id}/progress`);
+          planCompletion = {
+            totalDays: progress.total_days ?? 0,
+            completedDays: progress.elapsed_days ?? 0,
+            completionRate: progress.compliance_rate ?? 0,
+          };
+        } catch { /* 计划进度获取失败不影响其他维度 */ }
+      }
+    }
+
+    // AI 洞察
+    let insights: AnalysisData['insights'] = [];
+    if (insightsResult.status === 'fulfilled') {
+      const raw = insightsResult.value;
+      insights = (raw.insights ?? []).map((item: any) => ({
+        type: mapInsightDimension(item.dimension),
+        title: item.finding ?? '',
+        description: item.suggestion ?? '',
+      }));
+    }
+
+    return {
+      timeRange: range,
+      caloriesTrend,
+      nutritionDistribution,
+      weightTrend,
+      currentWeight,
+      targetWeight,
+      planCompletion,
+      insights,
+    };
   },
 };
 
