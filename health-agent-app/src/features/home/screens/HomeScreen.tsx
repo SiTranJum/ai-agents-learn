@@ -10,11 +10,13 @@ import {
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { Feather } from '@expo/vector-icons';
 
 import { theme } from '@app/styles/theme';
 import { PageContainer } from '@shared/layout/PageContainer/PageContainer';
@@ -115,6 +117,13 @@ export function HomeScreen() {
     <PageContainer>
       <View style={styles.topBar}>
         <Text style={styles.greeting}>{formatHomeDate(date)}</Text>
+        <TouchableOpacity onPress={() => refetch()} style={styles.refreshBtn}>
+          <Feather
+            name="refresh-cw"
+            size={18}
+            color={isRefetching ? theme.colors.primary : theme.colors.textTertiary}
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -125,6 +134,7 @@ export function HomeScreen() {
             refreshing={isRefetching}
             onRefresh={refetch}
             tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
           />
         }
       >
@@ -164,8 +174,17 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: theme.layout.pageHorizontalPadding,
     paddingVertical: theme.spacing.md,
+  },
+  refreshBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   greeting: {
     ...theme.typography.pageTitle,
