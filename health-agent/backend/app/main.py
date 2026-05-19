@@ -25,15 +25,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.v1.router import api_router
 from app.config import settings
 from app.core.exceptions import AppException
+from app.core.logging import RequestIdMiddleware, setup_logging
 from app.core.responses import error as error_body
 from app.db.session import dispose_engine
 
 # ---------- 日志 ----------
 
-logging.basicConfig(
-    level=settings.log_level,
-    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-)
+setup_logging(level=settings.log_level)
 logger = logging.getLogger("app")
 
 
@@ -80,6 +78,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Request ID：生成 / 透传 X-Request-ID 并写入 contextvars，
+    # 让所有日志（含 LangGraph 节点）自动带上 request_id 字段。
+    # 顺序：晚 add 的 middleware 包在更外层，所以这里 RequestIdMiddleware
+    # 会在 CORSMiddleware 之内执行（CORS 先处理预检和跨域头）。
+    app.add_middleware(RequestIdMiddleware)
 
     _register_exception_handlers(app)
 

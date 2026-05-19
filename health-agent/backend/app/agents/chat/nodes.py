@@ -10,6 +10,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
+from app.agents._logging import log_llm_call, log_node
 from app.agents.base import get_chat_model
 from app.agents.chat.state import ChatState, Intent
 from app.agents.chat.tools import recall_memories_tool, search_knowledge_tool
@@ -49,6 +50,7 @@ def _get_dependency(state: ChatState, name: str) -> Any:
     return cast(dict[str, Any], cast(object, state)).get(name)
 
 
+@log_node
 async def identify_intent(state: ChatState) -> dict[str, Any]:
     """Identify user intent with LLM structured output and safe rule fallback.
 
@@ -65,6 +67,7 @@ async def identify_intent(state: ChatState) -> dict[str, Any]:
     try:
         chat_model = cast(Any, get_chat_model(temperature=0.0, timeout=20))
         model = chat_model.with_structured_output(IntentResult)
+        log_llm_call("identify_intent", "qwen-plus", message=message)
         result = await model.ainvoke(build_intent_messages(message))
         return {"intent": result.intent or fallback}
     except Exception as exc:  # pragma: no cover - protects local/dev without API key
@@ -72,11 +75,13 @@ async def identify_intent(state: ChatState) -> dict[str, Any]:
         return {"intent": fallback}
 
 
+@log_node
 def route_after_intent(state: ChatState) -> str:
     """Route only implemented domain subgraphs; unfinished domains use general chat."""
     return "diet" if state.get("intent") == "diet" else "general"
 
 
+@log_node
 async def recall_memories(state: ChatState) -> dict[str, Any]:
     """Recall top memories for the current message.
 
@@ -99,6 +104,7 @@ async def recall_memories(state: ChatState) -> dict[str, Any]:
         return {"recalled_memories": [], "long_term_profile": [], "error": "memory_recall_failed"}
 
 
+@log_node
 async def search_knowledge(state: ChatState) -> dict[str, Any]:
     """Retrieve health knowledge snippets for general responses."""
     service = _get_dependency(state, "rag_service")
@@ -117,6 +123,7 @@ async def search_knowledge(state: ChatState) -> dict[str, Any]:
         return {"knowledge": [], "error": "knowledge_search_failed"}
 
 
+@log_node
 async def assemble_prompt(state: ChatState) -> dict[str, Any]:
     """Assemble deterministic prompt messages for the final LLM call."""
     prompt_messages = build_chat_messages(
@@ -128,6 +135,7 @@ async def assemble_prompt(state: ChatState) -> dict[str, Any]:
     return {"prompt_messages": prompt_messages}
 
 
+@log_node
 async def call_llm(state: ChatState) -> dict[str, Any]:
     """Generate final assistant text for general chat.
 
@@ -137,6 +145,7 @@ async def call_llm(state: ChatState) -> dict[str, Any]:
     """
     try:
         model = cast(Any, get_chat_model(temperature=0.7, timeout=60))
+        log_llm_call("call_llm", "qwen-plus", messages_count=len(state.get("prompt_messages", []) or []))
         response = await model.ainvoke(state.get("prompt_messages", []))
         content = getattr(response, "content", response)
         return {"ai_response": str(content), "response_cards": []}
@@ -144,6 +153,7 @@ async def call_llm(state: ChatState) -> dict[str, Any]:
         raise LLMProviderException("AI 对话服务暂时不可用") from exc
 
 
+@log_node
 async def trigger_memory_extract(state: ChatState) -> dict[str, Any]:
     """Fire-and-forget memory extraction after assistant reply."""
     memory_service = _get_dependency(state, "memory_service")
@@ -189,6 +199,7 @@ def _parse_result_to_card(parse_result: ParseResult, suggested_date: date | None
     )
 
 
+@log_node
 async def wrap_response(state: ChatState) -> dict[str, Any]:
     """Normalize branch outputs into ``ai_response`` + ``response_cards``."""
     if state.get("intent") == "diet" and state.get("diet_parse_result") is not None:

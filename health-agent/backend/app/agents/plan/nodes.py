@@ -7,6 +7,7 @@ import logging
 from datetime import date, timedelta
 from typing import Any, cast
 
+from app.agents._logging import log_llm_call, log_node
 from app.agents.base import get_chat_model
 from app.agents.plan.state import PlanState
 from app.agents.plan.tools import persist_plan_tool, safety_check_tool
@@ -75,6 +76,7 @@ def _default_draft(state: PlanState) -> PlanDraft:
     )
 
 
+@log_node
 async def confirm_goal(state: PlanState) -> dict[str, Any]:
     """Confirm the goal text is usable for plan drafting."""
     goal = (state.get("goal_description") or "").strip()
@@ -83,6 +85,7 @@ async def confirm_goal(state: PlanState) -> dict[str, Any]:
     return {"goal_analysis": f"用户目标已确认：{goal}"}
 
 
+@log_node
 async def analyze_status(state: PlanState) -> dict[str, Any]:
     """Deterministically summarize available profile data for drafting."""
     profile = state.get("profile")
@@ -94,6 +97,7 @@ async def analyze_status(state: PlanState) -> dict[str, Any]:
     return {"status_analysis": summary}
 
 
+@log_node
 async def draft_plan(state: PlanState) -> dict[str, Any]:
     """Generate a PlanDraft with LLM structured output and deterministic fallback.
 
@@ -103,6 +107,7 @@ async def draft_plan(state: PlanState) -> dict[str, Any]:
     fallback = _default_draft(state)
     try:
         model = cast(Any, get_chat_model(temperature=0.3, timeout=60)).with_structured_output(PlanDraft)
+        log_llm_call("draft_plan", "qwen-plus", goal=state.get("goal_description") or "")
         draft = await model.ainvoke(
             build_plan_draft_messages(
                 state.get("goal_description") or "",
@@ -116,6 +121,7 @@ async def draft_plan(state: PlanState) -> dict[str, Any]:
         return {"draft": fallback}
 
 
+@log_node
 async def safety_validate(state: PlanState) -> dict[str, Any]:
     """Run deterministic safety validation before persistence."""
     service = state.get("plan_service")
@@ -126,6 +132,7 @@ async def safety_validate(state: PlanState) -> dict[str, Any]:
     return {"safety_violations": violations}
 
 
+@log_node
 async def persist_plan(state: PlanState) -> dict[str, Any]:
     """Persist the validated draft through PlanService."""
     service = state.get("plan_service")
@@ -139,6 +146,7 @@ async def persist_plan(state: PlanState) -> dict[str, Any]:
     return {"result": result}
 
 
+@log_node
 async def analyze_deviation(state: PlanState) -> dict[str, Any]:
     """Analyze execution deviations for modification suggestions.
 
@@ -153,6 +161,7 @@ async def analyze_deviation(state: PlanState) -> dict[str, Any]:
     return {"modification_reasons": reasons}
 
 
+@log_node
 async def suggest_modification(state: PlanState) -> dict[str, Any]:
     """Return user-confirmable modification suggestions.
 

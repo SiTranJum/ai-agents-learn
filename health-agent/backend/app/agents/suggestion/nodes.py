@@ -7,6 +7,7 @@ import logging
 from datetime import date
 from typing import Any, cast
 
+from app.agents._logging import log_llm_call, log_node
 from app.agents.base import get_chat_model
 from app.agents.prompts.suggestion_daily import build_daily_suggestion_messages
 from app.agents.prompts.suggestion_insight import build_insight_suggestion_messages
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 _FORBIDDEN_MEDICAL_WORDS = ["诊断", "治疗", "处方", "停药", "断食"]
 
 
+@log_node
 async def collect_data(state: SuggestionState) -> dict[str, Any]:
     """Collect lightweight structured context from injected services."""
     recent_data: dict[str, Any] = {"date": date.today().isoformat(), "suggestion_type": state.get("suggestion_type")}
@@ -41,6 +43,7 @@ async def collect_data(state: SuggestionState) -> dict[str, Any]:
     return {"recent_data": recent_data}
 
 
+@log_node
 async def recall_memories(state: SuggestionState) -> dict[str, Any]:
     service = state.get("memory_service")
     if service is None:
@@ -53,6 +56,7 @@ async def recall_memories(state: SuggestionState) -> dict[str, Any]:
         return {"memories": []}
 
 
+@log_node
 async def search_knowledge(state: SuggestionState) -> dict[str, Any]:
     service = state.get("rag_service")
     if service is None:
@@ -126,6 +130,7 @@ def _messages_for_state(state: SuggestionState) -> list[Any]:
     return build_daily_suggestion_messages(context)
 
 
+@log_node
 async def generate_suggestions(state: SuggestionState) -> dict[str, Any]:
     """Generate raw suggestions through DashScope-compatible ChatOpenAI.
 
@@ -134,6 +139,7 @@ async def generate_suggestions(state: SuggestionState) -> dict[str, Any]:
     """
     try:
         model = cast(Any, get_chat_model(temperature=0.7, timeout=60)).with_structured_output(SuggestionAgentOutput)
+        log_llm_call("generate_suggestions", "qwen-plus", suggestion_type=state.get("suggestion_type"))
         output = await model.ainvoke(_messages_for_state(state))
     except Exception as exc:  # pragma: no cover - local fallback without API key
         logger.info("suggestion fallback used: %s", exc)
@@ -141,6 +147,7 @@ async def generate_suggestions(state: SuggestionState) -> dict[str, Any]:
     return {"raw_suggestions": output.suggestions, "reasoning": output.reasoning}
 
 
+@log_node
 async def deduplicate_filter(state: SuggestionState) -> dict[str, Any]:
     """Apply deterministic quality filters and text-level deduplication."""
     seen: set[str] = set()

@@ -18,6 +18,7 @@ from contextlib import suppress
 from datetime import datetime
 from typing import Any, cast
 
+from app.agents._logging import log_llm_call, log_node
 from app.agents.base import get_chat_model
 from app.agents.chat.state import ChatState
 from app.agents.diet.tools import enrich_food_tool, save_diet_record_tool
@@ -54,6 +55,7 @@ def _get_service(state: ChatState):
     return cast(Any, state).get("diet_service")
 
 
+@log_node
 def route_input(state: ChatState) -> str:
     """根据当前 state 决定 diet 分支入口节点。
 
@@ -68,6 +70,7 @@ def route_input(state: ChatState) -> str:
     return "parse_text"
 
 
+@log_node
 async def parse_text(state: ChatState) -> dict[str, Any]:
     """LLM 解析饮食自然语言描述。
 
@@ -80,6 +83,7 @@ async def parse_text(state: ChatState) -> dict[str, Any]:
     try:
         chat_model = cast(Any, get_chat_model(temperature=0.1))
         model = chat_model.with_structured_output(ParseResult)
+        log_llm_call("parse_text", "qwen-plus", input_text=input_text)
         parsed = await model.ainvoke(build_diet_parse_messages(input_text))
     except Exception as exc:
         raise BusinessRuleException("饮食解析失败", code="DIET_PARSE_FAILED") from exc
@@ -90,6 +94,7 @@ async def parse_text(state: ChatState) -> dict[str, Any]:
     }
 
 
+@log_node
 async def parse_photo_mock(state: ChatState) -> dict[str, Any]:
     """图片解析 mock（Phase 2 暂不接多模态）。"""
     foods = [
@@ -121,6 +126,7 @@ async def parse_photo_mock(state: ChatState) -> dict[str, Any]:
     return {"diet_parsed_foods": foods, "diet_confidence": 0.3}
 
 
+@log_node
 async def standardize_units(state: ChatState) -> dict[str, Any]:
     """把所有食物的 amount 统一换算到 grams，方便后续营养计算。"""
     service = _get_service(state)
@@ -138,6 +144,7 @@ async def standardize_units(state: ChatState) -> dict[str, Any]:
     return {"diet_parsed_foods": parsed_foods}
 
 
+@log_node
 async def enrich_nutrition(state: ChatState) -> dict[str, Any]:
     """补全食物营养并产出整餐 ParseResult。"""
     service = _get_service(state)
@@ -175,6 +182,7 @@ async def enrich_nutrition(state: ChatState) -> dict[str, Any]:
     }
 
 
+@log_node
 async def infer_meal_type(state: ChatState) -> dict[str, Any]:
     """推断或确认餐次类型。"""
     meal_type_raw = state.get("diet_meal_type")
@@ -198,6 +206,7 @@ async def infer_meal_type(state: ChatState) -> dict[str, Any]:
     return {"diet_meal_type": meal_type.value, "diet_parse_result": parse_result}
 
 
+@log_node
 def save_or_end(state: ChatState) -> str:
     """决定是否进入保存节点。
 
@@ -208,6 +217,7 @@ def save_or_end(state: ChatState) -> str:
     return "save_record" if mode == "create" else "__end__"
 
 
+@log_node
 async def save_record(state: ChatState) -> dict[str, Any]:
     """保存 parse 结果到数据库（仅当显式传入 mode == 'create' 时走）。"""
     service = _get_service(state)
@@ -224,6 +234,7 @@ async def save_record(state: ChatState) -> dict[str, Any]:
     return {"diet_saved_record": record}
 
 
+@log_node
 async def trigger_memory(state: ChatState) -> dict[str, Any]:
     """保存饮食记录后异步触发 memory_agent。"""
     record = state.get("diet_saved_record")
