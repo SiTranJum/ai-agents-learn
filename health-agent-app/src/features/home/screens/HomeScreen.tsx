@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -24,6 +24,7 @@ import { SectionBlock } from '@shared/layout/SectionBlock/SectionBlock';
 import type { MainStackParamList, TabParamList } from '@app/navigation/types';
 
 import { useHomeData } from '../hooks/useHomeData';
+import { useHomeStore } from '../store/homeStore';
 import { useDataStore } from '@features/data/store/dataStore';
 import { HealthOverviewCard } from '../components/HealthOverviewCard';
 import { QuickActionBar } from '../components/QuickActionBar';
@@ -50,7 +51,15 @@ function formatHomeDate(dateStr: string): string {
 
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
+  const refreshIfStale = useHomeStore((s) => s.refreshIfStale);
   const { date, data, isLoading, isRefetching, refetch } = useHomeData();
+
+  // 每次 tab 获得焦点时检查日期是否跨天，跨天则自动刷新为今天
+  useFocusEffect(
+    useCallback(() => {
+      refreshIfStale();
+    }, [refreshIfStale])
+  );
 
   const handleRecordDiet = useCallback(() => {
     navigation.navigate('DietTab');
