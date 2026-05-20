@@ -8,6 +8,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, time, timedelta
 
+from app.core.logging import log_all_service_methods
 from app.core.exceptions import NotFoundException, ValidationException
 from app.db.models.body import (
     BowelRecord,
@@ -56,6 +57,7 @@ PERIOD_DAYS = {
 }
 
 
+@log_all_service_methods
 class BodyService:
     """身体数据 CRUD + 趋势计算 + 异常检测。
 

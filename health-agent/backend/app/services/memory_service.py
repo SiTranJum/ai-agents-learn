@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
+from app.core.logging import log_all_service_methods
 from app.db.models.memory import Memory, MemorySummary
 from app.db.repositories.memory_repo import MemoryRepository
 from app.integrations.embedding import EmbeddingClient
@@ -51,6 +52,7 @@ TYPE_WEIGHTS: dict[str, dict[MemoryType, float]] = {
 DEFAULT_TYPE_WEIGHT = 0.7
 
 
+@log_all_service_methods
 class MemoryService:
     """Memory CRUD, recall scoring, and profile synchronization.
 

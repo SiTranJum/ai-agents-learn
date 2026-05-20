@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, time, timedelta
 
+from app.core.logging import log_all_service_methods
 from app.core.exceptions import NotFoundException
 from app.db.models.suggestion import Suggestion
 from app.db.repositories.suggestion_repo import SuggestionRepository
@@ -27,6 +28,7 @@ from app.schemas.suggestion import (
 )
 
 
+@log_all_service_methods
 class SuggestionService:
     """Suggestion cache and feedback service. No LLM calls here."""
 

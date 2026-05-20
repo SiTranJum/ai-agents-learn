@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 
+from app.core.logging import log_all_service_methods
 from app.core.exceptions import ExternalServiceException, NotFoundException, ValidationException
 from app.db.models.knowledge import Food, KnowledgeDoc
 from app.db.repositories.knowledge_repo import KnowledgeRepository
@@ -18,6 +19,7 @@ from app.schemas.knowledge import (
 )
 
 
+@log_all_service_methods
 class RagService:
     """食物营养和健康建议检索服务。
 

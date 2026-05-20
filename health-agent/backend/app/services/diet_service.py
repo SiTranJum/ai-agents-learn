@@ -6,6 +6,7 @@ import uuid
 from datetime import date, timedelta
 
 from app.core.exceptions import NotFoundException, ValidationException
+from app.core.logging import log_service, log_all_service_methods
 from app.db.models.diet import DietItem, DietRecord
 from app.db.repositories.diet_repo import DietRepository
 from app.schemas.diet import (
@@ -24,6 +25,7 @@ from app.schemas.diet import (
 from app.services.rag_service import RagService
 
 
+@log_all_service_methods
 class DietService:
     """饮食记录 CRUD + 营养计算。
 
@@ -39,6 +41,7 @@ class DietService:
         self.repo = repo
         self.rag_service = rag_service
 
+    @log_service
     async def create_record(
         self,
         *,
