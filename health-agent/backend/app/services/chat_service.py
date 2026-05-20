@@ -10,11 +10,13 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from app.core.logging import log_all_service_methods
 from app.db.models.chat import ChatMessage
 from app.db.repositories.chat_repo import ChatRepository
 from app.schemas.chat import ChatCard, ChatMessageResponse, ChatRole
 
 
+@log_all_service_methods
 class ChatService:
     """User-scoped chat session and message management."""
 

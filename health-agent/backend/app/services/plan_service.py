@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, date, datetime
 
+from app.core.logging import log_all_service_methods
 from app.core.exceptions import ConflictException, NotFoundException, ValidationException
 from app.db.models.plan import Plan, PlanCheckIn, PlanExecution, PlanTarget
 from app.db.repositories.plan_repo import PlanRepository
@@ -31,6 +32,7 @@ from app.schemas.plan import (
 )
 
 
+@log_all_service_methods
 class PlanService:
     """Plan CRUD and deterministic calculations. No LLM calls here."""
 

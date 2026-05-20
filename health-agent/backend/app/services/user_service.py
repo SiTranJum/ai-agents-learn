@@ -14,6 +14,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from app.core.logging import log_all_service_methods
 from app.core.exceptions import NotFoundException
 from app.db.models.user import (
     HealthProfile,
@@ -49,6 +50,7 @@ PROFILE_REQUIRED_FIELDS: tuple[str, ...] = (
 )
 
 
+@log_all_service_methods
 class UserService:
     """用户系统业务服务。"""
 

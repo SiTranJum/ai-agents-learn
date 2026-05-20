@@ -16,10 +16,13 @@
 
 from __future__ import annotations
 
+import functools
+import inspect
 import logging
 import logging.config
 import os
 import sys
+import time
 import uuid
 from contextvars import ContextVar
 from typing import Any, Awaitable, Callable
@@ -134,6 +137,8 @@ class ColorFormatter(logging.Formatter):
         record.asctime = self.formatTime(record, self.datefmt)
         message = record.getMessage()
         request_id = getattr(record, "request_id", "-")
+        # 固定 8 字符宽度，空值 "-" 也对齐
+        request_id = request_id.ljust(8) if request_id else "--------"
         level = record.levelname
         logger_name = self._shorten_logger(record.name, self.LOGGER_WIDTH)
 
@@ -247,10 +252,157 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
             request_id_var.reset(token)
 
 
+# ---------- Service 层日志装饰器 ----------
+
+
+def _format_args(*args: Any, **kwargs: Any) -> str:
+    """序列化方法参数为简短字符串，避免日志过长。
+
+    策略：
+    - 跳过 self/cls（实例方法的第一个参数）
+    - Pydantic model → 只显示类名
+    - UUID → 显示前 8 位
+    - 其他用 _short 截断
+    """
+    parts: list[str] = []
+    # args[0] 通常是 self，跳过
+    for arg in args[1:]:
+        parts.append(_short_value(arg))
+    for k, v in kwargs.items():
+        parts.append(f"{k}={_short_value(v)}")
+    return ", ".join(parts) if parts else "()"
+
+
+def _short_value(value: Any, max_len: int = 60) -> str:
+    """智能压缩单个值。"""
+    if value is None:
+        return "None"
+    # Pydantic BaseModel → 只显示类名
+    if hasattr(value, "model_dump"):
+        return f"<{type(value).__name__}>"
+    # UUID → 前 8 位
+    if hasattr(value, "hex"):
+        return f"UUID({str(value)[:8]}...)"
+    # 日期/时间
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    # 字符串
+    if isinstance(value, str):
+        s = value.replace("\n", " ")
+        return f'"{s}"' if len(s) <= max_len else f'"{s[:max_len-3]}..."'
+    # 列表/元组
+    if isinstance(value, (list, tuple)):
+        return f"[{len(value)} items]"
+    # 字典
+    if isinstance(value, dict):
+        return f"{{dict {len(value)} keys}}"
+    # 其他
+    s = repr(value)
+    return s if len(s) <= max_len else s[:max_len-3] + "..."
+
+
+def log_service(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Service 方法日志装饰器（类似 Java AOP）。
+
+    自动记录：
+    - 方法进入 + 入参（智能截断）
+    - 方法退出 + 出参（智能截断）+ 耗时
+    - 异常 + traceback
+
+    用法：
+        class DietService:
+            @log_service
+            async def create_record(self, *, meal_type, foods, record_date):
+                ...
+    """
+    name = func.__name__
+    logger_name = func.__module__  # 用模块名做 logger（如 app.services.diet_service）
+    log = logging.getLogger(logger_name)
+
+    if inspect.iscoroutinefunction(func):
+        @functools.wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            args_str = _format_args(*args, **kwargs)
+            log.info("→ %s(%s)", name, args_str)
+            start = time.perf_counter()
+            try:
+                result = await func(*args, **kwargs)
+            except Exception as exc:
+                elapsed_ms = (time.perf_counter() - start) * 1000
+                log.exception("✗ %s FAILED in %.0fms | %s", name, elapsed_ms, exc)
+                raise
+            elapsed_ms = (time.perf_counter() - start) * 1000
+            result_str = _short_value(result, max_len=80)
+            log.info("← %s done in %.0fms → %s", name, elapsed_ms, result_str)
+            return result
+        return async_wrapper  # type: ignore[return-value]
+
+    @functools.wraps(func)
+    def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+        args_str = _format_args(*args, **kwargs)
+        log.info("→ %s(%s)", name, args_str)
+        start = time.perf_counter()
+        try:
+            result = func(*args, **kwargs)
+        except Exception as exc:
+            elapsed_ms = (time.perf_counter() - start) * 1000
+            log.exception("✗ %s FAILED in %.0fms | %s", name, elapsed_ms, exc)
+            raise
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        result_str = _short_value(result, max_len=80)
+        log.info("← %s done in %.0fms → %s", name, elapsed_ms, result_str)
+        return result
+    return sync_wrapper  # type: ignore[return-value]
+
+
+def log_all_service_methods(cls: type) -> type:
+    """类装饰器：批量给 Service 类的所有公开方法加日志（类似 Java AOP 切点表达式）。
+
+    自动装饰所有：
+    - 非私有方法（不以 ``_`` 开头）
+    - 非 ``__init__`` / ``__new__`` 等魔术方法
+    - 可调用对象（函数/async 函数）
+    - 正确处理 @staticmethod / @classmethod（保留原始描述符类型）
+
+    用法：
+        @log_all_service_methods
+        class DietService:
+            async def create_record(self, ...):  # 自动加日志
+                ...
+            async def get_record(self, ...):     # 自动加日志
+                ...
+            def _internal_helper(self, ...):     # 私有方法不加（避免日志过多）
+                ...
+    """
+    for attr_name in list(cls.__dict__):
+        # 跳过私有方法和魔术方法
+        if attr_name.startswith("_"):
+            continue
+        raw = cls.__dict__[attr_name]
+        # 处理 staticmethod：解包 → 装饰 → 重新包装
+        if isinstance(raw, staticmethod):
+            func = raw.__func__
+            if callable(func):
+                setattr(cls, attr_name, staticmethod(log_service(func)))
+            continue
+        # 处理 classmethod：解包 → 装饰 → 重新包装
+        if isinstance(raw, classmethod):
+            func = raw.__func__
+            if callable(func):
+                setattr(cls, attr_name, classmethod(log_service(func)))
+            continue
+        # 普通实例方法
+        if callable(raw) and (inspect.isfunction(raw) or inspect.iscoroutinefunction(raw)):
+            setattr(cls, attr_name, log_service(raw))
+    return cls
+
+
 __all__ = [
     "RequestIdFilter",
     "RequestIdMiddleware",
     "build_logging_config",
+    "log_all_service_methods",
+    "log_service",
     "request_id_var",
     "setup_logging",
 ]
