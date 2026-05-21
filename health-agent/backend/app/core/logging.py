@@ -323,7 +323,7 @@ def log_service(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             args_str = _format_args(*args, **kwargs)
-            log.info("→ %s(%s)", name, args_str)
+            log.info("» %s(%s)", name, args_str)
             start = time.perf_counter()
             try:
                 result = await func(*args, **kwargs)
@@ -333,14 +333,14 @@ def log_service(func: Callable[..., Any]) -> Callable[..., Any]:
                 raise
             elapsed_ms = (time.perf_counter() - start) * 1000
             result_str = _short_value(result, max_len=80)
-            log.info("← %s done in %.0fms → %s", name, elapsed_ms, result_str)
+            log.info("« %s done in %.0fms → %s", name, elapsed_ms, result_str)
             return result
         return async_wrapper  # type: ignore[return-value]
 
     @functools.wraps(func)
     def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
         args_str = _format_args(*args, **kwargs)
-        log.info("→ %s(%s)", name, args_str)
+        log.info("» %s(%s)", name, args_str)
         start = time.perf_counter()
         try:
             result = func(*args, **kwargs)
@@ -350,7 +350,7 @@ def log_service(func: Callable[..., Any]) -> Callable[..., Any]:
             raise
         elapsed_ms = (time.perf_counter() - start) * 1000
         result_str = _short_value(result, max_len=80)
-        log.info("← %s done in %.0fms → %s", name, elapsed_ms, result_str)
+        log.info("« %s done in %.0fms → %s", name, elapsed_ms, result_str)
         return result
     return sync_wrapper  # type: ignore[return-value]
 
