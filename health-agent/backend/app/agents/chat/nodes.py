@@ -10,7 +10,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
-from app.agents._logging import log_llm_call, log_node
+from app.agents._logging import llm_call, log_llm_call, log_node
 from app.agents.base import get_chat_model
 from app.agents.chat.state import ChatState, Intent
 from app.agents.chat.tools import recall_memories_tool, search_knowledge_tool
@@ -67,8 +67,8 @@ async def identify_intent(state: ChatState) -> dict[str, Any]:
     try:
         chat_model = cast(Any, get_chat_model(temperature=0.0, timeout=20))
         model = chat_model.with_structured_output(IntentResult)
-        log_llm_call("identify_intent", "qwen-plus", message=message)
-        result = await model.ainvoke(build_intent_messages(message))
+        async with llm_call("identify_intent", "qwen-plus", message=message):
+            result = await model.ainvoke(build_intent_messages(message))
         return {"intent": result.intent or fallback}
     except Exception as exc:  # pragma: no cover - protects local/dev without API key
         logger.info("intent classifier fallback used: %s", exc)
@@ -145,8 +145,8 @@ async def call_llm(state: ChatState) -> dict[str, Any]:
     """
     try:
         model = cast(Any, get_chat_model(temperature=0.7, timeout=60))
-        log_llm_call("call_llm", "qwen-plus", messages_count=len(state.get("prompt_messages", []) or []))
-        response = await model.ainvoke(state.get("prompt_messages", []))
+        async with llm_call("call_llm", "qwen-plus", messages_count=len(state.get("prompt_messages", []) or [])):
+            response = await model.ainvoke(state.get("prompt_messages", []))
         content = getattr(response, "content", response)
         return {"ai_response": str(content), "response_cards": []}
     except Exception as exc:

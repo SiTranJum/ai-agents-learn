@@ -216,9 +216,24 @@ def build_logging_config(level: str = "INFO") -> dict[str, Any]:
 
 
 def setup_logging(level: str = "INFO") -> None:
-    """应用启动时调用一次。"""
+    """应用启动时调用一次。启动后打印配置摘要方便确认。"""
     _enable_windows_ansi()
     logging.config.dictConfig(build_logging_config(level))
+    _log_startup_summary(level)
+
+
+def _log_startup_summary(level: str) -> None:
+    """启动时打印一行配置摘要，方便重启后秒确认当前状态。"""
+    import os as _os
+    log = logging.getLogger("app")
+    dashscope_key = _os.environ.get("DASHSCOPE_API_KEY", "")
+    api_status = f"configured ({dashscope_key[:6]}...)" if dashscope_key else "NOT SET [!]"
+    color_status = "on" if _supports_color() else "off"
+    slow_ms = _os.environ.get("SLOW_SERVICE_MS", "500")
+    log.info(
+        "logging ready | level=%s color=%s slow_threshold=%sms dashscope=%s",
+        level, color_status, slow_ms, api_status,
+    )
 
 
 # ---------- 中间件 ----------
@@ -253,6 +268,10 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 
 
 # ---------- Service 层日志装饰器 ----------
+
+# service 方法超过此阈值（ms）时，退出日志自动升级为 WARNING 并追加 [SLOW]
+# 可通过环境变量 SLOW_SERVICE_MS 覆盖，默认 500ms
+_SLOW_THRESHOLD_MS: float = float(os.environ.get("SLOW_SERVICE_MS", "500"))
 
 
 def _format_args(*args: Any, **kwargs: Any) -> str:
@@ -333,7 +352,9 @@ def log_service(func: Callable[..., Any]) -> Callable[..., Any]:
                 raise
             elapsed_ms = (time.perf_counter() - start) * 1000
             result_str = _short_value(result, max_len=80)
-            log.info("« %s done in %.0fms → %s", name, elapsed_ms, result_str)
+            level = logging.WARNING if elapsed_ms > _SLOW_THRESHOLD_MS else logging.INFO
+            log.log(level, "« %s done in %.0fms → %s%s", name, elapsed_ms, result_str,
+                    " [SLOW]" if level == logging.WARNING else "")
             return result
         return async_wrapper  # type: ignore[return-value]
 
@@ -350,7 +371,9 @@ def log_service(func: Callable[..., Any]) -> Callable[..., Any]:
             raise
         elapsed_ms = (time.perf_counter() - start) * 1000
         result_str = _short_value(result, max_len=80)
-        log.info("« %s done in %.0fms → %s", name, elapsed_ms, result_str)
+        level = logging.WARNING if elapsed_ms > _SLOW_THRESHOLD_MS else logging.INFO
+        log.log(level, "« %s done in %.0fms → %s%s", name, elapsed_ms, result_str,
+                " [SLOW]" if level == logging.WARNING else "")
         return result
     return sync_wrapper  # type: ignore[return-value]
 
