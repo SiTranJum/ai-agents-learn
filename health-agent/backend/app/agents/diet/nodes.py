@@ -18,7 +18,7 @@ from contextlib import suppress
 from datetime import datetime
 from typing import Any, cast
 
-from app.agents._logging import log_llm_call, log_node
+from app.agents._logging import llm_call, log_node
 from app.agents.base import get_chat_model
 from app.agents.chat.state import ChatState
 from app.agents.diet.tools import enrich_food_tool, save_diet_record_tool
@@ -83,8 +83,8 @@ async def parse_text(state: ChatState) -> dict[str, Any]:
     try:
         chat_model = cast(Any, get_chat_model(temperature=0.1))
         model = chat_model.with_structured_output(ParseResult)
-        log_llm_call("parse_text", "qwen-plus", input_text=input_text)
-        parsed = await model.ainvoke(build_diet_parse_messages(input_text))
+        async with llm_call("parse_text", "qwen-plus", input_text=input_text):
+            parsed = await model.ainvoke(build_diet_parse_messages(input_text))
     except Exception as exc:
         raise BusinessRuleException("饮食解析失败", code="DIET_PARSE_FAILED") from exc
     return {

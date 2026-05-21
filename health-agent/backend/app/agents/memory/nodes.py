@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-from app.agents._logging import log_llm_call, log_node
+from app.agents._logging import llm_call, log_node
 from app.agents.base import get_chat_model
 from app.agents.memory.state import MemoryExtractionState
 from app.agents.memory.tools import list_existing_memories_tool, save_memory_tool
@@ -40,13 +40,13 @@ async def extract(state: MemoryExtractionState) -> dict[str, Any]:
     try:
         chat_model = cast(Any, get_chat_model(temperature=0.1, timeout=30))
         model = chat_model.with_structured_output(MemoryExtractionResult)
-        log_llm_call("extract", "qwen-plus", trigger_type=state.get("trigger_type", "unknown"))
-        result = await model.ainvoke(
-            build_memory_extract_messages(
-                state.get("trigger_type", "unknown"),
-                state.get("context_data", {}),
+        async with llm_call("extract", "qwen-plus", trigger_type=state.get("trigger_type", "unknown")):
+            result = await model.ainvoke(
+                build_memory_extract_messages(
+                    state.get("trigger_type", "unknown"),
+                    state.get("context_data", {}),
+                )
             )
-        )
         return {"extracted": result.memories}
     except Exception as exc:  # pragma: no cover - defensive no-op path
         logger.warning("memory extraction failed: %s", exc)
@@ -66,8 +66,8 @@ async def score(state: MemoryExtractionState) -> dict[str, Any]:
     try:
         chat_model = cast(Any, get_chat_model(temperature=0.0, timeout=30))
         model = chat_model.with_structured_output(MemoryScoreResult)
-        log_llm_call("score", "qwen-plus", memories_count=len(memories))
-        result = await model.ainvoke(build_memory_score_messages(memories, existing or []))
+        async with llm_call("score", "qwen-plus", memories_count=len(memories)):
+            result = await model.ainvoke(build_memory_score_messages(memories, existing or []))
         return {"scored": result.scored_memories}
     except Exception as exc:  # pragma: no cover - defensive fallback
         logger.warning("memory scoring failed: %s", exc)
@@ -135,8 +135,8 @@ async def consolidate(state: MemoryExtractionState) -> dict[str, Any]:
         return {}
     chat_model = cast(Any, get_chat_model(temperature=0.1, timeout=60))
     model = chat_model.with_structured_output(ConsolidatedMemorySummary)
-    log_llm_call("consolidate", "qwen-plus", memories_count=len(memories))
-    result = await model.ainvoke(build_consolidate_messages(memories))
+    async with llm_call("consolidate", "qwen-plus", memories_count=len(memories)):
+        result = await model.ainvoke(build_consolidate_messages(memories))
     period_start = min(memory.created_at.date() for memory in memories)
     period_end = max(memory.created_at.date() for memory in memories)
     summary = await service.create_summary(

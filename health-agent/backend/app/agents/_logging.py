@@ -2,18 +2,21 @@
 
 提供 ``log_node`` 装饰器自动追踪 LangGraph 节点的：
 - 进入：节点名 + 关键 state 输入
-- 退出：耗时 + 返回的 state 字段
+- 退出：耗时 + 返回字段及其值（关键字段）
 - 异常：完整 traceback
+
+提供 ``llm_call`` 上下文管理器追踪单次 LLM 调用耗时：
+- 进入：打印 ⚡ LLM call 开始
+- 退出：打印 ✓ LLM done in Xms
 
 使用方式：
 
-    from app.agents._logging import log_node
+    from app.agents._logging import log_node, llm_call
 
     @log_node
     async def parse_text(state: ChatState) -> dict[str, Any]:
-        ...
-
-所有节点统一通过此装饰器输出日志，方便排查 LangGraph 流转。
+        async with llm_call("parse_text", "qwen-plus", input=text):
+            result = await model.ainvoke(messages)
 
 日志级别：默认 INFO。如需更详细输入/输出快照，配置环境变量
 ``LOG_AGENT_VERBOSE=1`` 启用 DEBUG 级别状态 dump。
@@ -21,12 +24,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import inspect
 import logging
 import os
 import time
-from typing import Any, Callable, TypeVar
+from typing import Any, AsyncIterator, Callable, TypeVar
 
 logger = logging.getLogger("app.agents.flow")
 
@@ -79,13 +83,30 @@ def _summarize_state(state: Any) -> str:
 
 
 def _summarize_result(result: Any) -> str:
-    """压缩节点返回值为 single-line 摘要。"""
-    if isinstance(result, dict):
-        keys = list(result.keys())
-        return f"updated_keys={keys}"
-    if isinstance(result, str):
-        return f"-> '{_short(result, 40)}'"
-    return f"-> {type(result).__name__}"
+    """压缩节点返回值，同时打出关键字段的值（不只是 key 名）。
+
+    之前只打 updated_keys=['intent']，看不出决策结果。
+    现在对 _INTERESTING_KEYS 中的字段直接打值，其余字段只打名字。
+    """
+    if not isinstance(result, dict):
+        if isinstance(result, str):
+            return f"-> '{_short(result, 40)}'"
+        return f"-> {type(result).__name__}"
+
+    interesting: list[str] = []
+    other_keys: list[str] = []
+    for k, v in result.items():
+        if k in _INTERESTING_KEYS:
+            interesting.append(f"{k}={_short(v, 40)}")
+        else:
+            other_keys.append(k)
+
+    parts: list[str] = []
+    if interesting:
+        parts.append(", ".join(interesting))
+    if other_keys:
+        parts.append(f"keys={other_keys}")
+    return " | ".join(parts) if parts else "{}"
 
 
 def log_node(func: F) -> F:
@@ -139,11 +160,44 @@ def log_node(func: F) -> F:
     return sync_wrapper  # type: ignore[return-value]
 
 
-def log_llm_call(node_name: str, model_name: str, **extras: Any) -> None:
-    """在节点内调用 LLM 前手动打日志。
+@contextlib.asynccontextmanager
+async def llm_call(node_name: str, model_name: str, **extras: Any) -> AsyncIterator[None]:
+    """追踪单次 LLM 调用耗时的异步上下文管理器。
 
-    用于追踪 ``model.ainvoke()`` / ``with_structured_output`` 等具体 LLM 调用。
+    替代原来的 ``log_llm_call()`` 函数，现在能精确打出 LLM 本身花了多久，
+    而不是把 LLM 耗时藏在节点总耗时里。
+
+    用法::
+
+        async with llm_call("parse_text", "qwen-plus", input_text=text):
+            result = await model.ainvoke(messages)
+
+    输出::
+
+        ⚡ [parse_text] LLM call: model=qwen-plus | input_text=...
+        ✓ [parse_text] LLM done in 1823ms
     """
+    extra_str = ", ".join(f"{k}={_short(v, 30)}" for k, v in extras.items())
+    logger.info(
+        "  ⚡ [%s] LLM call: model=%s%s",
+        node_name,
+        model_name,
+        f" | {extra_str}" if extra_str else "",
+    )
+    start = time.perf_counter()
+    try:
+        yield
+    except Exception as exc:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.error("  ✗ [%s] LLM FAILED in %.0fms | %s", node_name, elapsed_ms, exc)
+        raise
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info("  ✓ [%s] LLM done in %.0fms", node_name, elapsed_ms)
+
+
+# 保留旧函数名作为兼容别名，避免一次性改太多文件
+def log_llm_call(node_name: str, model_name: str, **extras: Any) -> None:
+    """已废弃：请改用 ``async with llm_call(...)``。保留仅供兼容。"""
     extra_str = ", ".join(f"{k}={_short(v, 30)}" for k, v in extras.items())
     logger.info(
         "  ⚡ [%s] LLM call: model=%s%s",
@@ -153,4 +207,4 @@ def log_llm_call(node_name: str, model_name: str, **extras: Any) -> None:
     )
 
 
-__all__ = ["log_llm_call", "log_node", "logger"]
+__all__ = ["llm_call", "log_llm_call", "log_node", "logger"]

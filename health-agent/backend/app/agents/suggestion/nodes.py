@@ -7,7 +7,7 @@ import logging
 from datetime import date
 from typing import Any, cast
 
-from app.agents._logging import log_llm_call, log_node
+from app.agents._logging import llm_call, log_node
 from app.agents.base import get_chat_model
 from app.agents.prompts.suggestion_daily import build_daily_suggestion_messages
 from app.agents.prompts.suggestion_insight import build_insight_suggestion_messages
@@ -139,8 +139,8 @@ async def generate_suggestions(state: SuggestionState) -> dict[str, Any]:
     """
     try:
         model = cast(Any, get_chat_model(temperature=0.7, timeout=60)).with_structured_output(SuggestionAgentOutput)
-        log_llm_call("generate_suggestions", "qwen-plus", suggestion_type=state.get("suggestion_type"))
-        output = await model.ainvoke(_messages_for_state(state))
+        async with llm_call("generate_suggestions", "qwen-plus", suggestion_type=state.get("suggestion_type")):
+            output = await model.ainvoke(_messages_for_state(state))
     except Exception as exc:  # pragma: no cover - local fallback without API key
         logger.info("suggestion fallback used: %s", exc)
         output = _fallback_output(state)

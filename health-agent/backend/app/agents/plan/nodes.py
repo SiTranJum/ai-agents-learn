@@ -7,7 +7,7 @@ import logging
 from datetime import date, timedelta
 from typing import Any, cast
 
-from app.agents._logging import log_llm_call, log_node
+from app.agents._logging import llm_call, log_node
 from app.agents.base import get_chat_model
 from app.agents.plan.state import PlanState
 from app.agents.plan.tools import persist_plan_tool, safety_check_tool
@@ -107,14 +107,14 @@ async def draft_plan(state: PlanState) -> dict[str, Any]:
     fallback = _default_draft(state)
     try:
         model = cast(Any, get_chat_model(temperature=0.3, timeout=60)).with_structured_output(PlanDraft)
-        log_llm_call("draft_plan", "qwen-plus", goal=state.get("goal_description") or "")
-        draft = await model.ainvoke(
-            build_plan_draft_messages(
-                state.get("goal_description") or "",
-                str(state.get("plan_type")) if state.get("plan_type") else None,
-                state.get("profile"),
+        async with llm_call("draft_plan", "qwen-plus", goal=state.get("goal_description") or ""):
+            draft = await model.ainvoke(
+                build_plan_draft_messages(
+                    state.get("goal_description") or "",
+                    str(state.get("plan_type")) if state.get("plan_type") else None,
+                    state.get("profile"),
+                )
             )
-        )
         return {"draft": draft}
     except Exception as exc:  # pragma: no cover - local/dev fallback without API key
         logger.info("plan draft fallback used: %s", exc)
