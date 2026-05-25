@@ -144,7 +144,11 @@ async def call_llm(state: ChatState) -> dict[str, Any]:
     - 返回通常是 ``AIMessage``，其 ``content`` 是模型回复文本。
     """
     try:
-        model = cast(Any, get_chat_model(temperature=0.7, timeout=60))
+        # streaming=True 让 LangChain 走 SSE 模式调用 DashScope，
+        # astream_events(version="v2") 才能捕获 on_chat_model_stream → text_delta。
+        # with_structured_output 节点（identify_intent 等）不开 streaming，
+        # 因为它们返回结构化对象，token 流没意义。
+        model = cast(Any, get_chat_model(temperature=0.7, timeout=60, streaming=True))
         async with llm_call("call_llm", "qwen-plus", messages_count=len(state.get("prompt_messages", []) or [])):
             response = await model.ainvoke(state.get("prompt_messages", []))
         content = getattr(response, "content", response)

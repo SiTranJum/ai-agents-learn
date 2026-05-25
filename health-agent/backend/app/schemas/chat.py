@@ -36,6 +36,36 @@ class ChatRequest(BaseModel):
     context: ChatContext | dict[str, Any] | None = None
 
 
+class ChatStreamRequest(BaseModel):
+    """流式 chat 端点的统一输入。
+
+    通过 ``type`` 字段区分三种入口：
+
+    - ``text`` 普通文本消息（兼容旧 ``ChatRequest.message``）
+    - ``card_action`` 用户点击卡片按钮（如"确认保存饮食"）
+    - ``choice_response`` 用户回应了 AI 的选项澄清（chip 选择 / 自由输入）
+
+    设计参考 docs/plans/2026-05-21-streaming-chat-design.md §4.4
+    """
+
+    session_id: str | None = Field(default=None, max_length=64)
+    type: Literal["text", "card_action", "choice_response"] = "text"
+
+    # type=text
+    message: str | None = Field(default=None, max_length=2000)
+    context: ChatContext | dict[str, Any] | None = None
+
+    # type=card_action
+    card_id: str | None = None
+    action_id: str | None = None
+    action_payload: dict[str, Any] | None = None
+
+    # type=choice_response
+    prompt_id: str | None = None
+    selected_value: str | None = None
+    free_text: str | None = Field(default=None, max_length=2000)
+
+
 class ChatCardAction(BaseModel):
     kind: Literal["confirm_create_diet_record", "edit_diet_items"] | str
     label: str | None = None
@@ -79,5 +109,6 @@ __all__ = [
     "ChatResponse",
     "ChatResponseMessage",
     "ChatRole",
+    "ChatStreamRequest",
 ]
 
