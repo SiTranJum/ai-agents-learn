@@ -7,6 +7,8 @@ export interface AIInputBarProps {
   onSend: (message: string) => void;
   onCamera?: () => void;
   onVoice?: () => void;
+  /** 输入框获得焦点时触发；用于点击输入栏恢复历史浮层 */
+  onFocus?: () => void;
   placeholder?: string;
 }
 
@@ -14,6 +16,7 @@ export function AIInputBar({
   onSend,
   onCamera,
   onVoice,
+  onFocus,
   placeholder = '说点什么...',
 }: AIInputBarProps) {
   const [text, setText] = useState('');
@@ -46,6 +49,7 @@ export function AIInputBar({
           placeholderTextColor={theme.colors.textTertiary}
           returnKeyType="send"
           onSubmitEditing={handleSend}
+          onFocus={onFocus}
         />
       </View>
       <TouchableOpacity

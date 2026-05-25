@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
@@ -41,8 +41,19 @@ export function AIDialogScreen() {
   const addMessage = useAIStore((s) => s.addMessage);
   const nutritionResult = useAIStore((s) => s.nutritionResult);
   const setNutritionResult = useAIStore((s) => s.setNutritionResult);
+  const setOverlayState = useAIStore((s) => s.setOverlayState);
 
   const [sheetVisible, setSheetVisible] = useState(false);
+
+  // 离开全屏页面时（按返回键 / 切 Tab），把 overlay 状态降到 collapsed 隐藏浮层。
+  // 用户主动退出对话即视为不想看了；下次点击 AI 输入框时由 handleFocus 自动恢复 floating。
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setOverlayState('collapsed');
+      };
+    }, [setOverlayState])
+  );
 
   // 初始化：注入欢迎消息（仅当对话为空）+ 处理 initialMessage
   useEffect(() => {
