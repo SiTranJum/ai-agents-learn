@@ -13,6 +13,7 @@ import { PlanCreateChatScreen } from '@features/plan/screens/PlanCreateChatScree
 import { EditProfileScreen } from '@features/profile/screens/EditProfileScreen';
 import { SettingsScreen } from '@features/profile/screens/SettingsScreen';
 import { AIDialogScreen } from '@features/ai/screens/AIDialogScreen';
+import { StreamingDemoScreen } from '@features/ai/demo/StreamingDemoScreen';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -73,6 +74,11 @@ export function MainNavigator() {
       <Stack.Screen
         name="AIDialog"
         component={AIDialogScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="StreamingDemo"
+        component={StreamingDemoScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

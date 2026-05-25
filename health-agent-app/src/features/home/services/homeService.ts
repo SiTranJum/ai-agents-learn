@@ -148,5 +148,29 @@ export const homeService: HomeService = {
   },
 };
 
+// ===== 独立查询（供拆分后的 hooks 使用） =====
+
+/** 饮食日汇总：热量 + 营养 + 餐次 */
+export async function fetchDietSummary(date: string) {
+  const diet = await dietService.getDietByDate(date);
+  return {
+    calories: { current: diet.totalCalories.current, target: diet.totalCalories.target },
+    nutrients: { carbs: diet.nutrients.carbs, protein: diet.nutrients.protein, fat: diet.nutrients.fat },
+    meals: diet.meals.map(dietRecordToHomeMeal),
+  };
+}
+
+/** 辅助记录：饮水/睡眠/运动/排便 */
+export async function fetchBodyToday(date: string): Promise<HomeAuxiliary> {
+  const today = await dataService.getTodayRecords(date);
+  return mapAuxiliary(today);
+}
+
+/** AI 每日洞察（带 5s 超时保护） */
+export { fetchAIInsight };
+
+/** 当前活跃计划 */
+export { fetchActivePlan };
+
 // 类型导出给 hook 侧可能使用
 export type { AuxiliaryItemType };

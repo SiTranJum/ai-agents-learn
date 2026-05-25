@@ -32,6 +32,7 @@ import { MealTimelineCard } from '../components/MealTimelineCard';
 import { AIInsightCard } from '../components/AIInsightCard';
 import { PlanProgressCard } from '../components/PlanProgressCard';
 import { AuxiliaryRecordGrid } from '../components/AuxiliaryRecordGrid';
+import { DevDemoButton } from '../components/DevDemoButton';
 import type { AuxiliaryItemType, MealType } from '../types/home.types';
 
 type Nav = CompositeNavigationProp<
@@ -177,6 +178,8 @@ export function HomeScreen() {
           />
         </SectionBlock>
       </ScrollView>
+
+      <DevDemoButton />
     </PageContainer>
   );
 }
