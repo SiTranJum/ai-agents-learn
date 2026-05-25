@@ -18,6 +18,7 @@ export function GlobalAIInputBar() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const overlayState = useAIStore((s) => s.overlayState);
   const setOverlayState = useAIStore((s) => s.setOverlayState);
+  const hasMessages = useAIStore((s) => s.chatMessages.length > 0);
   const { sendMessage } = useAIChat();
 
   const handleSend = useCallback(
@@ -31,6 +32,13 @@ export function GlobalAIInputBar() {
     },
     [overlayState, setOverlayState, sendMessage]
   );
+
+  const handleFocus = useCallback(() => {
+    // 已有历史消息但浮层收起时，点击输入框恢复浮层（不需要再发送一条才能看历史）
+    if (overlayState === 'collapsed' && hasMessages) {
+      setOverlayState('floating');
+    }
+  }, [overlayState, hasMessages, setOverlayState]);
 
   const handleCamera = useCallback(() => {
     // 拍照直接进全屏（需要相机权限等复杂交互）
@@ -51,6 +59,7 @@ export function GlobalAIInputBar() {
         onSend={handleSend}
         onCamera={handleCamera}
         onVoice={handleVoice}
+        onFocus={handleFocus}
         placeholder="说点什么..."
       />
     </View>

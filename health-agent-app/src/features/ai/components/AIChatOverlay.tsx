@@ -26,7 +26,7 @@ import type { ChatMessage } from '../types/ai.types';
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const MAX_OVERLAY_HEIGHT = SCREEN_HEIGHT * 0.45;
+const MAX_OVERLAY_HEIGHT = SCREEN_HEIGHT * 0.32;
 const EXPAND_THRESHOLD = 6; // 消息数超过此值自动提示展开
 
 export function AIChatOverlay() {

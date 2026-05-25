@@ -44,7 +44,10 @@ def _get_jwks_client() -> PyJWKClient:
     """
     jwks_url = f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
     logger.info("初始化 JWKS 客户端: url=%s", jwks_url)
-    return PyJWKClient(jwks_url, cache_keys=True)
+    # lifespan=3600: 公钥缓存 1 小时（默认 300s 太短，每 5 分钟就要重新拉取，
+    # 而国内到 Supabase 海外节点延迟 2-3s，导致周期性慢请求）。
+    # Supabase 签名密钥几乎不轮换，1 小时缓存完全安全。
+    return PyJWKClient(jwks_url, cache_keys=True, lifespan=3600)
 
 
 def _decode_with_asymmetric(token: str) -> dict[str, Any]:
