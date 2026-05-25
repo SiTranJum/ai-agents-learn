@@ -19,6 +19,7 @@ import { theme } from '@app/styles/theme';
 import { PageContainer } from '@shared/layout/PageContainer/PageContainer';
 
 import { createMockStream } from './streamingMock';
+import { createSSEStream } from '../services/streamingClient';
 import type {
   AIStreamingMessage,
   ChoicePrompt,
@@ -65,6 +66,8 @@ export function StreamingDemoScreen() {
   const [messages, setMessages] = useState<DemoMessage[]>([]);
   const [activeScenario, setActiveScenario] = useState<ScenarioName | null>(null);
   const [round, setRound] = useState(1);
+  /** 数据源：'mock' = 本地模拟事件流；'sse' = 走真实后端 SSE */
+  const [source, setSource] = useState<'mock' | 'sse'>('mock');
   const streamRef = useRef<MockStreamHandle | null>(null);
   const cardStatusRef = useRef<Map<string, 'pending' | 'submitted' | 'cancelled'>>(
     new Map()
@@ -107,7 +110,12 @@ export function StreamingDemoScreen() {
       };
       setMessages((prev) => [...prev, placeholder]);
 
-      const handle = createMockStream(scenario, currentRound);
+      // source=mock：走预定义事件序列
+      // source=sse：发真实 POST /ai/chat 走后端 LangGraph
+      const handle =
+        source === 'mock'
+          ? createMockStream(scenario, currentRound)
+          : createSSEStream(buildSSERequest(scenario, currentRound));
       streamRef.current = handle;
 
       handle.on('meta', () => {
@@ -190,7 +198,7 @@ export function StreamingDemoScreen() {
 
       handle.start();
     },
-    [updateLastAI]
+    [source, updateLastAI]
   );
 
   // 用户点击"运行场景"
