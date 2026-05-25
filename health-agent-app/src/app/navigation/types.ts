@@ -31,4 +31,5 @@ export type MainStackParamList = {
   EditProfile: undefined;
   Settings: undefined;
   AIDialog: { initialMessage?: string };
+  StreamingDemo: undefined;
 };
