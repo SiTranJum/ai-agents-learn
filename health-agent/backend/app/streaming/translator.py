@@ -72,10 +72,16 @@ async def translate_langgraph_events(
     labels = node_labels if node_labels is not None else CHAT_NODE_LABELS
     cfg = config or {}
 
+    # 只有这些节点的 LLM token 流才是给用户看的自然语言。
+    # 其他节点（identify_intent / parse_text 等）用 with_structured_output，
+    # 输出的是 JSON 结构化数据，不应该展示给用户。
+    TEXT_VISIBLE_NODES = {"call_llm"}
+
     async for ev in agent.astream_events(state, version="v2", config=cfg):
         kind = ev.get("event")
         name = ev.get("name", "")
         data = ev.get("data") or {}
+        metadata = ev.get("metadata") or {}
 
         # ===== 节点开始 → status =====
         if kind == "on_chain_start" and name in labels:
@@ -85,8 +91,12 @@ async def translate_langgraph_events(
             )
             continue
 
-        # ===== LLM token 流 → text_delta =====
+        # ===== LLM token 流 → text_delta（仅 call_llm 节点） =====
         if kind == "on_chat_model_stream":
+            # langgraph_node 标识当前 token 来自哪个节点
+            source_node = metadata.get("langgraph_node", "")
+            if source_node not in TEXT_VISIBLE_NODES:
+                continue
             chunk = data.get("chunk")
             content = _extract_text(chunk)
             if content:
