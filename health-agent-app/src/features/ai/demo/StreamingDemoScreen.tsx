@@ -364,6 +364,39 @@ export function StreamingDemoScreen() {
         )}
       </View>
 
+      {/* 数据源切换：Mock 跑预定义脚本，SSE 走真实后端 */}
+      <View style={styles.sourceBar}>
+        <Text style={styles.sourceLabel}>数据源：</Text>
+        <TouchableOpacity
+          style={[styles.sourceChip, source === 'mock' && styles.sourceChipActive]}
+          onPress={() => setSource('mock')}
+          disabled={isStreaming}
+        >
+          <Text
+            style={[
+              styles.sourceChipLabel,
+              source === 'mock' && styles.sourceChipLabelActive,
+            ]}
+          >
+            Mock
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sourceChip, source === 'sse' && styles.sourceChipActive]}
+          onPress={() => setSource('sse')}
+          disabled={isStreaming}
+        >
+          <Text
+            style={[
+              styles.sourceChipLabel,
+              source === 'sse' && styles.sourceChipLabelActive,
+            ]}
+          >
+            真实 SSE
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -543,6 +576,28 @@ function getCardId(card: ChatCard): string {
   return `${card.type}:${JSON.stringify(card.payload).slice(0, 32)}`;
 }
 
+/**
+ * 把 demo 场景映射为后端 SSE 请求体。
+ * round 1 用初始用户文本；round 2+ 当作"用户回答了上一轮选项"。
+ */
+function buildSSERequest(
+  scenario: ScenarioName,
+  round: number
+): import('../services/streamingClient').ChatStreamRequest {
+  if (round === 1) {
+    return {
+      type: 'text',
+      message: SCENARIO_INITIAL_USER_MSG[scenario],
+    };
+  }
+  // 第 2 轮起：模拟"用户选了午餐"作为对前一次 choice 的回应
+  return {
+    type: 'choice_response',
+    selected_value: 'lunch',
+  };
+}
+
+
 // ============ 样式 ============
 
 const styles = StyleSheet.create({
@@ -584,6 +639,40 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     paddingVertical: theme.spacing.sm,
     backgroundColor: theme.colors.bgCard,
+  },
+  sourceBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.layout.pageHorizontalPadding,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: theme.colors.bgCard,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.divider,
+    gap: theme.spacing.sm,
+  },
+  sourceLabel: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+  },
+  sourceChip: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.colors.divider,
+    backgroundColor: theme.colors.bgCard,
+  },
+  sourceChipActive: {
+    backgroundColor: theme.colors.primaryLight,
+    borderColor: theme.colors.primary,
+  },
+  sourceChipLabel: {
+    ...theme.typography.caption,
+    color: theme.colors.textPrimary,
+  },
+  sourceChipLabelActive: {
+    color: theme.colors.primary,
+    fontWeight: '600',
   },
   scenarioBarContent: {
     paddingHorizontal: theme.layout.pageHorizontalPadding,
