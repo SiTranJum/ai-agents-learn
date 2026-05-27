@@ -205,15 +205,50 @@ def _parse_result_to_card(parse_result: ParseResult, suggested_date: date | None
 
 @log_node
 async def wrap_response(state: ChatState) -> dict[str, Any]:
-    """Normalize branch outputs into ``ai_response`` + ``response_cards``."""
+    """Normalize branch outputs into ``ai_response`` + ``response_cards``.
+
+    P2 新增逻辑：当饮食意图识别到食物但 meal_type 缺失时，
+    不再猜测 snack，而是产出 choice_prompts 让前端弹选项 chips。
+    """
     if state.get("intent") == "diet" and state.get("diet_parse_result") is not None:
         parse_result = cast(ParseResult, state["diet_parse_result"])
-        card = _parse_result_to_card(parse_result, state.get("diet_date"))
         food_count = len(parse_result.foods)
+
+        # 如果 meal_type 缺失且没有 pending_action（说明是第一次），emit choice
+        if parse_result.meal_type is None and state.get("pending_action") is None:
+            import uuid
+            prompt_id = f"meal_type_{uuid.uuid4().hex[:8]}"
+            choice_prompt = {
+                "prompt_id": prompt_id,
+                "question": "请选择餐次",
+                "options": [
+                    {"value": "breakfast", "label": "早餐"},
+                    {"value": "lunch", "label": "午餐"},
+                    {"value": "dinner", "label": "晚餐"},
+                    {"value": "snack", "label": "加餐"},
+                ],
+                "allow_free_text": True,
+            }
+            response = f"我识别到 {food_count} 项食物。请问是哪一餐？"
+            return {
+                "ai_response": response,
+                "response_cards": [],
+                "choice_prompts": [choice_prompt],
+                # 把部分解析结果存到 state，供 API 层写入 pending_action
+                "diet_parse_result": parse_result,
+            }
+
+        # meal_type 已知（用户选了 / 原文就有 / pending_action 合并后）→ 正常出卡片
+        card = _parse_result_to_card(parse_result, state.get("diet_date"))
         meal_type = parse_result.meal_type.value if parse_result.meal_type else "snack"
-        response = f"我识别到 {food_count} 项食物，餐次暂定为 {meal_type}。请确认后再保存到饮食记录。"
-        return {"ai_response": response, "response_cards": [card.model_dump(mode="json")]}
-    return {"ai_response": state.get("ai_response") or "我已经收到你的消息。", "response_cards": state.get("response_cards", []) or []}
+        response = f"我识别到 {food_count} 项食物，餐次为 {meal_type}。请确认后再保存到饮食记录。"
+        return {"ai_response": response, "response_cards": [card.model_dump(mode="json")], "choice_prompts": []}
+
+    return {
+        "ai_response": state.get("ai_response") or "我已经收到你的消息。",
+        "response_cards": state.get("response_cards", []) or [],
+        "choice_prompts": [],
+    }
 
 
 __all__ = [

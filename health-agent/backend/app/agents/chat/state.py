@@ -89,5 +89,11 @@ class ChatState(TypedDict, total=False):
     request_id: str | None
     error: str | None
 
+    # ---------- 流式交互（P2 新增） ----------
+    # pending_action: 跨 SSE 连接的待决状态（由 API 层注入）
+    pending_action: Any  # PendingAction | None
+    # choice_prompts: wrap_response 产出的选项澄清列表，translator 会 emit choice 事件
+    choice_prompts: list[dict[str, Any]]
+
 
 __all__ = ["ChatState", "Intent"]
