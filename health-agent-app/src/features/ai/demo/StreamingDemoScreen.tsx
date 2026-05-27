@@ -96,30 +96,12 @@ export function StreamingDemoScreen() {
     });
   }, []);
 
-  // 启动一个场景或一段对话
-  const startStream = useCallback(
-    (scenario: ScenarioName, currentRound: number) => {
-      // 创建流式占位消息
-      const placeholder: AIStreamingMessage = {
-        id: `ai_${Date.now()}_${currentRound}`,
-        role: 'assistant',
-        status: null,
-        tools: [],
-        segments: [],
-        isStreaming: true,
-      };
-      setMessages((prev) => [...prev, placeholder]);
-
-      // source=mock：走预定义事件序列
-      // source=sse：发真实 POST /ai/chat 走后端 LangGraph
-      const handle =
-        source === 'mock'
-          ? createMockStream(scenario, currentRound)
-          : createSSEStream(buildSSERequest(scenario, currentRound));
-      streamRef.current = handle;
-
+  // 把所有 SSE / Mock 事件 handler 注册到给定 handle 上
+  // 抽出来独立函数，方便 startStream 和 card_action 流复用
+  const wireStreamHandlers = useCallback(
+    (handle: MockStreamHandle) => {
       handle.on('meta', () => {
-        // meta 不需要 UI 改动，仅记录
+        // meta 不需要 UI 改动
       });
 
       handle.on('status', ({ label }) => {
@@ -195,10 +177,36 @@ export function StreamingDemoScreen() {
         }));
         streamRef.current = null;
       });
+    },
+    [updateLastAI]
+  );
 
+  // 启动一个场景或一段对话
+  const startStream = useCallback(
+    (scenario: ScenarioName, currentRound: number) => {
+      // 创建流式占位消息
+      const placeholder: AIStreamingMessage = {
+        id: `ai_${Date.now()}_${currentRound}`,
+        role: 'assistant',
+        status: null,
+        tools: [],
+        segments: [],
+        isStreaming: true,
+      };
+      setMessages((prev) => [...prev, placeholder]);
+
+      // source=mock：走预定义事件序列
+      // source=sse：发真实 POST /ai/chat 走后端 LangGraph
+      const handle =
+        source === 'mock'
+          ? createMockStream(scenario, currentRound)
+          : createSSEStream(buildSSERequest(scenario, currentRound));
+      streamRef.current = handle;
+
+      wireStreamHandlers(handle);
       handle.start();
     },
-    [source, updateLastAI]
+    [source, wireStreamHandlers]
   );
 
   // 用户点击"运行场景"
@@ -297,7 +305,46 @@ export function StreamingDemoScreen() {
         forceUpdate((n) => n + 1);
         return;
       }
-      // 默认视为"确认"操作
+
+      // T9: SSE 模式下"确认保存"发起真实 card_action 请求
+      if (source === 'sse' && actionKind === 'confirm_create_diet_record') {
+        // 立刻乐观标记为 submitted（用户体验：点完立刻变灰）
+        cardStatusRef.current.set(cardId, 'submitted');
+        forceUpdate((n) => n + 1);
+
+        // 加用户消息（"确认保存"的 ack）
+        const userMsg: UserMessage = {
+          id: `u_${Date.now()}`,
+          role: 'user',
+          content: '确认保存',
+        };
+        setMessages((prev) => [...prev, userMsg]);
+
+        // 创建占位 AI 消息
+        const placeholder: AIStreamingMessage = {
+          id: `ai_${Date.now()}_card_action`,
+          role: 'assistant',
+          status: null,
+          tools: [],
+          segments: [],
+          isStreaming: true,
+        };
+        setMessages((prev) => [...prev, placeholder]);
+
+        // 发 card_action 请求
+        const handle = createSSEStream({
+          type: 'card_action',
+          card_id: cardId,
+          action_id: actionKind,
+          action_payload: card.payload as Record<string, unknown>,
+        });
+        streamRef.current = handle;
+        wireStreamHandlers(handle);
+        handle.start();
+        return;
+      }
+
+      // 默认视为"确认"操作（mock 模式 / 其他卡片）
       cardStatusRef.current.set(cardId, 'submitted');
       forceUpdate((n) => n + 1);
 

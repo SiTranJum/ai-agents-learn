@@ -28,6 +28,10 @@ from app.dependencies import (
     RagServiceDep,
 )
 from app.schemas.chat import ChatCard, ChatRole, ChatStreamRequest
+from app.services.pending_action_store import (
+    create_pending_action,
+    get_pending_action_store,
+)
 from app.streaming import (
     StreamEvent,
     StreamEventType,
@@ -86,6 +90,166 @@ def _resolve_input_message(payload: ChatStreamRequest) -> str:
     raise ValidationException(f"不支持的请求类型: {payload.type}", code="CHAT_TYPE_INVALID")
 
 
+# ============ T9: card_action 处理 ============
+
+
+def _coerce_meal_type(value: Any) -> str:
+    """把 enum / 字符串 / None 统一为字符串。"""
+    if value is None:
+        return "snack"
+    if hasattr(value, "value"):
+        return str(value.value)
+    return str(value)
+
+
+async def _handle_confirm_create_diet_record(
+    payload: ChatStreamRequest,
+    diet_service: Any,
+) -> tuple[str, list[dict[str, Any]]]:
+    """处理饮食卡片"确认保存"按钮。
+
+    返回 ``(ai_response_text, response_cards)``，由调用方写入 SSE 流。
+
+    action_payload 期望结构（由前端从原卡片 payload 复制过来）::
+
+        {
+            "foods": [{"name": ..., "amount": ..., "unit": ..., ...}, ...],
+            "meal_type": "lunch",
+            "date": "2026-05-26"   # 可选，缺失用今天
+        }
+    """
+    from datetime import date as date_cls
+
+    from app.schemas.diet import FoodItemInput, MealType
+
+    ap = payload.action_payload or {}
+    raw_foods = ap.get("foods") or []
+    if not raw_foods:
+        raise ValidationException(
+            "卡片操作缺少食物数据", code="CARD_ACTION_PAYLOAD_INVALID"
+        )
+
+    meal_type_raw = _coerce_meal_type(ap.get("meal_type"))
+    try:
+        meal_type = MealType(meal_type_raw)
+    except ValueError:
+        meal_type = MealType.snack
+
+    date_raw = ap.get("date")
+    record_date = (
+        date_cls.fromisoformat(str(date_raw)) if date_raw else date_cls.today()
+    )
+
+    foods = [FoodItemInput.model_validate(f) for f in raw_foods]
+    record = await diet_service.create_record(
+        meal_type=meal_type,
+        foods=foods,
+        record_date=record_date,
+    )
+    text = f"已保存到{meal_type.value}记录，共 {len(foods)} 项食物。"
+    # 回一张"已确认"状态的卡片让前端把原卡片标记为 submitted
+    confirmed_card = {
+        "type": "diet_saved",
+        "payload": {
+            "record_id": str(record.id) if hasattr(record, "id") else None,
+            "meal_type": meal_type.value,
+            "date": record_date.isoformat(),
+        },
+        "actions": [],
+    }
+    return text, [confirmed_card]
+
+
+async def _stream_card_action(
+    payload: ChatStreamRequest,
+    session_id: str,
+    chat_service: Any,
+    diet_service: Any,
+):
+    """把 card_action 结果包装成最小 SSE 流（meta → text → card → done）。
+
+    不走 LangGraph，避免无意义的 LLM 调用浪费 token。
+    """
+    message_id = uuid.uuid4().hex
+    action_id = payload.action_id or ""
+
+    async def gen() -> AsyncIterator[StreamEvent]:
+        yield StreamEvent(
+            type=StreamEventType.META,
+            data={
+                "message_id": message_id,
+                "session_id": session_id,
+                "started_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
+        try:
+            if action_id == "confirm_create_diet_record":
+                text, cards = await _handle_confirm_create_diet_record(
+                    payload, diet_service
+                )
+            elif action_id == "edit_diet_items":
+                # 编辑动作纯前端跳转，后端只回一个 ack
+                text = "好的，去编辑食物。"
+                cards = []
+            else:
+                # 未识别的 action，回一条提示
+                text = f"暂不支持的操作：{action_id}"
+                cards = []
+        except ValidationException as exc:
+            yield StreamEvent(
+                type=StreamEventType.ERROR,
+                data={
+                    "code": exc.code or "CARD_ACTION_FAILED",
+                    "message": exc.message,
+                    "retriable": False,
+                },
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("card_action failed: %s", exc)
+            yield StreamEvent(
+                type=StreamEventType.ERROR,
+                data={
+                    "code": "CARD_ACTION_FAILED",
+                    "message": "卡片操作失败，请稍后重试",
+                    "retriable": True,
+                },
+            )
+            return
+
+        # 一次性 yield 完整文本（短文本不需要逐 token，保持一致协议即可）
+        if text:
+            yield StreamEvent(
+                type=StreamEventType.TEXT_DELTA,
+                data={"content": text},
+            )
+
+        for card in cards:
+            yield StreamEvent(
+                type=StreamEventType.CARD,
+                data={"card": card},
+            )
+
+        # 持久化助手消息
+        try:
+            await chat_service.save_message(
+                session_id=session_id,
+                role=ChatRole.assistant,
+                content=text,
+                cards=[ChatCard(**c) for c in cards],
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("failed to persist card_action response: %s", exc)
+
+        yield StreamEvent(
+            type=StreamEventType.DONE,
+            data={"message_id": message_id, "session_id": session_id},
+        )
+
+    return await sse_response(gen())
+
+
 @router.post("/chat")
 async def send_message(
     payload: ChatStreamRequest,
@@ -116,10 +280,26 @@ async def send_message(
         role=ChatRole.user,
         content=user_text,
     )
+
+    # ============ T9: card_action 快速路径 ============
+    # 卡片确认/取消等明确操作不需要走 LangGraph，
+    # 直接调对应 service，把结果包装成最小流式响应。
+    if payload.type == "card_action":
+        return await _stream_card_action(
+            payload=payload,
+            session_id=session_id,
+            chat_service=chat_service,
+            diet_service=diet_service,
+        )
+
     history, _, _ = await chat_service.get_history(
         session_id=session_id, page=1, page_size=10
     )
     context = _context_dict(payload)
+
+    # P2: 读取 pending_action（如果是 choice_response 类型）
+    pa_store = get_pending_action_store()
+    existing_pa = await pa_store.get(session_id) if payload.type == "choice_response" else None
 
     state: dict[str, Any] = {
         "user_id": str(user.id),
@@ -134,11 +314,27 @@ async def send_message(
         "memory_service": memory_service,
         "rag_service": rag_service,
         "embedding_client": memory_service.embedding_client,
+        # P2: 注入 pending_action 供节点使用
+        "pending_action": existing_pa,
     }
+
+    # P2: 如果是 choice_response 且有 pending_action 带 diet_partial，
+    # 把用户选择的 meal_type 合并进去，让 agent 跳过重新解析直接出卡片
+    if existing_pa and existing_pa.diet_partial and payload.type == "choice_response":
+        meal_value = payload.selected_value or payload.free_text or "snack"
+        state["intent"] = "diet"
+        state["diet_parse_result"] = existing_pa.diet_partial
+        # 把 meal_type 注入到 parse_result 里
+        if hasattr(existing_pa.diet_partial, "meal_type"):
+            existing_pa.diet_partial.meal_type = meal_value
+        elif isinstance(existing_pa.diet_partial, dict):
+            existing_pa.diet_partial["meal_type"] = meal_value
+        # 删除 pending_action（已消费）
+        await pa_store.delete(session_id)
 
     message_id = uuid.uuid4().hex
     # 边吐边累积，流结束时一次性持久化
-    pending: dict[str, Any] = {"text_parts": [], "cards": []}
+    pending: dict[str, Any] = {"text_parts": [], "cards": [], "choice_prompts": []}
 
     async def gen() -> AsyncIterator[StreamEvent]:
         # 1. meta：告知客户端会话标识
@@ -163,9 +359,21 @@ async def send_message(
                 card = ev.data.get("card")
                 if card:
                     pending["cards"].append(card)
+            elif ev.type == StreamEventType.CHOICE:
+                pending["choice_prompts"].append(ev.data)
             yield ev
 
-        # 3. 持久化助手消息
+        # 3. P2: 如果有 choice_prompts，存 pending_action 供下次请求使用
+        if pending["choice_prompts"]:
+            for cp in pending["choice_prompts"]:
+                pa = create_pending_action(
+                    prompt_id=cp.get("prompt_id", ""),
+                    options=cp.get("options", []),
+                    diet_partial=state.get("diet_parse_result"),
+                )
+                await pa_store.set(session_id, pa)
+
+        # 4. 持久化助手消息
         full_text = "".join(pending["text_parts"]) or "我已经收到你的消息。"
         cards: list[ChatCard] = [ChatCard(**c) for c in pending["cards"]]
         try:
@@ -178,7 +386,7 @@ async def send_message(
         except Exception as exc:  # noqa: BLE001
             logger.exception("failed to persist assistant message: %s", exc)
 
-        # 4. done
+        # 5. done
         yield StreamEvent(
             type=StreamEventType.DONE,
             data={"message_id": message_id, "session_id": session_id},
