@@ -1,8 +1,8 @@
 // useStreamingChat: 流式聊天 hook
 // T6 从 demo/StreamingDemoScreen 提炼，封装 wireStreamHandlers + 状态管理
-// 设计参考: docs/plans/2026-05-22-streaming-chat-impl-tasks.md §T6
+// 状态写入 aiStore，半屏浮层和全屏 AIDialogScreen 共享同一份消息列表
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import type {
   ChatMessage,
   ChatCard,
@@ -12,6 +12,7 @@ import type {
 } from '../types/ai.types';
 import { createSSEStream } from '../services/streamingClient';
 import type { MockStreamHandle } from '../demo/types';
+import { useAIStore } from '../store/aiStore';
 
 interface UseStreamingChatReturn {
   messages: ChatMessage[];
@@ -25,12 +26,16 @@ interface UseStreamingChatReturn {
 }
 
 export function useStreamingChat(): UseStreamingChatReturn {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const streamRef = useRef<MockStreamHandle | null>(null);
-  const cardStatusRef = useRef<Map<string, 'pending' | 'submitted' | 'cancelled'>>(
-    new Map()
-  );
+
+  const messages = useAIStore((s) => s.chatMessages);
+  const sessionId = useAIStore((s) => s.currentSessionId);
+  const cardStatus = useAIStore((s) => s.cardStatus);
+  const addMessage = useAIStore((s) => s.addMessage);
+  const updateLastAIMessage = useAIStore((s) => s.updateLastAIMessage);
+  const setCurrentSessionId = useAIStore((s) => s.setCurrentSessionId);
+  const setCardStatus = useAIStore((s) => s.setCardStatus);
+  const setAIThinking = useAIStore((s) => s.setAIThinking);
 
   // 卸载时关闭活动流
   useEffect(() => {
@@ -39,63 +44,42 @@ export function useStreamingChat(): UseStreamingChatReturn {
     };
   }, []);
 
-  // 取最后一条 AI 消息（流式中的）
-  const updateLastAI = useCallback((updater: (msg: ChatMessage) => ChatMessage) => {
-    setMessages((prev) => {
-      const arr = [...prev];
-      for (let i = arr.length - 1; i >= 0; i--) {
-        const m = arr[i];
-        if (m.role === 'assistant' || m.role === 'ai') {
-          arr[i] = updater(m);
-          return arr;
-        }
-      }
-      return prev;
-    });
-  }, []);
-
   // 把所有 SSE 事件 handler 注册到给定 handle 上
-  // 复制自 demo/StreamingDemoScreen 的 wireStreamHandlers
   const wireStreamHandlers = useCallback(
     (handle: MockStreamHandle) => {
       handle.on('meta', ({ session_id }) => {
-        if (session_id) {
-          setSessionId(session_id);
-        }
+        if (session_id) setCurrentSessionId(session_id);
       });
 
       handle.on('status', ({ label }) => {
-        updateLastAI((msg) => ({ ...msg, status: label }));
+        updateLastAIMessage((msg) => ({ ...msg, status: label }));
       });
 
       handle.on('tool_call', ({ tool, label }) => {
-        updateLastAI((msg) => {
+        updateLastAIMessage((msg) => {
           const without = (msg.tools || []).filter((t) => t.tool !== tool);
           return {
             ...msg,
-            tools: [...without, { tool, label, state: 'pending' as const }],
+            tools: [...without, { tool, label, state: 'pending' as const }] as ToolCallState[],
           };
         });
       });
 
       handle.on('tool_result', ({ tool, summary }) => {
-        updateLastAI((msg) => ({
+        updateLastAIMessage((msg) => ({
           ...msg,
           tools: (msg.tools || []).map((t) =>
             t.tool === tool ? { ...t, summary, state: 'done' as const } : t
-          ),
+          ) as ToolCallState[],
         }));
       });
 
       handle.on('text_delta', ({ content }) => {
-        updateLastAI((msg) => {
+        updateLastAIMessage((msg) => {
           const segs = [...(msg.segments || [])];
           const last = segs[segs.length - 1];
           if (last && last.kind === 'text') {
-            segs[segs.length - 1] = {
-              kind: 'text',
-              content: last.content + content,
-            };
+            segs[segs.length - 1] = { kind: 'text', content: last.content + content };
           } else {
             segs.push({ kind: 'text', content });
           }
@@ -104,7 +88,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
       });
 
       handle.on('choice', (prompt: ChoicePrompt) => {
-        updateLastAI((msg) => ({
+        updateLastAIMessage((msg) => ({
           ...msg,
           status: null,
           segments: [
@@ -115,8 +99,9 @@ export function useStreamingChat(): UseStreamingChatReturn {
       });
 
       handle.on('card', ({ card }) => {
-        cardStatusRef.current.set(getCardId(card), 'pending');
-        updateLastAI((msg) => ({
+        const cardId = getCardId(card);
+        setCardStatus(cardId, 'pending');
+        updateLastAIMessage((msg) => ({
           ...msg,
           status: null,
           segments: [
@@ -127,36 +112,38 @@ export function useStreamingChat(): UseStreamingChatReturn {
       });
 
       handle.on('done', () => {
-        updateLastAI((msg) => ({ ...msg, isStreaming: false, status: null }));
+        updateLastAIMessage((msg) => ({ ...msg, isStreaming: false, status: null }));
+        setAIThinking(false);
         streamRef.current = null;
       });
 
       handle.on('error', ({ code, message }) => {
-        updateLastAI((msg) => ({
+        updateLastAIMessage((msg) => ({
           ...msg,
           isStreaming: false,
           status: null,
           error: { code, message },
         }));
+        setAIThinking(false);
         streamRef.current = null;
       });
     },
-    [updateLastAI]
+    [updateLastAIMessage, setCurrentSessionId, setCardStatus, setAIThinking]
   );
 
-  // 通用流式请求分发：创建占位 AI 消息 → 启动 SSE 流 → 注册事件处理器
+  // 通用流式请求分发
   const _dispatch = useCallback(
     (payload: any) => {
-      // 添加用户消息
+      // 用户消息
       const userMsg: ChatMessage = {
         id: `u_${Date.now()}`,
         role: 'user',
         content: payload.message || `[${payload.type}]`,
         timestamp: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev, userMsg]);
+      addMessage(userMsg);
 
-      // 创建占位 AI 消息
+      // 占位 AI 消息（流式中）
       const aiMsg: ChatMessage = {
         id: `ai_${Date.now()}`,
         role: 'assistant',
@@ -167,15 +154,15 @@ export function useStreamingChat(): UseStreamingChatReturn {
         tools: [],
         isStreaming: true,
       };
-      setMessages((prev) => [...prev, aiMsg]);
+      addMessage(aiMsg);
+      setAIThinking(true);
 
-      // 启动 SSE 流
       const handle = createSSEStream(payload);
       streamRef.current = handle;
       wireStreamHandlers(handle);
       handle.start();
     },
-    [wireStreamHandlers]
+    [addMessage, setAIThinking, wireStreamHandlers]
   );
 
   const send = useCallback(
@@ -198,6 +185,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
         selected_value: value,
         free_text: freeText,
         session_id: sessionId,
+        message: value || freeText || '已选择',
       });
     },
     [_dispatch, sessionId]
@@ -205,20 +193,26 @@ export function useStreamingChat(): UseStreamingChatReturn {
 
   const sendCardAction = useCallback(
     (card: ChatCard, actionId: string) => {
+      const cardId = getCardId(card);
+      setCardStatus(cardId, 'submitted');
       _dispatch({
         type: 'card_action',
-        card_id: getCardId(card),
+        card_id: cardId,
         action_id: actionId,
         action_payload: card.payload,
         session_id: sessionId,
+        message: `[card_action] ${actionId}`,
       });
     },
-    [_dispatch, sessionId]
+    [_dispatch, sessionId, setCardStatus]
   );
 
   const cancel = useCallback(() => {
     streamRef.current?.cancel();
-  }, []);
+    updateLastAIMessage((msg) => ({ ...msg, isStreaming: false, status: null }));
+    setAIThinking(false);
+    streamRef.current = null;
+  }, [updateLastAIMessage, setAIThinking]);
 
   const isStreaming = messages.some(
     (m) => (m.role === 'assistant' || m.role === 'ai') && m.isStreaming
@@ -231,12 +225,12 @@ export function useStreamingChat(): UseStreamingChatReturn {
     sendChoice,
     sendCardAction,
     cancel,
-    cardStatus: cardStatusRef.current,
+    cardStatus,
     sessionId,
   };
 }
 
-// 辅助：生成卡片唯一 ID
+// 辅助：生成卡片唯一 ID（与 demo 保持一致）
 function getCardId(card: ChatCard): string {
-  return `card_${card.type}_${Date.now()}`;
+  return `card_${card.type}_${JSON.stringify(card.payload).slice(0, 32)}`;
 }

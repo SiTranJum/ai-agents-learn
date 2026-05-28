@@ -1,6 +1,6 @@
 // GlobalAIInputBar - 全局 AI 输入栏 + 浮层
 // 挂在 TabNavigator 之上、TabBar 之上，4 个主 Tab 页面共享
-// T6 后：发送消息直接跳全屏 AIDialogScreen（流式），浮层仅用于展示历史
+// T6 后：发消息先展开半屏浮层（流式），浮层内可展开全屏
 
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
@@ -11,6 +11,7 @@ import { AIInputBar } from '@shared/ui/AIInputBar';
 import { theme } from '@app/styles/theme';
 import type { MainStackParamList } from '@app/navigation/types';
 import { useAIStore } from '../store/aiStore';
+import { useStreamingChat } from '../hooks/useStreamingChat';
 import { AIChatOverlay } from './AIChatOverlay';
 
 export function GlobalAIInputBar() {
@@ -18,14 +19,16 @@ export function GlobalAIInputBar() {
   const overlayState = useAIStore((s) => s.overlayState);
   const setOverlayState = useAIStore((s) => s.setOverlayState);
   const hasMessages = useAIStore((s) => s.chatMessages.length > 0);
+  const { send } = useStreamingChat();
 
   const handleSend = useCallback(
     (text: string) => {
-      // T6: 发消息直接进全屏流式对话，不走浮层老路径
-      setOverlayState('fullscreen');
-      navigation.navigate('AIDialog', { initialMessage: text });
+      if (overlayState === 'collapsed') {
+        setOverlayState('floating');
+      }
+      send(text);
     },
-    [navigation, setOverlayState]
+    [overlayState, setOverlayState, send]
   );
 
   const handleFocus = useCallback(() => {
