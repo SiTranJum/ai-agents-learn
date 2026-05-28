@@ -1,4 +1,6 @@
 // AI Service - 对接后端 API
+// @deprecated T6 后正式聊天入口已改用 useStreamingChat + createSSEStream。
+// 本文件保留仅供 AIChatOverlay 等旧组件回退使用，后续清理。
 // 参考: docs/specs/frontend/modules/16-ai-dialog-module.md §8
 
 import type { ChatMessage, NutritionData } from '../types/ai.types';
