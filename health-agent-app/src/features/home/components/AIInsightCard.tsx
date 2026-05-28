@@ -1,29 +1,44 @@
 // AIInsightCard - AI 洞察卡片
-// 灯泡图标 + 一句话建议 + "查看详情"链接
+// T10: 支持 streaming 状态（status chip + 流式文字）
 // 参考: docs/prd/v1/ui-design/03-home-dashboard.md §3.E
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Card } from '@shared/ui/Card';
 import { theme } from '@app/styles/theme';
 
 export interface AIInsightCardProps {
-  insight: string;
+  insight: string | null;
+  isStreaming?: boolean;
+  status?: string | null;
   onPress?: () => void;
 }
 
-export function AIInsightCard({ insight, onPress }: AIInsightCardProps) {
+export function AIInsightCard({ insight, isStreaming, status, onPress }: AIInsightCardProps) {
   return (
     <Card>
       <View style={styles.header}>
         <View style={styles.iconWrap}>
-          <Feather name="zap" size={16} color={theme.colors.primary} />
+          {isStreaming
+            ? <ActivityIndicator size="small" color={theme.colors.primary} />
+            : <Feather name="zap" size={16} color={theme.colors.primary} />
+          }
         </View>
         <Text style={styles.title}>AI 洞察</Text>
       </View>
-      <Text style={styles.body}>{insight}</Text>
-      {onPress && (
+
+      {status && <Text style={styles.status}>{status}</Text>}
+
+      {insight ? (
+        <Text style={styles.body}>{insight}</Text>
+      ) : (
+        <Text style={styles.placeholder}>
+          {isStreaming ? 'AI 正在为你生成今日建议...' : '记得多喝水、均衡饮食、保持运动。'}
+        </Text>
+      )}
+
+      {onPress && !isStreaming && (
         <TouchableOpacity onPress={onPress} style={styles.linkRow}>
           <Text style={styles.link}>查看详情 →</Text>
         </TouchableOpacity>
@@ -47,22 +62,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: theme.spacing.sm,
   },
-  title: {
-    ...theme.typography.cardTitle,
-    color: theme.colors.textPrimary,
+  title: { ...theme.typography.cardTitle, color: theme.colors.textPrimary },
+  status: {
+    ...theme.typography.caption,
+    color: theme.colors.textTertiary,
+    fontStyle: 'italic',
+    marginBottom: theme.spacing.xs,
   },
-  body: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
-    lineHeight: 22,
-  },
-  linkRow: {
-    alignSelf: 'flex-end',
-    marginTop: theme.spacing.sm,
-  },
-  link: {
-    ...theme.typography.bodySm,
-    color: theme.colors.primary,
-    fontWeight: '600',
-  },
+  body: { ...theme.typography.body, color: theme.colors.textSecondary, lineHeight: 22 },
+  placeholder: { ...theme.typography.body, color: theme.colors.textTertiary, lineHeight: 22 },
+  linkRow: { alignSelf: 'flex-end', marginTop: theme.spacing.sm },
+  link: { ...theme.typography.bodySm, color: theme.colors.primary, fontWeight: '600' },
 });
