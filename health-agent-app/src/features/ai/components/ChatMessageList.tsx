@@ -83,8 +83,8 @@ function MessageRow({
   onChoiceSelect?: (prompt: ChoicePrompt, value: string, freeText?: string) => void;
   cardStatus?: Map<string, 'pending' | 'submitted' | 'cancelled'>;
 }) {
-  // 有 segments → 流式消息
-  if (message.segments && message.segments.length > 0) {
+  // 有 segments 或流式状态字段 → 流式消息
+  if (message.segments !== undefined || message.isStreaming || message.status || message.error) {
     return (
       <StreamingBubble
         message={message}

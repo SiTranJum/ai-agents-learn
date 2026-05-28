@@ -1,6 +1,6 @@
 // GlobalAIInputBar - 全局 AI 输入栏 + 浮层
 // 挂在 TabNavigator 之上、TabBar 之上，4 个主 Tab 页面共享
-// 优化 #4：发送消息后先展开浮层，不直接跳全屏
+// T6 后：发送消息直接跳全屏 AIDialogScreen（流式），浮层仅用于展示历史
 
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
@@ -11,7 +11,6 @@ import { AIInputBar } from '@shared/ui/AIInputBar';
 import { theme } from '@app/styles/theme';
 import type { MainStackParamList } from '@app/navigation/types';
 import { useAIStore } from '../store/aiStore';
-import { useAIChat } from '../hooks/useAIChat';
 import { AIChatOverlay } from './AIChatOverlay';
 
 export function GlobalAIInputBar() {
@@ -19,35 +18,28 @@ export function GlobalAIInputBar() {
   const overlayState = useAIStore((s) => s.overlayState);
   const setOverlayState = useAIStore((s) => s.setOverlayState);
   const hasMessages = useAIStore((s) => s.chatMessages.length > 0);
-  const { sendMessage } = useAIChat();
 
   const handleSend = useCallback(
     (text: string) => {
-      if (overlayState === 'collapsed') {
-        // 首次发送：展开浮层 + 发消息
-        setOverlayState('floating');
-      }
-      // 浮层已展开：直接发消息（浮层内显示）
-      sendMessage(text);
+      // T6: 发消息直接进全屏流式对话，不走浮层老路径
+      setOverlayState('fullscreen');
+      navigation.navigate('AIDialog', { initialMessage: text });
     },
-    [overlayState, setOverlayState, sendMessage]
+    [navigation, setOverlayState]
   );
 
   const handleFocus = useCallback(() => {
-    // 已有历史消息但浮层收起时，点击输入框恢复浮层（不需要再发送一条才能看历史）
     if (overlayState === 'collapsed' && hasMessages) {
       setOverlayState('floating');
     }
   }, [overlayState, hasMessages, setOverlayState]);
 
   const handleCamera = useCallback(() => {
-    // 拍照直接进全屏（需要相机权限等复杂交互）
     setOverlayState('fullscreen');
     navigation.navigate('AIDialog', {});
   }, [navigation, setOverlayState]);
 
   const handleVoice = useCallback(() => {
-    // 语音也进全屏
     setOverlayState('fullscreen');
     navigation.navigate('AIDialog', {});
   }, [navigation, setOverlayState]);

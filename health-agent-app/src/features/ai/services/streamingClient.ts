@@ -73,7 +73,7 @@ export function createSSEStream(
   payload: ChatStreamRequest,
   options?: { idleTimeoutMs?: number; path?: string }
 ): MockStreamHandle {
-  const idleTimeoutMs = options?.idleTimeoutMs ?? 30_000;
+  const idleTimeoutMs = options?.idleTimeoutMs ?? 120_000;  // 120s：LangGraph 多节点需要足够时间
   const path = options?.path ?? '/ai/chat';
   const listeners = new Map<StreamEventType, Set<StreamHandler<StreamEventType>>>();
 
