@@ -1,4 +1,6 @@
 // useAIChat - 封装"用户输入 → AI 回复 → store 更新"流程
+// @deprecated T6 后正式聊天入口已改用 useStreamingChat hook。
+// 本 hook 保留仅供 AIChatOverlay / GlobalAIInputBar 等旧组件回退使用，后续清理。
 // 同时处理 actions：navigate / show_nutrition / confirm / cancel
 // #5 优化：AI 解析饮食后写入 dietStore.pendingRecords，双向同步
 
