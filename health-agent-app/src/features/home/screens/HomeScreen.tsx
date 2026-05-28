@@ -24,6 +24,7 @@ import { SectionBlock } from '@shared/layout/SectionBlock/SectionBlock';
 import type { MainStackParamList, TabParamList } from '@app/navigation/types';
 
 import { useHomeData } from '../hooks/useHomeData';
+import { useAIInsightStream } from '../hooks/useAIInsightStream';
 import { useHomeStore } from '../store/homeStore';
 import { useDataStore } from '@features/data/store/dataStore';
 import { HealthOverviewCard } from '../components/HealthOverviewCard';
@@ -54,6 +55,7 @@ export function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const refreshIfStale = useHomeStore((s) => s.refreshIfStale);
   const { date, data, isLoading, isRefetching, refetch } = useHomeData();
+  const { insight, isStreaming: insightStreaming, status: insightStatus } = useAIInsightStream();
 
   // 每次 tab 获得焦点时检查日期是否跨天，跨天则自动刷新为今天
   useFocusEffect(
@@ -164,7 +166,9 @@ export function HomeScreen() {
             onViewAll={handleRecordDiet}
           />
           <AIInsightCard
-            insight={data.aiInsight}
+            insight={insight}
+            isStreaming={insightStreaming}
+            status={insightStatus}
             onPress={handleAIInsightPress}
           />
           <PlanProgressCard

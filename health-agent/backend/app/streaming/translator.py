@@ -45,6 +45,14 @@ CHAT_NODE_LABELS: Mapping[str, str] = {
     "save_record": "正在保存记录...",
 }
 
+SUGGESTION_NODE_LABELS: Mapping[str, str] = {
+    "collect_data": "正在收集健康数据...",
+    "recall_memories": "正在回忆相关记忆...",
+    "search_knowledge": "正在查找知识库...",
+    "generate_suggestions": "AI 正在为你生成建议...",
+    "deduplicate_filter": "正在整理建议...",
+}
+
 
 async def translate_langgraph_events(
     agent: Any,
@@ -190,4 +198,4 @@ def _maybe_dump(value: Any) -> dict[str, Any]:
     return {"value": str(value)}
 
 
-__all__ = ["CHAT_NODE_LABELS", "translate_langgraph_events"]
+__all__ = ["CHAT_NODE_LABELS", "SUGGESTION_NODE_LABELS", "translate_langgraph_events"]
