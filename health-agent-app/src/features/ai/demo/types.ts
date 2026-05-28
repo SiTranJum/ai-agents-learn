@@ -1,24 +1,21 @@
 // AI 流式 demo 类型定义
-// 与未来真实 SSE 客户端类型同构，方便 T5 阶段无缝替换。
-// 参考: docs/plans/2026-05-22-streaming-chat-impl-tasks.md §T1
+// 流式核心类型已升级到 ai.types.ts（T6），这里只保留 demo 专用类型。
+// 参考: docs/plans/2026-05-22-streaming-chat-impl-tasks.md §T1, §T6
 
-import type { ChatCard } from '../types/ai.types';
+import type {
+  ChatCard,
+  ChoicePrompt,
+  MessageSegment,
+  ToolCallState,
+} from '../types/ai.types';
 
-// ============ 选项澄清协议 ============
-
-export interface ChoiceOption {
-  value: string;
-  label: string;
-  description?: string;
-}
-
-export interface ChoicePrompt {
-  prompt_id: string;
-  question?: string;
-  options: ChoiceOption[];
-  /** 是否允许"自己输入"作为兜底 */
-  allow_free_text?: boolean;
-}
+// Re-export 流式核心类型，保持 demo 旧 import 路径可用
+export type {
+  ChoiceOption,
+  ChoicePrompt,
+  MessageSegment,
+  ToolCallState,
+} from '../types/ai.types';
 
 // ============ SSE 事件定义 ============
 
@@ -45,35 +42,18 @@ export type StreamEventData<T extends StreamEventType> = Extract<
   { type: T }
 >['data'];
 
-// ============ 消息分段 ============
-// 一条 AI 消息由若干 segment 组成（可跨多次 SSE 连接累积）
-
-export interface ToolCallState {
-  tool: string;
-  label: string;
-  /** 完成时填充 */
-  summary?: string;
-  /** pending 状态显示旋转图标，done 显示 ✓ */
-  state: 'pending' | 'done';
-}
-
-export type MessageSegment =
-  | { kind: 'text'; content: string }
-  | { kind: 'card'; card: ChatCard }
-  | { kind: 'choice'; prompt: ChoicePrompt; selectedValue?: string; freeText?: string };
+// ============ 消息分段（demo 专用包装） ============
+// AIStreamingMessage 是 demo 页内部的消息状态容器。
+// 正式 ChatMessage（types/ai.types.ts）已包含 segments / status / tools / isStreaming
+// 等流式字段，AIStreamingMessage 与 ChatMessage 字段一致但 role 限定为 'assistant'。
 
 export interface AIStreamingMessage {
   id: string;
   role: 'assistant';
-  /** 当前正在流出的状态文案；null 表示无 */
   status: string | null;
-  /** 工具调用状态（按 tool 名去重） */
   tools: ToolCallState[];
-  /** 组成消息的所有 segment */
   segments: MessageSegment[];
-  /** true=流式中，false=已 done 或被 cancel/error */
   isStreaming: boolean;
-  /** 错误信息（流被错误终止时） */
   error?: { code: string; message: string };
 }
 

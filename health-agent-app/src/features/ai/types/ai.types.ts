@@ -15,6 +15,34 @@ export interface ChatAction {
   variant?: 'primary' | 'secondary';
 }
 
+// ============ 流式交互类型（T6 从 demo 提升） ============
+
+export interface ChoiceOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export interface ChoicePrompt {
+  prompt_id: string;
+  question?: string;
+  options: ChoiceOption[];
+  /** 是否允许"自己输入"作为兜底 */
+  allow_free_text?: boolean;
+}
+
+export interface ToolCallState {
+  tool: string;
+  label: string;
+  summary?: string;
+  state: 'pending' | 'done';
+}
+
+export type MessageSegment =
+  | { kind: 'text'; content: string }
+  | { kind: 'card'; card: ChatCard }
+  | { kind: 'choice'; prompt: ChoicePrompt; selectedValue?: string; freeText?: string };
+
 export interface ChatMessage {
   id: string;
   role: ChatRole;
@@ -22,6 +50,12 @@ export interface ChatMessage {
   timestamp: string;
   actions?: ChatAction[];
   cards?: ChatCard[];
+  // ---- 流式字段（T6 新增）：消息有 segments 时优先按流式渲染 ----
+  segments?: MessageSegment[];
+  status?: string | null;
+  tools?: ToolCallState[];
+  isStreaming?: boolean;
+  error?: { code: string; message: string };
 }
 
 export type DataSource = 'local_db' | 'database' | 'api' | 'ai_estimate' | 'llm_estimate';
