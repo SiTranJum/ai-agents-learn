@@ -1,6 +1,6 @@
 // AIChatOverlay - AI 聊天浮层
 // 挂在 GlobalAIInputBar 上方，collapsed → floating → fullscreen 状态机
-// 优化 #4：发送消息后先浮层展开，不直接跳全屏
+// T6 后：消息来自 aiStore（与 useStreamingChat 共享），支持流式 segments 渲染
 
 import React, { useEffect, useRef } from 'react';
 import {
@@ -20,7 +20,6 @@ import { Feather } from '@expo/vector-icons';
 import { theme } from '@app/styles/theme';
 import type { MainStackParamList } from '@app/navigation/types';
 import { useAIStore } from '../store/aiStore';
-import { useAIChat } from '../hooks/useAIChat';
 import type { ChatMessage } from '../types/ai.types';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
@@ -35,7 +34,6 @@ export function AIChatOverlay() {
   const setOverlayState = useAIStore((s) => s.setOverlayState);
   const chatMessages = useAIStore((s) => s.chatMessages);
   const isAIThinking = useAIStore((s) => s.isAIThinking);
-  const { handleAction } = useAIChat();
 
   const heightAnim = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef<ScrollView>(null);
@@ -94,7 +92,7 @@ export function AIChatOverlay() {
         showsVerticalScrollIndicator={false}
       >
         {chatMessages.map((msg) => (
-          <OverlayMessage key={msg.id} message={msg} onAction={handleAction} />
+          <OverlayMessage key={msg.id} message={msg} onExpand={handleExpand} />
         ))}
         {isAIThinking && (
           <View style={styles.thinkingRow}>
@@ -117,13 +115,49 @@ export function AIChatOverlay() {
 
 function OverlayMessage({
   message,
-  onAction,
+  onExpand,
 }: {
   message: ChatMessage;
-  onAction: (action: any) => void;
+  onExpand: () => void;
 }) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
+
+  // 流式消息：从 segments 提取文字，卡片/choice 提示展开
+  if (message.segments !== undefined || message.isStreaming || message.status) {
+    const textContent = (message.segments || [])
+      .filter((s) => s.kind === 'text')
+      .map((s) => (s.kind === 'text' ? s.content : ''))
+      .join('');
+    const hasRichContent = (message.segments || []).some(
+      (s) => s.kind === 'card' || s.kind === 'choice'
+    );
+
+    return (
+      <View style={styles.msgRow}>
+        <View style={styles.msgBubble}>
+          {message.status && (
+            <Text style={styles.statusText}>{message.status}</Text>
+          )}
+          {textContent ? (
+            <Text style={styles.msgText} numberOfLines={4}>
+              {textContent}
+            </Text>
+          ) : message.isStreaming && !message.status ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          ) : null}
+          {hasRichContent && (
+            <TouchableOpacity onPress={onExpand} style={styles.expandInline}>
+              <Text style={styles.expandInlineText}>展开查看详情 →</Text>
+            </TouchableOpacity>
+          )}
+          {message.error && (
+            <Text style={styles.errorText}>{message.error.message}</Text>
+          )}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.msgRow, isUser && styles.msgRowUser]}>
@@ -145,29 +179,6 @@ function OverlayMessage({
           {message.content}
         </Text>
       </View>
-      {message.actions && message.actions.length > 0 && (
-        <View style={styles.actionsRow}>
-          {message.actions.map((action) => (
-            <TouchableOpacity
-              key={action.key}
-              style={[
-                styles.actionBtn,
-                action.variant === 'primary' && styles.actionBtnPrimary,
-              ]}
-              onPress={() => onAction(action)}
-            >
-              <Text
-                style={[
-                  styles.actionBtnText,
-                  action.variant === 'primary' && styles.actionBtnTextPrimary,
-                ]}
-              >
-                {action.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
     </View>
   );
 }
@@ -286,5 +297,22 @@ const styles = StyleSheet.create({
   expandHintText: {
     ...theme.typography.caption,
     color: theme.colors.primary,
+  },
+  statusText: {
+    ...theme.typography.caption,
+    color: theme.colors.textTertiary,
+    fontStyle: 'italic',
+    marginBottom: theme.spacing.xs,
+  },
+  expandInline: {
+    marginTop: theme.spacing.xs,
+  },
+  expandInlineText: {
+    ...theme.typography.caption,
+    color: theme.colors.primary,
+  },
+  errorText: {
+    ...theme.typography.caption,
+    color: '#C62828',
   },
 });
