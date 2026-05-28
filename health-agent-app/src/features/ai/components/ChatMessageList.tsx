@@ -1,5 +1,6 @@
 // ChatMessageList - AI 对话消息列表
 // AI 左对齐灰底 / 用户右对齐浅橙底 / 系统居中灰字
+// T6: 消息有 segments 时走流式渲染分支（StatusChip/StreamingText/Card/Choice）
 // 参考: docs/prd/v1/ui-design/14-ai-dialog-and-overlays.md
 
 import React, { useEffect, useRef } from 'react';
@@ -12,18 +13,32 @@ import {
   Animated,
 } from 'react-native';
 import { theme } from '@app/styles/theme';
-import type { ChatAction, ChatMessage } from '../types/ai.types';
+import type { ChatAction, ChatCard, ChatMessage, ChoicePrompt } from '../types/ai.types';
+import {
+  StatusChip,
+  ToolCallChip,
+  StreamingText,
+  StreamingCardView,
+  ChoicePromptView,
+} from './streaming';
 
 export interface ChatMessageListProps {
   messages: ChatMessage[];
   isAIThinking?: boolean;
   onActionPress?: (action: ChatAction, message: ChatMessage) => void;
+  // T6 新增：流式交互回调
+  onCardAction?: (card: ChatCard, actionId: string, label: string) => void;
+  onChoiceSelect?: (prompt: ChoicePrompt, value: string, freeText?: string) => void;
+  cardStatus?: Map<string, 'pending' | 'submitted' | 'cancelled'>;
 }
 
 export function ChatMessageList({
   messages,
   isAIThinking = false,
   onActionPress,
+  onCardAction,
+  onChoiceSelect,
+  cardStatus,
 }: ChatMessageListProps) {
   const scrollRef = useRef<ScrollView>(null);
 
@@ -40,10 +55,130 @@ export function ChatMessageList({
       showsVerticalScrollIndicator={false}
     >
       {messages.map((msg) => (
-        <Bubble key={msg.id} message={msg} onActionPress={onActionPress} />
+        <MessageRow
+          key={msg.id}
+          message={msg}
+          onActionPress={onActionPress}
+          onCardAction={onCardAction}
+          onChoiceSelect={onChoiceSelect}
+          cardStatus={cardStatus}
+        />
       ))}
       {isAIThinking && <TypingIndicator />}
     </ScrollView>
+  );
+}
+
+// T6: 消息路由 — 有 segments 走流式渲染，否则走老 Bubble
+function MessageRow({
+  message,
+  onActionPress,
+  onCardAction,
+  onChoiceSelect,
+  cardStatus,
+}: {
+  message: ChatMessage;
+  onActionPress?: (action: ChatAction, message: ChatMessage) => void;
+  onCardAction?: (card: ChatCard, actionId: string, label: string) => void;
+  onChoiceSelect?: (prompt: ChoicePrompt, value: string, freeText?: string) => void;
+  cardStatus?: Map<string, 'pending' | 'submitted' | 'cancelled'>;
+}) {
+  // 有 segments → 流式消息
+  if (message.segments && message.segments.length > 0) {
+    return (
+      <StreamingBubble
+        message={message}
+        onCardAction={onCardAction}
+        onChoiceSelect={onChoiceSelect}
+        cardStatus={cardStatus}
+      />
+    );
+  }
+  // 无 segments → 老逻辑
+  return <Bubble message={message} onActionPress={onActionPress} />;
+}
+
+// T6: 流式消息气泡
+function StreamingBubble({
+  message,
+  onCardAction,
+  onChoiceSelect,
+  cardStatus,
+}: {
+  message: ChatMessage;
+  onCardAction?: (card: ChatCard, actionId: string, label: string) => void;
+  onChoiceSelect?: (prompt: ChoicePrompt, value: string, freeText?: string) => void;
+  cardStatus?: Map<string, 'pending' | 'submitted' | 'cancelled'>;
+}) {
+  const isUser = message.role === 'user';
+  if (isUser) {
+    return (
+      <View style={[styles.row, styles.rowRight]}>
+        <View style={[styles.bubble, styles.bubbleUser]}>
+          <Text style={styles.text}>{message.content}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.row, styles.rowLeft]}>
+      <View style={styles.streamingContainer}>
+        {/* Status chip */}
+        {message.status && <StatusChip label={message.status} />}
+
+        {/* Tool call chips */}
+        {message.tools?.map((t) => (
+          <ToolCallChip key={t.tool} tool={t} />
+        ))}
+
+        {/* Segments */}
+        {message.segments?.map((seg, idx) => {
+          if (seg.kind === 'text') {
+            return (
+              <StreamingText
+                key={idx}
+                content={seg.content}
+                streaming={!!message.isStreaming}
+              />
+            );
+          }
+          if (seg.kind === 'card') {
+            const cardId = `${seg.card.type}:${JSON.stringify(seg.card.payload).slice(0, 32)}`;
+            return (
+              <StreamingCardView
+                key={idx}
+                card={seg.card}
+                status={cardStatus?.get(cardId) ?? 'pending'}
+                onActionPress={(actionKind, label) =>
+                  onCardAction?.(seg.card, actionKind, label)
+                }
+              />
+            );
+          }
+          if (seg.kind === 'choice') {
+            return (
+              <ChoicePromptView
+                key={idx}
+                prompt={seg.prompt}
+                selectedValue={seg.selectedValue}
+                freeText={seg.freeText}
+                onSelect={(value) => onChoiceSelect?.(seg.prompt, value)}
+                onFreeText={(text) => onChoiceSelect?.(seg.prompt, '', text)}
+              />
+            );
+          }
+          return null;
+        })}
+
+        {/* Error */}
+        {message.error && (
+          <View style={styles.errorRow}>
+            <Text style={styles.errorText}>{message.error.message}</Text>
+          </View>
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -209,5 +344,21 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: theme.colors.textTertiary,
+  },
+  // T6: 流式消息样式
+  streamingContainer: {
+    maxWidth: '85%',
+    paddingVertical: theme.spacing.xs,
+  },
+  errorRow: {
+    marginTop: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: '#FFEBEE',
+    borderRadius: theme.radius.md,
+  },
+  errorText: {
+    ...theme.typography.caption,
+    color: '#C62828',
   },
 });

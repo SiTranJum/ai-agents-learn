@@ -1,4 +1,5 @@
 // AIDialogScreen - AI 全屏对话页 (P17)
+// T6: 替换 useAIChat 为 useStreamingChat，支持流式渲染
 // 参考: docs/specs/frontend/modules/16-ai-dialog-module.md §P17
 // UI 文稿: docs/prd/v1/ui-design/14-ai-dialog-and-overlays.md
 
@@ -24,10 +25,9 @@ import type { MainStackParamList } from '@app/navigation/types';
 
 import { ChatMessageList } from '../components/ChatMessageList';
 import { NutritionBottomSheet } from '../components/NutritionBottomSheet';
-import { useAIChat } from '../hooks/useAIChat';
+import { useStreamingChat } from '../hooks/useStreamingChat';
 import { useAIStore } from '../store/aiStore';
-import { buildAIWelcomeMessage } from '../mocks/aiMocks';
-import type { ChatAction, ChatMessage } from '../types/ai.types';
+import type { ChatAction, ChatCard, ChatMessage, ChoicePrompt } from '../types/ai.types';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'AIDialog'>;
 type R = RouteProp<MainStackParamList, 'AIDialog'>;
@@ -37,16 +37,18 @@ export function AIDialogScreen() {
   const route = useRoute<R>();
   const toast = useToast();
 
-  const { chatMessages, isAIThinking, sendMessage, handleAction } = useAIChat();
-  const addMessage = useAIStore((s) => s.addMessage);
+  // T6: 流式 hook 替换老 useAIChat
+  const {
+    messages, isStreaming, send, sendChoice, sendCardAction, cancel, cardStatus,
+  } = useStreamingChat();
+
   const nutritionResult = useAIStore((s) => s.nutritionResult);
   const setNutritionResult = useAIStore((s) => s.setNutritionResult);
   const setOverlayState = useAIStore((s) => s.setOverlayState);
 
   const [sheetVisible, setSheetVisible] = useState(false);
 
-  // 离开全屏页面时（按返回键 / 切 Tab），把 overlay 状态降到 collapsed 隐藏浮层。
-  // 用户主动退出对话即视为不想看了；下次点击 AI 输入框时由 handleFocus 自动恢复 floating。
+  // 离开全屏页面时把 overlay 状态降到 collapsed
   useFocusEffect(
     useCallback(() => {
       return () => {
@@ -55,22 +57,18 @@ export function AIDialogScreen() {
     }, [setOverlayState])
   );
 
-  // 初始化：注入欢迎消息（仅当对话为空）+ 处理 initialMessage
+  // 处理 initialMessage（从首页输入栏带过来的文本）
   useEffect(() => {
-    if (chatMessages.length === 0) {
-      addMessage(buildAIWelcomeMessage());
-    }
     const initial = route.params?.initialMessage;
     if (initial) {
-      // 用 setTimeout 让欢迎消息先入栈
-      setTimeout(() => sendMessage(initial), 100);
+      setTimeout(() => send(initial), 100);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 拦截 action：show_nutrition → 打开 BottomSheet
-  const handleActionWithSheet = useCallback(
-    (action: ChatAction, message: ChatMessage) => {
+  // 老 action 处理（show_nutrition 等纯前端操作）
+  const handleActionPress = useCallback(
+    (action: ChatAction, _message: ChatMessage) => {
       if (action.action === 'show_nutrition') {
         if (nutritionResult) {
           setSheetVisible(true);
@@ -79,9 +77,31 @@ export function AIDialogScreen() {
         }
         return;
       }
-      handleAction(action);
+      if (action.action === 'navigate' && action.params?.screen) {
+        navigation.navigate(action.params.screen as any, action.params);
+      }
     },
-    [handleAction, nutritionResult, toast]
+    [nutritionResult, toast, navigation]
+  );
+
+  // T6: 卡片 action（确认保存 / 编辑 / 跳过）
+  const handleCardAction = useCallback(
+    (card: ChatCard, actionId: string, _label: string) => {
+      if (actionId === 'edit_diet_items') {
+        navigation.navigate('DietEdit', {});
+        return;
+      }
+      sendCardAction(card, actionId);
+    },
+    [sendCardAction, navigation]
+  );
+
+  // T6: 选项 choice 回调
+  const handleChoiceSelect = useCallback(
+    (prompt: ChoicePrompt, value: string, freeText?: string) => {
+      sendChoice(prompt.prompt_id, value, freeText);
+    },
+    [sendChoice]
   );
 
   const handleAddToDiet = useCallback(() => {
@@ -100,7 +120,13 @@ export function AIDialogScreen() {
           <Feather name="chevron-left" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>AI 助手</Text>
-        <View style={styles.backBtn} />
+        {isStreaming ? (
+          <TouchableOpacity onPress={cancel} style={styles.stopBtn}>
+            <Feather name="square" size={14} color="#FFF" />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.backBtn} />
+        )}
       </View>
 
       <KeyboardAvoidingView
@@ -108,15 +134,18 @@ export function AIDialogScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ChatMessageList
-          messages={chatMessages}
-          isAIThinking={isAIThinking}
-          onActionPress={handleActionWithSheet}
+          messages={messages}
+          isAIThinking={isStreaming}
+          onActionPress={handleActionPress}
+          onCardAction={handleCardAction}
+          onChoiceSelect={handleChoiceSelect}
+          cardStatus={cardStatus}
         />
 
         {/* 底部输入栏 */}
         <View style={styles.inputBarWrap}>
           <AIInputBar
-            onSend={sendMessage}
+            onSend={send}
             placeholder="问我任何健康问题..."
           />
         </View>
@@ -149,6 +178,14 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stopBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EF5350',
+    borderRadius: 20,
   },
   title: {
     ...theme.typography.cardTitle,
