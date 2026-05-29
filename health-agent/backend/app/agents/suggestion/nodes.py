@@ -136,11 +136,24 @@ async def generate_suggestions(state: SuggestionState) -> dict[str, Any]:
 
     SDK/API 说明：``with_structured_output(SuggestionAgentOutput)`` 要求模型输出
     符合 Pydantic schema 的结构，便于后续节点确定性过滤。
+
+    超时保护：用 ``asyncio.wait_for`` 显式包 LLM 调用（45s 硬上限）。
+    LangChain 的 ``timeout=60`` 透传到 httpx 在某些情况下（连接复用 + DashScope
+    服务波动）不会触发，会让节点永远 hang，最终被 SSE total_timeout 强杀。
+    用 asyncio 层超时确保 fallback 路径一定能走到。
     """
+    import asyncio as _asyncio
+
     try:
         model = cast(Any, get_chat_model(temperature=0.7, timeout=60)).with_structured_output(SuggestionAgentOutput)
         async with llm_call("generate_suggestions", "qwen-plus", suggestion_type=state.get("suggestion_type")):
-            output = await model.ainvoke(_messages_for_state(state))
+            output = await _asyncio.wait_for(
+                model.ainvoke(_messages_for_state(state)),
+                timeout=45,
+            )
+    except _asyncio.TimeoutError:
+        logger.warning("generate_suggestions LLM call timed out after 45s, using fallback")
+        output = _fallback_output(state)
     except Exception as exc:  # pragma: no cover - local fallback without API key
         logger.info("suggestion fallback used: %s", exc)
         output = _fallback_output(state)

@@ -55,7 +55,7 @@ export function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const refreshIfStale = useHomeStore((s) => s.refreshIfStale);
   const { date, data, isLoading, isRefetching, refetch } = useHomeData();
-  const { insight, isStreaming: insightStreaming, status: insightStatus } = useAIInsightStream();
+  const { insight, isStreaming: insightStreaming, status: insightStatus, error: insightError, refetch: refetchInsight } = useAIInsightStream();
 
   // 每次 tab 获得焦点时检查日期是否跨天，跨天则自动刷新为今天
   useFocusEffect(
@@ -169,7 +169,9 @@ export function HomeScreen() {
             insight={insight}
             isStreaming={insightStreaming}
             status={insightStatus}
+            error={insightError}
             onPress={handleAIInsightPress}
+            onRetry={refetchInsight}
           />
           <PlanProgressCard
             plan={data.plan}

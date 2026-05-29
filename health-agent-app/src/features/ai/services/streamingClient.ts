@@ -71,10 +71,11 @@ type RNSEventType = (typeof CUSTOM_EVENT_TYPES)[number];
  */
 export function createSSEStream(
   payload: ChatStreamRequest,
-  options?: { idleTimeoutMs?: number; path?: string }
+  options?: { idleTimeoutMs?: number; path?: string; method?: 'POST' | 'GET' }
 ): MockStreamHandle {
   const idleTimeoutMs = options?.idleTimeoutMs ?? 120_000;  // 120s：LangGraph 多节点需要足够时间
   const path = options?.path ?? '/ai/chat';
+  const method = options?.method ?? 'POST';
   const listeners = new Map<StreamEventType, Set<StreamHandler<StreamEventType>>>();
 
   let source: EventSource<RNSEventType> | null = null;
@@ -136,19 +137,22 @@ export function createSSEStream(
       return;
     }
 
-    // 2. 建 EventSource（POST + body）
+    // 2. 建 EventSource（POST + body 或 GET）
     const url = `${getApiBaseUrl()}${path}`;
-    source = new EventSource<RNSEventType>(url, {
-      method: 'POST',
+    const sseInit: ConstructorParameters<typeof EventSource>[1] = {
+      method,
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
         Accept: 'text/event-stream',
       },
-      body: JSON.stringify(payload),
       // 不要内置轮询；后端流式
       pollingInterval: 0,
-    });
+    };
+    if (method === 'POST') {
+      (sseInit.headers as Record<string, string>)['Content-Type'] = 'application/json';
+      sseInit.body = JSON.stringify(payload);
+    }
+    source = new EventSource<RNSEventType>(url, sseInit);
 
     // 3. 注册 native 错误事件
     source.addEventListener('open', () => {
