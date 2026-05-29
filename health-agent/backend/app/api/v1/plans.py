@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
-from typing import Annotated, Any
+from datetime import date, datetime, timezone
+from typing import Annotated, Any, AsyncIterator
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -26,6 +26,8 @@ from app.schemas.plan import (
     PlanUpdate,
 )
 from app.services.plan_service import PlanService
+from app.streaming import StreamEvent, StreamEventType, sse_response
+from app.streaming.translator import PLAN_NODE_LABELS
 
 router = APIRouter(prefix="/plans", tags=["plans"])
 
@@ -57,6 +59,79 @@ async def create_plan(
         raise ValidationException("计划创建失败", code=str(result["error"]))
     data = result["result"]
     return success(data.model_dump(mode="json"))
+
+
+@router.post("/stream")
+async def create_plan_stream(
+    payload: PlanCreate,
+    user: CurrentUserWithProfileDep,
+    service: PlanServiceDep,
+    plan_agent: PlanAgentDep,
+):
+    """SSE 流式创建计划 (T11)。
+
+    事件序列：
+      meta → status(×N) → card(plan) + done   (成功)
+      meta → status(×M) → error                (安全校验失败 / 内部错误)
+    """
+    message_id = uuid.uuid4().hex
+
+    async def gen() -> AsyncIterator[StreamEvent]:
+        yield StreamEvent(
+            type=StreamEventType.META,
+            data={"message_id": message_id, "started_at": datetime.now(timezone.utc).isoformat()},
+        )
+
+        if await service.has_active_plan():
+            yield StreamEvent(
+                type=StreamEventType.ERROR,
+                data={"code": "PLAN_ALREADY_ACTIVE", "message": "已有活跃计划", "retriable": False},
+            )
+            return
+
+        state = {
+            "user_id": str(user.id),
+            "goal_description": payload.goal_description,
+            "plan_type": payload.plan_type,
+            "profile": user.profile,
+            "plan_service": service,
+        }
+
+        final_output: dict[str, Any] = {}
+        async for ev in plan_agent.astream_events(state, version="v2"):
+            kind = ev.get("event")
+            name = ev.get("name", "")
+            if kind == "on_chain_start" and name in PLAN_NODE_LABELS:
+                yield StreamEvent(
+                    type=StreamEventType.STATUS,
+                    data={"node": name, "label": PLAN_NODE_LABELS[name]},
+                )
+            elif kind == "on_chain_end" and name == "persist_plan":
+                final_output = (ev.get("data") or {}).get("output") or {}
+
+        err = final_output.get("error")
+        if err:
+            yield StreamEvent(
+                type=StreamEventType.ERROR,
+                data={"code": str(err), "message": "计划创建失败", "retriable": True},
+            )
+            return
+
+        result = final_output.get("result")
+        if result is None:
+            yield StreamEvent(
+                type=StreamEventType.ERROR,
+                data={"code": "PLAN_NO_RESULT", "message": "未生成计划，请重试", "retriable": True},
+            )
+            return
+
+        yield StreamEvent(
+            type=StreamEventType.CARD,
+            data={"card": result.model_dump(mode="json"), "card_type": "plan"},
+        )
+        yield StreamEvent(type=StreamEventType.DONE, data={"message_id": message_id})
+
+    return await sse_response(gen())
 
 
 @router.get("", response_model=PaginatedResponse[PlanResponse])
