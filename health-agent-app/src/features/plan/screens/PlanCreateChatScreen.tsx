@@ -26,7 +26,7 @@ import type { MainStackParamList } from '@app/navigation/types';
 
 import { ChatMessageBubble, TypingIndicator } from '../components/ChatMessage';
 import { usePlanStore } from '../store/planStore';
-import { useCreatePlan } from '../hooks/usePlanData';
+import { useCreatePlanStream } from '../hooks/useCreatePlanStream';
 import {
   buildCreatedMessage,
   buildWelcomeMessage,
@@ -62,7 +62,7 @@ export function PlanCreateChatScreen() {
     clearChat,
   } = usePlanStore();
 
-  const createMutation = useCreatePlan();
+  const { isCreating, status: createStatus, error: createError, createdPlanId, create: createPlanStream } = useCreatePlanStream();
 
   const [input, setInput] = useState('');
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -83,7 +83,25 @@ export function PlanCreateChatScreen() {
   // 自动滚动到底部
   useEffect(() => {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
-  }, [chatMessages.length, isAIThinking]);
+  }, [chatMessages.length, isAIThinking, isCreating]);
+
+  // T11: 流式创建成功 → 推入"已创建"消息
+  useEffect(() => {
+    if (createdPlanId) {
+      addMessage(buildCreatedMessage(createdPlanId));
+      setStep('created');
+      toast.show({ type: 'success', message: '计划已创建' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createdPlanId]);
+
+  // T11: 流式创建失败 → toast 提示
+  useEffect(() => {
+    if (createError) {
+      toast.show({ type: 'error', message: createError });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createError]);
 
   // 标记最后一条 AI 消息为"已回应"
   const markLastAIResponded = useCallback(() => {
@@ -151,14 +169,7 @@ export function PlanCreateChatScreen() {
           return;
         }
         markLastAIResponded();
-        try {
-          const created = await createMutation.mutateAsync(summary);
-          addMessage(buildCreatedMessage(created.id));
-          setStep('created');
-          toast.show({ type: 'success', message: '计划已创建' });
-        } catch {
-          toast.show({ type: 'error', message: '创建失败，请重试' });
-        }
+        createPlanStream(summary);
         return;
       }
 
@@ -182,9 +193,7 @@ export function PlanCreateChatScreen() {
     [
       chatMessages,
       markLastAIResponded,
-      addMessage,
-      setStep,
-      createMutation,
+      createPlanStream,
       toast,
       clearChat,
       navigation,
@@ -241,7 +250,14 @@ export function PlanCreateChatScreen() {
               />
             );
           })}
-          {isAIThinking && <TypingIndicator />}
+          {(isAIThinking || isCreating) && (
+            <View>
+              <TypingIndicator />
+              {createStatus && (
+                <Text style={styles.createStatus}>{createStatus}</Text>
+              )}
+            </View>
+          )}
         </ScrollView>
 
         {/* 底部输入框 */}
@@ -350,5 +366,12 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     opacity: 0.4,
+  },
+  createStatus: {
+    ...theme.typography.caption,
+    color: theme.colors.textTertiary,
+    fontStyle: 'italic',
+    paddingHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.xs,
   },
 });
