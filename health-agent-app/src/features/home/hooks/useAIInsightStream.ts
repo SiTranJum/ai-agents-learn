@@ -33,7 +33,12 @@ export function useAIInsightStream(): UseAIInsightStreamReturn {
 
     const handle = createSSEStream(
       {},
-      { path: '/suggestions/daily', method: 'GET', idleTimeoutMs: 120_000 }
+      {
+        path: '/suggestions/daily',
+        method: 'GET',
+        idleTimeoutMs: 120_000,
+        endpoint: 'suggestions/daily',
+      }
     );
     handleRef.current = handle;
 

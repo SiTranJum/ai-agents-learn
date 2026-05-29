@@ -37,6 +37,13 @@ from app.streaming.events import (
     ToolCallPayload,
     ToolResultPayload,
 )
+from app.streaming.metrics import (
+    record_cancelled,
+    record_done,
+    record_error,
+    record_first_event,
+    record_started,
+)
 from app.streaming.sse import format_sse, sse_response
 from app.streaming.translator import translate_langgraph_events
 
@@ -54,6 +61,11 @@ __all__ = [
     "ToolCallPayload",
     "ToolResultPayload",
     "format_sse",
+    "record_cancelled",
+    "record_done",
+    "record_error",
+    "record_first_event",
+    "record_started",
     "sse_response",
     "translate_langgraph_events",
 ]

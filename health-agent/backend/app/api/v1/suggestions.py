@@ -137,7 +137,7 @@ async def get_daily_suggestions(
 
         yield StreamEvent(type=StreamEventType.DONE, data={"message_id": message_id})
 
-    return await sse_response(gen())
+    return await sse_response(gen(), endpoint="suggestions/daily")
 
 
 @router.get("/meal")
@@ -173,7 +173,7 @@ async def get_meal_suggestions(
             )
         yield StreamEvent(type=StreamEventType.DONE, data={"message_id": message_id})
 
-    return await sse_response(gen())
+    return await sse_response(gen(), endpoint="suggestions/meal")
 
 
 @router.get("/insights")
@@ -214,7 +214,7 @@ async def get_insights(
 
         yield StreamEvent(type=StreamEventType.DONE, data={"message_id": message_id})
 
-    return await sse_response(gen())
+    return await sse_response(gen(), endpoint="suggestions/insights")
 
 
 @router.post("/{suggestion_id}/feedback", status_code=status.HTTP_204_NO_CONTENT)

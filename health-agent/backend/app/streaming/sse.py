@@ -4,7 +4,7 @@
 
 - :func:`format_sse` - 把 ``StreamEvent`` 编码为符合规范的 SSE 帧字节串
 - :func:`sse_response` - 把 async generator 包装为 ``StreamingResponse``，
-  并自动注入心跳 + total timeout 兜底
+  并自动注入心跳 + total timeout 兜底 + 监控埋点（T15）
 
 参考: docs/plans/2026-05-21-streaming-chat-design.md §15.1
 """
@@ -19,6 +19,13 @@ from typing import AsyncIterator
 from fastapi.responses import StreamingResponse
 
 from app.streaming.events import StreamEvent, StreamEventType
+from app.streaming.metrics import (
+    StreamMetrics,
+    record_cancelled,
+    record_done,
+    record_error,
+    record_started,
+)
 
 logger = logging.getLogger("app.streaming")
 
@@ -48,6 +55,7 @@ async def sse_response(
     *,
     heartbeat_interval: int = DEFAULT_HEARTBEAT_INTERVAL,
     total_timeout: int = DEFAULT_TOTAL_TIMEOUT,
+    endpoint: str = "unknown",
 ) -> StreamingResponse:
     """把 ``AsyncIterator[StreamEvent]`` 包装为 SSE ``StreamingResponse``。
 
@@ -57,10 +65,16 @@ async def sse_response(
     - 业务 generator 抛 ``CancelledError`` 时（客户端断开）正常传播并清理
     - 业务 generator 抛业务异常时，emit 一条 error 事件再关闭
     - ``total_timeout`` 包整个流，超过即关闭并 emit error
+    - T15: ``endpoint`` 标签下的监控埋点（started / first_event / done / error / cancelled）
     """
     queue: asyncio.Queue[StreamEvent | None] = asyncio.Queue()
     # 用 sentinel 表示业务流已结束（None 仅在内部使用，不暴露）
     DONE_SENTINEL: StreamEvent | None = None
+
+    metrics = StreamMetrics(endpoint)
+    record_started(endpoint)
+    # 累积最终错误码（None=正常完成）
+    final_error_code: list[str | None] = [None]
 
     async def producer() -> None:
         """业务事件 → queue。"""
@@ -73,6 +87,7 @@ async def sse_response(
             raise
         except asyncio.TimeoutError:
             logger.warning("sse producer hit total timeout (%ds)", total_timeout)
+            final_error_code[0] = "TOTAL_TIMEOUT"
             await queue.put(
                 StreamEvent(
                     type=StreamEventType.ERROR,
@@ -85,6 +100,7 @@ async def sse_response(
             )
         except Exception as exc:  # noqa: BLE001
             logger.exception("sse producer raised: %s", exc)
+            final_error_code[0] = "STREAM_ERROR"
             await queue.put(
                 StreamEvent(
                     type=StreamEventType.ERROR,
@@ -101,6 +117,7 @@ async def sse_response(
     async def stream() -> AsyncIterator[bytes]:
         """主循环：业务事件 / 心跳 二选一。"""
         producer_task = asyncio.create_task(producer())
+        client_disconnected = False
         try:
             while True:
                 try:
@@ -108,14 +125,21 @@ async def sse_response(
                         queue.get(), timeout=heartbeat_interval
                     )
                 except asyncio.TimeoutError:
-                    # 间隔内无业务事件 → 发心跳保活
+                    # 间隔内无业务事件 → 发心跳保活（不计入 metrics）
                     yield format_sse(
                         StreamEvent(type=StreamEventType.HEARTBEAT, data={})
                     )
                     continue
                 if event is DONE_SENTINEL:
                     break
+                metrics.mark_event(event.type.value)
+                # 业务流 emit 的 error 事件也要记录
+                if event.type == StreamEventType.ERROR and final_error_code[0] is None:
+                    final_error_code[0] = str(event.data.get("code") or "BUSINESS_ERROR")
                 yield format_sse(event)
+        except asyncio.CancelledError:
+            client_disconnected = True
+            raise
         finally:
             if not producer_task.done():
                 producer_task.cancel()
@@ -123,6 +147,14 @@ async def sse_response(
                     await producer_task
                 except (asyncio.CancelledError, Exception):  # noqa: BLE001
                     pass
+            # T15: 流结束时记录最终指标
+            elapsed_ms = metrics.elapsed_ms()
+            if client_disconnected:
+                record_cancelled(endpoint, elapsed_ms)
+            elif final_error_code[0] is not None:
+                record_error(endpoint, elapsed_ms, final_error_code[0])
+            else:
+                record_done(endpoint, elapsed_ms, metrics.event_count)
 
     return StreamingResponse(
         stream(),

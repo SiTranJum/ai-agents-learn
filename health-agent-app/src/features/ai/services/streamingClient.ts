@@ -13,6 +13,7 @@ import type {
   StreamEventType,
   StreamHandler,
 } from '../demo/types';
+import { StreamMetrics } from './streamingMetrics';
 
 /**
  * 流式 chat 端点的请求体。
@@ -71,12 +72,14 @@ type RNSEventType = (typeof CUSTOM_EVENT_TYPES)[number];
  */
 export function createSSEStream(
   payload: ChatStreamRequest,
-  options?: { idleTimeoutMs?: number; path?: string; method?: 'POST' | 'GET' }
+  options?: { idleTimeoutMs?: number; path?: string; method?: 'POST' | 'GET'; endpoint?: string }
 ): MockStreamHandle {
   const idleTimeoutMs = options?.idleTimeoutMs ?? 120_000;  // 120s：LangGraph 多节点需要足够时间
   const path = options?.path ?? '/ai/chat';
   const method = options?.method ?? 'POST';
+  const endpoint = options?.endpoint ?? path.replace(/^\//, '');
   const listeners = new Map<StreamEventType, Set<StreamHandler<StreamEventType>>>();
+  const metrics = new StreamMetrics(endpoint);
 
   let source: EventSource<RNSEventType> | null = null;
   let started = false;
@@ -85,18 +88,27 @@ export function createSSEStream(
 
   function emit<T extends StreamEventType>(type: T, data: StreamEventData<T>): void {
     if (cancelled) return;
+    metrics.markEvent(type);
     const set = listeners.get(type);
-    if (!set) return;
-    set.forEach((handler) => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (handler as any)(data);
-      } catch (err) {
-        // 单个 handler 出错不应阻断其他 handler
-        // eslint-disable-next-line no-console
-        console.warn('[sse-stream] handler error', err);
-      }
-    });
+    if (set) {
+      set.forEach((handler) => {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (handler as any)(data);
+        } catch (err) {
+          // 单个 handler 出错不应阻断其他 handler
+          // eslint-disable-next-line no-console
+          console.warn('[sse-stream] handler error', err);
+        }
+      });
+    }
+    // T15: 终态事件触发指标 finalize（done / error）
+    if (type === 'done') {
+      metrics.finalizeDone();
+    } else if (type === 'error') {
+      const code = (data as { code?: string }).code ?? 'UNKNOWN_ERROR';
+      metrics.finalizeError(code);
+    }
     resetIdleTimer();
   }
 
@@ -215,6 +227,7 @@ export function createSSEStream(
     },
     cancel() {
       cancelled = true;
+      metrics.finalizeCancelled();
       cleanup();
     },
     on(type, handler) {
