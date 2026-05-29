@@ -247,7 +247,7 @@ async def _stream_card_action(
             data={"message_id": message_id, "session_id": session_id},
         )
 
-    return await sse_response(gen())
+    return await sse_response(gen(), endpoint="ai/chat:card_action")
 
 
 @router.post("/chat")
@@ -392,7 +392,7 @@ async def send_message(
             data={"message_id": message_id, "session_id": session_id},
         )
 
-    return await sse_response(gen())
+    return await sse_response(gen(), endpoint="ai/chat")
 
 
 @router.get("/chat/history", response_model=dict)

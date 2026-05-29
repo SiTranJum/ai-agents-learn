@@ -131,7 +131,7 @@ async def create_plan_stream(
         )
         yield StreamEvent(type=StreamEventType.DONE, data={"message_id": message_id})
 
-    return await sse_response(gen())
+    return await sse_response(gen(), endpoint="plans/stream")
 
 
 @router.get("", response_model=PaginatedResponse[PlanResponse])
