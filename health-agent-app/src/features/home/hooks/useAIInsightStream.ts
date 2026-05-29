@@ -14,8 +14,6 @@ interface UseAIInsightStreamReturn {
   refetch: () => void;
 }
 
-const DEFAULT_INSIGHT = '记得多喝水、均衡饮食、保持运动。';
-
 export function useAIInsightStream(): UseAIInsightStreamReturn {
   const [insight, setInsight] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -24,15 +22,18 @@ export function useAIInsightStream(): UseAIInsightStreamReturn {
   const handleRef = useRef<MockStreamHandle | null>(null);
   const [tick, setTick] = useState(0);
 
+  // 组件挂载 / refetch 时启动 SSE 流。
+  // 注意 deps 不包含 insight：避免 insight 变化时重建 callback 引发不必要的影响。
   const start = useCallback(() => {
     handleRef.current?.cancel();
     setIsStreaming(true);
     setStatus(null);
     setError(null);
+    setInsight(null);
 
     const handle = createSSEStream(
       {},
-      { path: '/suggestions/daily', idleTimeoutMs: 120_000 }
+      { path: '/suggestions/daily', method: 'GET', idleTimeoutMs: 120_000 }
     );
     handleRef.current = handle;
 
@@ -55,14 +56,13 @@ export function useAIInsightStream(): UseAIInsightStreamReturn {
     handle.on('error', ({ message }) => {
       setIsStreaming(false);
       setStatus(null);
-      setError(message);
-      // 出错时用默认文案，不让卡片空白
-      if (!insight) setInsight(DEFAULT_INSIGHT);
+      // 不再静默回落到默认文案，把错误暴露给 UI 让用户清楚知道是失败了
+      setError(message || 'AI 服务暂时不可用');
       handleRef.current = null;
     });
 
     handle.start();
-  }, [insight]);
+  }, []);
 
   // 组件挂载时自动开始
   useEffect(() => {
@@ -70,13 +70,12 @@ export function useAIInsightStream(): UseAIInsightStreamReturn {
     return () => {
       handleRef.current?.cancel();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick]);
+  }, [tick, start]);
 
   const refetch = useCallback(() => {
-    setInsight(null);
     setTick((n) => n + 1);
   }, []);
 
   return { insight, isStreaming, status, error, refetch };
 }
+
