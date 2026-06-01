@@ -3,11 +3,11 @@ import {
   View,
   Text,
   TouchableOpacity,
-  TextInput as RNTextInput,
   Modal,
+  ScrollView,
   StyleSheet,
 } from 'react-native';
-import { format, parse, isValid } from 'date-fns';
+import { format } from 'date-fns';
 import { colors, radius, spacing, typography } from '@app/styles/tokens';
 
 export interface DatePickerProps {
@@ -16,7 +16,8 @@ export interface DatePickerProps {
   onChange: (date: Date) => void;
   placeholder?: string;
   error?: string;
-  mode?: 'date' | 'time' | 'datetime';
+  minYear?: number;
+  maxYear?: number;
 }
 
 export function DatePicker({
@@ -25,47 +26,56 @@ export function DatePicker({
   onChange,
   placeholder = '请选择日期',
   error,
-  mode = 'date',
+  minYear = 1900,
+  maxYear = new Date().getFullYear(),
 }: DatePickerProps) {
   const [modalVisible, setModalVisible] = React.useState(false);
-  const [inputText, setInputText] = React.useState('');
 
-  const getFormatPattern = () => {
-    switch (mode) {
-      case 'time':
-        return 'HH:mm';
-      case 'datetime':
-        return 'yyyy-MM-dd HH:mm';
-      default:
-        return 'yyyy-MM-dd';
-    }
+  // 当前选中的年月日（用于模态框内的临时状态）
+  const [selectedYear, setSelectedYear] = React.useState(
+    value ? value.getFullYear() : new Date().getFullYear()
+  );
+  const [selectedMonth, setSelectedMonth] = React.useState(
+    value ? value.getMonth() + 1 : 1
+  );
+  const [selectedDay, setSelectedDay] = React.useState(
+    value ? value.getDate() : 1
+  );
+
+  // 生成年份选项
+  const years: number[] = [];
+  for (let y = maxYear; y >= minYear; y--) {
+    years.push(y);
+  }
+
+  // 生成月份选项
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+
+  // 根据选中的年月，计算该月有多少天
+  const getDaysInMonth = (year: number, month: number) => {
+    return new Date(year, month, 0).getDate();
   };
 
-  const getPlaceholderHint = () => {
-    switch (mode) {
-      case 'time':
-        return '格式: HH:mm (如 08:30)';
-      case 'datetime':
-        return '格式: yyyy-MM-dd HH:mm (如 2024-01-15 08:30)';
-      default:
-        return '格式: yyyy-MM-dd (如 1990-01-15)';
-    }
-  };
+  const days = Array.from(
+    { length: getDaysInMonth(selectedYear, selectedMonth) },
+    (_, i) => i + 1
+  );
 
-  const displayValue = value ? format(value, getFormatPattern()) : '';
+  const displayValue = value ? format(value, 'yyyy-MM-dd') : '';
 
   const handleOpen = () => {
-    setInputText(displayValue);
+    if (value) {
+      setSelectedYear(value.getFullYear());
+      setSelectedMonth(value.getMonth() + 1);
+      setSelectedDay(value.getDate());
+    }
     setModalVisible(true);
   };
 
   const handleConfirm = () => {
-    const pattern = getFormatPattern();
-    const parsed = parse(inputText, pattern, new Date());
-    if (isValid(parsed)) {
-      onChange(parsed);
-      setModalVisible(false);
-    }
+    const date = new Date(selectedYear, selectedMonth - 1, selectedDay);
+    onChange(date);
+    setModalVisible(false);
   };
 
   return (
@@ -85,7 +95,7 @@ export function DatePicker({
       <Modal
         visible={modalVisible}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setModalVisible(false)}
       >
         <TouchableOpacity
@@ -94,16 +104,93 @@ export function DatePicker({
           onPress={() => setModalVisible(false)}
         >
           <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-            <Text style={styles.modalTitle}>输入{mode === 'time' ? '时间' : '日期'}</Text>
-            <Text style={styles.hint}>{getPlaceholderHint()}</Text>
-            <RNTextInput
-              style={styles.modalInput}
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder={getFormatPattern()}
-              placeholderTextColor={colors.textTertiary}
-              autoFocus
-            />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{label || '选择日期'}</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.pickerRow}>
+              {/* 年份选择 */}
+              <View style={styles.pickerColumn}>
+                <Text style={styles.columnLabel}>年</Text>
+                <ScrollView style={styles.columnScroll}>
+                  {years.map((year) => (
+                    <TouchableOpacity
+                      key={year}
+                      style={[
+                        styles.pickerItem,
+                        year === selectedYear && styles.selectedItem,
+                      ]}
+                      onPress={() => setSelectedYear(year)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerText,
+                          year === selectedYear && styles.selectedText,
+                        ]}
+                      >
+                        {year}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* 月份选择 */}
+              <View style={styles.pickerColumn}>
+                <Text style={styles.columnLabel}>月</Text>
+                <ScrollView style={styles.columnScroll}>
+                  {months.map((month) => (
+                    <TouchableOpacity
+                      key={month}
+                      style={[
+                        styles.pickerItem,
+                        month === selectedMonth && styles.selectedItem,
+                      ]}
+                      onPress={() => setSelectedMonth(month)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerText,
+                          month === selectedMonth && styles.selectedText,
+                        ]}
+                      >
+                        {month}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* 日期选择 */}
+              <View style={styles.pickerColumn}>
+                <Text style={styles.columnLabel}>日</Text>
+                <ScrollView style={styles.columnScroll}>
+                  {days.map((day) => (
+                    <TouchableOpacity
+                      key={day}
+                      style={[
+                        styles.pickerItem,
+                        day === selectedDay && styles.selectedItem,
+                      ]}
+                      onPress={() => setSelectedDay(day)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerText,
+                          day === selectedDay && styles.selectedText,
+                        ]}
+                      >
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+
             <View style={styles.buttonRow}>
               <TouchableOpacity
                 style={styles.cancelButton}
@@ -158,39 +245,74 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: colors.bgCard,
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    width: '80%',
-    maxWidth: 320,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
   },
   modalTitle: {
     ...typography.cardTitle,
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
   },
-  hint: {
-    ...typography.caption,
-    color: colors.textTertiary,
-    marginBottom: spacing.lg,
+  closeButton: {
+    fontSize: 24,
+    color: colors.textSecondary,
   },
-  modalInput: {
-    height: 48,
-    backgroundColor: colors.inputBg,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    fontSize: typography.body.fontSize,
+  pickerRow: {
+    flexDirection: 'row',
+    height: 250,
+    paddingVertical: spacing.md,
+  },
+  pickerColumn: {
+    flex: 1,
+    borderRightWidth: 1,
+    borderRightColor: colors.divider,
+  },
+  columnLabel: {
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  columnScroll: {
+    flex: 1,
+  },
+  pickerItem: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+  },
+  selectedItem: {
+    backgroundColor: colors.primaryLight,
+  },
+  pickerText: {
+    ...typography.body,
     color: colors.textPrimary,
-    marginBottom: spacing.lg,
+  },
+  selectedText: {
+    color: colors.primary,
+    fontWeight: '600',
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: spacing.md,
+    padding: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
   },
   cancelButton: {
     paddingVertical: spacing.sm,
