@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, status
 
 from app.core.exceptions import ConflictException, ValidationException
 from app.core.responses import paginated, success
+from app.core.tracing import build_langsmith_config
 from app.dependencies import get_current_user_with_profile, get_plan_agent, get_plan_service
 from app.schemas.auth import CurrentUser
 from app.schemas.common import ApiResponse, PaginatedResponse
@@ -98,14 +99,12 @@ async def create_plan_stream(
         }
 
         # LangSmith 追踪配置
-        langsmith_config = {
-            "tags": [f"user-{user.id}", "plan", "create"],
-            "metadata": {
-                "user_id": str(user.id),
-                "plan_type": payload.plan_type or "unknown",
-                "endpoint": "/api/v1/plans/stream",
-            },
-        }
+        langsmith_config = build_langsmith_config(
+            user_id=str(user.id),
+            endpoint="/api/v1/plans/stream",
+            extra_tags=["plan", "create"],
+            extra_metadata={"plan_type": payload.plan_type or "unknown"},
+        )
 
         final_output: dict[str, Any] = {}
         async for ev in plan_agent.astream_events(state, version="v2", config=langsmith_config):

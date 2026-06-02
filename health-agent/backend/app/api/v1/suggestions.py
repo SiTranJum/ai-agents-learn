@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 
 import app.dependencies as deps
 from app.agents.memory.subgraph import build_memory_subgraph
+from app.core.tracing import build_langsmith_config
 from app.integrations.embedding import EmbeddingClient
 from app.schemas.auth import CurrentUser
 from app.schemas.suggestion import FeedbackCreate
@@ -88,15 +89,14 @@ async def _stream_suggestion_agent(
     调用方只需要 yield 非 None 的 event，并在最后用 final_output 保存结果。
     """
     # LangSmith 追踪配置
-    langsmith_config = {}
+    langsmith_config: dict[str, Any] = {}
     if user_id:
-        langsmith_config = {
-            "tags": [f"user-{user_id}", "suggestion", suggestion_type],
-            "metadata": {
-                "user_id": user_id,
-                "suggestion_type": suggestion_type,
-            },
-        }
+        langsmith_config = build_langsmith_config(
+            user_id=user_id,
+            endpoint="/api/v1/suggestions",
+            extra_tags=["suggestion", suggestion_type],
+            extra_metadata={"suggestion_type": suggestion_type},
+        )
 
     final_output: dict[str, Any] = {}
     async for ev in agent.astream_events(state, version="v2", config=langsmith_config):
