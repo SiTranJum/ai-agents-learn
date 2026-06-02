@@ -70,7 +70,7 @@ export function DietEditScreen() {
   const route = useRoute<EditRoute>();
   const toast = useToast();
 
-  const { mealType: routeMealType, recordId } = route.params ?? {};
+  const { mealType: routeMealType, recordId, prefillFoods } = route.params ?? {};
   const { data, saveRecord, isSaving } = useDietData();
 
   // 是否为编辑已有记录
@@ -86,9 +86,14 @@ export function DietEditScreen() {
     existingRecord?.mealType ?? (routeMealType as MealType) ?? 'breakfast';
 
   const [mealType, setMealType] = useState<MealType>(initialMealType);
-  const [foods, setFoods] = useState<FoodItem[]>(() =>
-    existingRecord?.foods.length ? [...existingRecord.foods] : [makeEmptyFood()]
-  );
+  const [foods, setFoods] = useState<FoodItem[]>(() => {
+    // 优先级：已有记录 > AI 预填食物 > 空白行
+    if (existingRecord?.foods.length) return [...existingRecord.foods];
+    if (prefillFoods && (prefillFoods as FoodItem[]).length) {
+      return [...(prefillFoods as FoodItem[])];
+    }
+    return [makeEmptyFood()];
+  });
   const [errors, setErrors] = useState<FoodErrors[]>([]);
   const [dirty, setDirty] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);

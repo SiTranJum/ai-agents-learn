@@ -17,6 +17,7 @@ import type {
 import { dietService } from '@features/diet/services/dietService';
 import { dataService } from '@features/data/services/dataService';
 import { suggestionService } from '@features/suggestion/services/suggestionService';
+import { useDietStore } from '@features/diet/store/dietStore';
 import type { DietPageData, DietRecord } from '@features/diet/types/diet.types';
 import type { TodayRecords } from '@features/data/types/data.types';
 
@@ -83,6 +84,10 @@ function mapAuxiliary(today: TodayRecords): HomeAuxiliary {
 /**
  * 由 DietPageData + TodayRecords 组装首页数据。
  * plan / aiInsight 暂用默认值（Phase 8/9 完成后替换）。
+ *
+ * 会合并 dietStore 中的 pending 记录：
+ * - 如果某个餐次有 pending 记录，优先显示 pending 状态
+ * - pending 记录包含 AI 解析的食物列表和热量
  */
 export function assembleHomeData(
   date: string,
@@ -91,6 +96,30 @@ export function assembleHomeData(
   plan: HomePlan | null,
   aiInsight: string
 ): HomeData {
+  // 获取当前日期的所有 pending 记录
+  const pendingRecords = useDietStore.getState().pendingRecords;
+
+  // 将 diet.meals 转换为 HomeMeal，并检查是否有 pending 覆盖
+  const meals: HomeMeal[] = diet.meals.map((r) => {
+    const mealType = r.mealType as MealType;
+    const pending = pendingRecords[`${date}_${mealType}`];
+
+    // 如果有 pending 记录，优先显示 pending 状态
+    if (pending) {
+      const pendingCalories = pending.foods.reduce((sum, f) => sum + f.calories, 0);
+      return {
+        type: mealType,
+        status: 'pending',
+        foods: foodsSummary(pending.foods),
+        calories: pendingCalories,
+        time: r.time,
+      };
+    }
+
+    // 否则使用后端返回的记录
+    return dietRecordToHomeMeal(r);
+  });
+
   return {
     date,
     calories: {
@@ -102,7 +131,7 @@ export function assembleHomeData(
       protein: diet.nutrients.protein,
       fat: diet.nutrients.fat,
     },
-    meals: diet.meals.map(dietRecordToHomeMeal),
+    meals,
     aiInsight,
     plan,
     auxiliary: mapAuxiliary(today),
@@ -153,10 +182,35 @@ export const homeService: HomeService = {
 /** 饮食日汇总：热量 + 营养 + 餐次 */
 export async function fetchDietSummary(date: string) {
   const diet = await dietService.getDietByDate(date);
+
+  // 获取当前日期的所有 pending 记录
+  const pendingRecords = useDietStore.getState().pendingRecords;
+
+  // 将 diet.meals 转换为 HomeMeal，并检查是否有 pending 覆盖
+  const meals: HomeMeal[] = diet.meals.map((r) => {
+    const mealType = r.mealType as MealType;
+    const pending = pendingRecords[`${date}_${mealType}`];
+
+    // 如果有 pending 记录，优先显示 pending 状态
+    if (pending) {
+      const pendingCalories = pending.foods.reduce((sum, f) => sum + f.calories, 0);
+      return {
+        type: mealType,
+        status: 'pending',
+        foods: foodsSummary(pending.foods),
+        calories: pendingCalories,
+        time: r.time,
+      };
+    }
+
+    // 否则使用后端返回的记录
+    return dietRecordToHomeMeal(r);
+  });
+
   return {
     calories: { current: diet.totalCalories.current, target: diet.totalCalories.target },
     nutrients: { carbs: diet.nutrients.carbs, protein: diet.nutrients.protein, fat: diet.nutrients.fat },
-    meals: diet.meals.map(dietRecordToHomeMeal),
+    meals,
   };
 }
 

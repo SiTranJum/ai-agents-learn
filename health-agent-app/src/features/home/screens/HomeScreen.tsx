@@ -27,13 +27,16 @@ import { useHomeData } from '../hooks/useHomeData';
 import { useAIInsightStream } from '../hooks/useAIInsightStream';
 import { useHomeStore } from '../store/homeStore';
 import { useDataStore } from '@features/data/store/dataStore';
+import { useDietStore } from '@features/diet/store/dietStore';
+import { dietService } from '@features/diet/services/dietService';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@shared/feedback/Toast';
 import { HealthOverviewCard } from '../components/HealthOverviewCard';
 import { QuickActionBar } from '../components/QuickActionBar';
 import { MealTimelineCard } from '../components/MealTimelineCard';
 import { AIInsightCard } from '../components/AIInsightCard';
 import { PlanProgressCard } from '../components/PlanProgressCard';
 import { AuxiliaryRecordGrid } from '../components/AuxiliaryRecordGrid';
-import { DevDemoButton } from '../components/DevDemoButton';
 import type { AuxiliaryItemType, MealType } from '../types/home.types';
 
 type Nav = CompositeNavigationProp<
@@ -56,6 +59,8 @@ export function HomeScreen() {
   const refreshIfStale = useHomeStore((s) => s.refreshIfStale);
   const { date, data, isLoading, isRefetching, refetch } = useHomeData();
   const { insight, isStreaming: insightStreaming, status: insightStatus, error: insightError, refetch: refetchInsight } = useAIInsightStream();
+  const queryClient = useQueryClient();
+  const toast = useToast();
 
   // 每次 tab 获得焦点时检查日期是否跨天，跨天则自动刷新为今天
   useFocusEffect(
@@ -81,6 +86,63 @@ export function HomeScreen() {
       navigation.navigate('DietTab');
     },
     [navigation]
+  );
+
+  // 确认 pending 餐次记录
+  const handleConfirmMeal = useCallback(
+    async (mealType: MealType) => {
+      const pending = useDietStore.getState().getPending(date, mealType);
+      if (!pending) return;
+
+      try {
+        await dietService.saveDietRecord(
+          {
+            mealType,
+            status: 'recorded',
+            foods: pending.foods,
+            totalCalories: pending.foods.reduce((sum, f) => sum + f.calories, 0),
+            nutrients: {
+              carbs: pending.foods.reduce((sum, f) => sum + f.carbs, 0),
+              protein: pending.foods.reduce((sum, f) => sum + f.protein, 0),
+              fat: pending.foods.reduce((sum, f) => sum + f.fat, 0),
+            },
+          },
+          date
+        );
+        useDietStore.getState().clearPending(date, mealType);
+        queryClient.invalidateQueries({ queryKey: ['diet'] });
+        queryClient.invalidateQueries({ queryKey: ['home'] });
+        toast.show({ type: 'success', message: '饮食记录已保存' });
+      } catch (error) {
+        toast.show({ type: 'error', message: '保存失败，请重试' });
+      }
+    },
+    [date, queryClient, toast]
+  );
+
+  // 修改 pending 餐次记录（跳转到编辑页并预填数据）
+  const handleEditMeal = useCallback(
+    (mealType: MealType) => {
+      const pending = useDietStore.getState().getPending(date, mealType);
+      if (!pending) return;
+
+      navigation.navigate('DietEdit', {
+        mealType,
+        date,
+        prefillFoods: pending.foods,
+      });
+    },
+    [date, navigation]
+  );
+
+  // 取消 pending 餐次记录
+  const handleCancelMeal = useCallback(
+    (mealType: MealType) => {
+      useDietStore.getState().clearPending(date, mealType);
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+      toast.show({ type: 'info', message: '已取消' });
+    },
+    [date, queryClient, toast]
   );
 
   const handleAIInsightPress = useCallback(() => {
@@ -163,6 +225,9 @@ export function HomeScreen() {
           <MealTimelineCard
             meals={data.meals}
             onMealPress={handleMealPress}
+            onConfirmMeal={handleConfirmMeal}
+            onEditMeal={handleEditMeal}
+            onCancelMeal={handleCancelMeal}
             onViewAll={handleRecordDiet}
           />
           <AIInsightCard
@@ -184,8 +249,6 @@ export function HomeScreen() {
           />
         </SectionBlock>
       </ScrollView>
-
-      <DevDemoButton />
     </PageContainer>
   );
 }
