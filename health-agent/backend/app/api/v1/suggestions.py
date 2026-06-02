@@ -76,6 +76,8 @@ def _build_state(
 async def _stream_suggestion_agent(
     agent: Any,
     state: dict[str, Any],
+    user_id: str | None = None,
+    suggestion_type: str = "unknown",
 ) -> AsyncIterator[tuple[StreamEvent | None, dict[str, Any]]]:
     """运行 suggestion agent，yield (status_event | None, final_output)。
 
@@ -85,8 +87,19 @@ async def _stream_suggestion_agent(
 
     调用方只需要 yield 非 None 的 event，并在最后用 final_output 保存结果。
     """
+    # LangSmith 追踪配置
+    langsmith_config = {}
+    if user_id:
+        langsmith_config = {
+            "tags": [f"user-{user_id}", "suggestion", suggestion_type],
+            "metadata": {
+                "user_id": user_id,
+                "suggestion_type": suggestion_type,
+            },
+        }
+
     final_output: dict[str, Any] = {}
-    async for ev in agent.astream_events(state, version="v2"):
+    async for ev in agent.astream_events(state, version="v2", config=langsmith_config):
         kind = ev.get("event")
         name = ev.get("name", "")
         if kind == "on_chain_start" and name in SUGGESTION_NODE_LABELS:
@@ -123,7 +136,9 @@ async def get_daily_suggestions(
         else:
             state = _build_state(user, "daily", None, memory_service, rag_service)
             final_output: dict[str, Any] = {}
-            async for ev, output in _stream_suggestion_agent(suggestion_agent, state):
+            async for ev, output in _stream_suggestion_agent(
+                suggestion_agent, state, user_id=str(user.id), suggestion_type="daily"
+            ):
                 if ev is not None:
                     yield ev
                 else:
@@ -156,7 +171,9 @@ async def get_meal_suggestions(
         yield _meta_event()
         state = _build_state(user, "meal", meal_type, memory_service, rag_service)
         final_output: dict[str, Any] = {}
-        async for ev, output in _stream_suggestion_agent(suggestion_agent, state):
+        async for ev, output in _stream_suggestion_agent(
+            suggestion_agent, state, user_id=str(user.id), suggestion_type=f"meal-{meal_type}"
+        ):
             if ev is not None:
                 yield ev
             else:
@@ -200,7 +217,9 @@ async def get_insights(
         else:
             state = _build_state(user, "insight", None, memory_service, rag_service)
             final_output: dict[str, Any] = {}
-            async for ev, output in _stream_suggestion_agent(suggestion_agent, state):
+            async for ev, output in _stream_suggestion_agent(
+                suggestion_agent, state, user_id=str(user.id), suggestion_type="insight"
+            ):
                 if ev is not None:
                     yield ev
                 else:

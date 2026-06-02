@@ -97,8 +97,18 @@ async def create_plan_stream(
             "plan_service": service,
         }
 
+        # LangSmith 追踪配置
+        langsmith_config = {
+            "tags": [f"user-{user.id}", "plan", "create"],
+            "metadata": {
+                "user_id": str(user.id),
+                "plan_type": payload.plan_type or "unknown",
+                "endpoint": "/api/v1/plans/stream",
+            },
+        }
+
         final_output: dict[str, Any] = {}
-        async for ev in plan_agent.astream_events(state, version="v2"):
+        async for ev in plan_agent.astream_events(state, version="v2", config=langsmith_config):
             kind = ev.get("event")
             name = ev.get("name", "")
             if kind == "on_chain_start" and name in PLAN_NODE_LABELS:

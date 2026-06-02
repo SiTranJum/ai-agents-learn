@@ -347,9 +347,18 @@ async def send_message(
             },
         )
 
-        # 2. 翻译 LangGraph 事件
+        # 2. 翻译 LangGraph 事件，注入 LangSmith 追踪配置
+        langsmith_config = {
+            "tags": [f"user-{user.id}", "chat", payload.type],
+            "metadata": {
+                "session_id": session_id,
+                "message_id": message_id,
+                "user_id": str(user.id),
+                "endpoint": "/api/v1/chat/stream",
+            },
+        }
         async for ev in translate_langgraph_events(
-            chat_agent, state, node_labels=CHAT_NODE_LABELS
+            chat_agent, state, node_labels=CHAT_NODE_LABELS, config=langsmith_config
         ):
             if ev.type == StreamEventType.TEXT_DELTA:
                 content = ev.data.get("content", "")

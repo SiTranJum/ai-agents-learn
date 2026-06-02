@@ -11,6 +11,10 @@
 
 from __future__ import annotations
 
+# 加载 .env 文件到环境变量（必须在所有其他 import 之前）
+from dotenv import load_dotenv
+load_dotenv()
+
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
