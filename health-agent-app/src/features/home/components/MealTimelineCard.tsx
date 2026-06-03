@@ -115,14 +115,32 @@ function MealRow({ meal, isLast, onPress, onConfirm, onEdit, onCancel }: MealRow
         disabled={isPending}
       >
         <View style={styles.contentHeader}>
-          <Text style={styles.mealLabel}>{label}</Text>
+          <View style={styles.labelRow}>
+            <Text style={styles.mealLabel}>{label}</Text>
+            {isPending && meal.pendingOperation && (
+              <View
+                style={[
+                  styles.opTag,
+                  meal.pendingOperation === 'append'
+                    ? styles.opTagAppend
+                    : styles.opTagReplace,
+                ]}
+              >
+                <Text style={styles.opTagText}>
+                  {meal.pendingOperation === 'append' ? '追加' : '替换'}
+                </Text>
+              </View>
+            )}
+          </View>
           {isRecorded && (
             <Text style={styles.mealCalories}>{meal.calories} kcal</Text>
           )}
           {meal.status === 'empty' && (
             <Text style={styles.mealEmpty}>未记录</Text>
           )}
-          {isPending && <Text style={styles.mealPendingTag}>AI 已识别</Text>}
+          {isPending && (
+            <Text style={styles.mealCalories}>{meal.calories} kcal</Text>
+          )}
         </View>
 
         {isRecorded && !!meal.foods && (
@@ -233,6 +251,27 @@ const styles = StyleSheet.create({
   mealLabel: {
     ...theme.typography.body,
     color: theme.colors.textPrimary,
+    fontWeight: '600',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  opTag: {
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 1,
+    borderRadius: theme.radius.sm,
+  },
+  opTagAppend: {
+    backgroundColor: theme.colors.primary,
+  },
+  opTagReplace: {
+    backgroundColor: theme.colors.warning,
+  },
+  opTagText: {
+    ...theme.typography.tag,
+    color: theme.colors.bgCard,
     fontWeight: '600',
   },
   mealCalories: {

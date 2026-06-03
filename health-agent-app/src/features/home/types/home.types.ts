@@ -10,6 +10,8 @@ export interface HomeMeal {
   foods: string; // 食物摘要文本
   calories: number;
   time?: string; // 如 "08:30"
+  /** pending 态写入语义：append=追加到已保存记录 / replace=替换。用于卡片标签提示 */
+  pendingOperation?: 'append' | 'replace';
 }
 
 export interface NutrientValue {

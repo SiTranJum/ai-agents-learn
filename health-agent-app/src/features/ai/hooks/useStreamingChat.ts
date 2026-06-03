@@ -9,10 +9,64 @@ import type {
   ChoicePrompt,
   MessageSegment,
   ToolCallState,
+  DietParseCard,
 } from '../types/ai.types';
 import { createSSEStream } from '../services/streamingClient';
 import type { MockStreamHandle } from '../demo/types';
 import { useAIStore } from '../store/aiStore';
+import { getCardId } from '../utils/cardId';
+import { useDietStore } from '@features/diet/store/dietStore';
+import type { FoodItem, MealType } from '@features/diet/types/diet.types';
+
+function localTodayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** 后端未返回餐次时，按当前时间推断默认餐次 */
+function inferMealTypeByTime(): MealType {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 10) return 'breakfast';
+  if (h >= 10 && h < 14) return 'lunch';
+  if (h >= 17 && h < 21) return 'dinner';
+  return 'snack';
+}
+
+/** 把后端 ParsedFood → 前端 FoodItem */
+function parsedFoodsToItems(foods: DietParseCard['payload']['foods']): FoodItem[] {
+  return foods.map((f, idx) => ({
+    id: `pending-${Date.now()}-${idx}`,
+    name: f.name,
+    amount: f.amount,
+    unit: f.unit,
+    amountGrams: f.amount_grams,
+    cookingMethod: f.cooking_method ?? undefined,
+    calories: f.calories,
+    protein: f.protein,
+    fat: f.fat,
+    carbs: f.carbs,
+    fiber: f.fiber ?? undefined,
+    sodium: f.sodium ?? undefined,
+    dataSource: f.data_source,
+  }));
+}
+
+/** AI 解析饮食卡片 → 写入 dietStore.pendingRecords，首页餐次卡片即可显示待确认态 */
+function syncDietParseToPending(card: ChatCard, sessionId: string | null): void {
+  if (card.type !== 'diet_parse') return;
+  const { foods, meal_type, suggested_date, operation } = (card as DietParseCard).payload;
+  if (!foods || foods.length === 0) return;
+  const resolvedMealType: MealType = meal_type ?? inferMealTypeByTime();
+  useDietStore.getState().setPending({
+    date: suggested_date ?? localTodayStr(),
+    mealType: resolvedMealType,
+    foods: parsedFoodsToItems(foods),
+    operation: operation ?? 'replace',
+    cardId: getCardId(card),
+    sessionId: sessionId ?? undefined,
+    createdAt: Date.now(),
+  });
+}
 
 interface UseStreamingChatReturn {
   messages: ChatMessage[];
@@ -101,6 +155,9 @@ export function useStreamingChat(): UseStreamingChatReturn {
       handle.on('card', ({ card }) => {
         const cardId = getCardId(card);
         setCardStatus(cardId, 'pending');
+        // AI 解析饮食卡片 → 同步写入 dietStore.pendingRecords，
+        // 让首页对应餐次卡片显示"待确认"态（确认/修改/取消）
+        syncDietParseToPending(card, useAIStore.getState().currentSessionId);
         updateLastAIMessage((msg) => ({
           ...msg,
           status: null,
@@ -228,9 +285,4 @@ export function useStreamingChat(): UseStreamingChatReturn {
     cardStatus,
     sessionId,
   };
-}
-
-// 辅助：生成卡片唯一 ID（与 demo 保持一致）
-function getCardId(card: ChatCard): string {
-  return `card_${card.type}_${JSON.stringify(card.payload).slice(0, 32)}`;
 }

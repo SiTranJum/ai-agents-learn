@@ -2,7 +2,7 @@
 // 参考: docs/specs/frontend/modules/11-home-module.md §P01
 // UI 文稿: docs/prd/v1/ui-design/03-home-dashboard.md
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ import { useHomeStore } from '../store/homeStore';
 import { useDataStore } from '@features/data/store/dataStore';
 import { useDietStore } from '@features/diet/store/dietStore';
 import { dietService } from '@features/diet/services/dietService';
+import { useAIStore } from '@features/ai/store/aiStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@shared/feedback/Toast';
 import { HealthOverviewCard } from '../components/HealthOverviewCard';
@@ -61,6 +62,13 @@ export function HomeScreen() {
   const { insight, isStreaming: insightStreaming, status: insightStatus, error: insightError, refetch: refetchInsight } = useAIInsightStream();
   const queryClient = useQueryClient();
   const toast = useToast();
+
+  // 订阅 dietStore.pendingRecords：AI 解析饮食后写入 pending 时，
+  // 重新拉取首页饮食卡片，让对应餐次显示"待确认"态（确认/修改/取消）
+  const pendingRecords = useDietStore((s) => s.pendingRecords);
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['home/diet', date] });
+  }, [pendingRecords, date, queryClient]);
 
   // 每次 tab 获得焦点时检查日期是否跨天，跨天则自动刷新为今天
   useFocusEffect(
@@ -107,9 +115,14 @@ export function HomeScreen() {
               fat: pending.foods.reduce((sum, f) => sum + f.fat, 0),
             },
           },
-          date
+          date,
+          pending.operation
         );
         useDietStore.getState().clearPending(date, mealType);
+        // 同步聊天卡片状态：首页确认后，AI 对话里对应卡片也置为已提交
+        if (pending.cardId) {
+          useAIStore.getState().setCardStatus(pending.cardId, 'submitted');
+        }
         queryClient.invalidateQueries({ queryKey: ['diet'] });
         queryClient.invalidateQueries({ queryKey: ['home'] });
         toast.show({ type: 'success', message: '饮食记录已保存' });
@@ -138,7 +151,12 @@ export function HomeScreen() {
   // 取消 pending 餐次记录
   const handleCancelMeal = useCallback(
     (mealType: MealType) => {
+      const pending = useDietStore.getState().getPending(date, mealType);
       useDietStore.getState().clearPending(date, mealType);
+      // 同步聊天卡片状态：首页取消后，AI 对话里对应卡片也置为已取消
+      if (pending?.cardId) {
+        useAIStore.getState().setCardStatus(pending.cardId, 'cancelled');
+      }
       queryClient.invalidateQueries({ queryKey: ['home'] });
       toast.show({ type: 'info', message: '已取消' });
     },

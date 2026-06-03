@@ -15,7 +15,7 @@ import { useAIStore } from '../store/aiStore';
 import { useDietStore } from '@features/diet/store/dietStore';
 import { dietService } from '@features/diet/services/dietService';
 import type { ChatAction, ChatMessage, DietParseCard } from '../types/ai.types';
-import type { FoodItem } from '@features/diet/types/diet.types';
+import type { FoodItem, MealType } from '@features/diet/types/diet.types';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
@@ -25,6 +25,15 @@ const now = (): string =>
 function localTodayStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** 后端未返回餐次时，按当前时间推断默认餐次 */
+function inferMealTypeByTime(): MealType {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 10) return 'breakfast';
+  if (h >= 10 && h < 14) return 'lunch';
+  if (h >= 17 && h < 21) return 'dinner';
+  return 'snack';
 }
 
 /** 把后端 ParsedFood → 前端 FoodItem */
@@ -95,10 +104,12 @@ export function useAIChat() {
         const dietCard = reply.cards?.find((c) => c.type === 'diet_parse') as DietParseCard | undefined;
         if (dietCard) {
           const { foods, meal_type, suggested_date } = dietCard.payload;
-          if (meal_type && foods.length > 0) {
+          // 后端未返回餐次时按当前时间推断，保证 pending 一定能落到某个餐次
+          const resolvedMealType: MealType = meal_type ?? inferMealTypeByTime();
+          if (foods.length > 0) {
             useDietStore.getState().setPending({
               date: suggested_date ?? localTodayStr(),
-              mealType: meal_type,
+              mealType: resolvedMealType,
               foods: parsedFoodsToItems(foods),
               sessionId: sessionId ?? undefined,
               createdAt: Date.now(),

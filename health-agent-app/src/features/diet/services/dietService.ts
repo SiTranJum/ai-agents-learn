@@ -60,10 +60,10 @@ export interface DietService {
    * 注：若同日同 mealType 存在多条记录，getDietByDate 已把它们合并到一张卡（id 取首条）。
    * 保存时只更新首条记录，**不会**自动删除冗余记录（避免误删）。V2 再考虑 upsert。
    */
-  saveDietRecord(record: SaveableRecord, date?: string): Promise<DietRecord>;
+  saveDietRecord(record: SaveableRecord, date?: string, operation?: 'append' | 'replace'): Promise<DietRecord>;
   deleteDietRecord(recordId: string): Promise<void>;
   /** 确认 pending 卡片 = 直接调用 saveDietRecord 创建 recorded */
-  confirmPendingRecord(record: SaveableRecord, date?: string): Promise<DietRecord>;
+  confirmPendingRecord(record: SaveableRecord, date?: string, operation?: 'append' | 'replace'): Promise<DietRecord>;
   /** pending 取消纯前端本地，不调后端 */
   cancelPendingRecord(_recordId?: string): Promise<void>;
 }
@@ -76,9 +76,9 @@ export const dietService: DietService = {
     return mapDailySummary(raw);
   },
 
-  async saveDietRecord(record, date) {
+  async saveDietRecord(record, date, operation) {
     const effectiveDate = date ?? todayStr();
-    const payload = toDietRecordPayload(record as DietRecord, effectiveDate);
+    const payload = toDietRecordPayload(record as DietRecord, effectiveDate, operation);
     // 统一走 upsert：按 date + meal_type 替换为 1 条记录，彻底避免幽灵记录
     const raw = await apiClient.put<BackendDietRecord>(
       '/diet/records/upsert',
@@ -91,10 +91,10 @@ export const dietService: DietService = {
     await apiClient.delete<null>(`/diet/records/${recordId}`);
   },
 
-  async confirmPendingRecord(record, date) {
+  async confirmPendingRecord(record, date, operation) {
     // pending 是前端 UI 态，确认 = 新建一条后端记录
     const { id: _omit, ...rest } = record;
-    return dietService.saveDietRecord({ ...rest } as SaveableRecord, date);
+    return dietService.saveDietRecord({ ...rest } as SaveableRecord, date, operation);
   },
 
   async cancelPendingRecord() {

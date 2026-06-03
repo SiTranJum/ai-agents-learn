@@ -106,13 +106,20 @@ export function assembleHomeData(
 
     // 如果有 pending 记录，优先显示 pending 状态
     if (pending) {
-      const pendingCalories = pending.foods.reduce((sum, f) => sum + f.calories, 0);
+      // append：预览 = 已保存食物 + 本次新增（所见即所得，确认后即此结果）
+      // replace：预览 = 仅本次食物（会替换掉已保存的）
+      const previewFoods =
+        pending.operation === 'append'
+          ? [...r.foods, ...pending.foods]
+          : pending.foods;
+      const pendingCalories = previewFoods.reduce((sum, f) => sum + f.calories, 0);
       return {
         type: mealType,
         status: 'pending',
-        foods: foodsSummary(pending.foods),
+        foods: foodsSummary(previewFoods),
         calories: pendingCalories,
         time: r.time,
+        pendingOperation: pending.operation ?? 'replace',
       };
     }
 
@@ -193,13 +200,20 @@ export async function fetchDietSummary(date: string) {
 
     // 如果有 pending 记录，优先显示 pending 状态
     if (pending) {
-      const pendingCalories = pending.foods.reduce((sum, f) => sum + f.calories, 0);
+      // append：预览 = 已保存食物 + 本次新增（所见即所得，确认后即此结果）
+      // replace：预览 = 仅本次食物（会替换掉已保存的）
+      const previewFoods =
+        pending.operation === 'append'
+          ? [...r.foods, ...pending.foods]
+          : pending.foods;
+      const pendingCalories = previewFoods.reduce((sum, f) => sum + f.calories, 0);
       return {
         type: mealType,
         status: 'pending',
-        foods: foodsSummary(pending.foods),
+        foods: foodsSummary(previewFoods),
         calories: pendingCalories,
         time: r.time,
+        pendingOperation: pending.operation ?? 'replace',
       };
     }
 

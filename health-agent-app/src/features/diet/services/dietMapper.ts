@@ -224,10 +224,15 @@ export function toFoodInputPayload(f: FoodItem) {
   };
 }
 
-export function toDietRecordPayload(record: DietRecord, date: string) {
+export function toDietRecordPayload(
+  record: DietRecord,
+  date: string,
+  operation?: 'append' | 'replace'
+) {
   return {
     meal_type: record.mealType,
     date,
     foods: record.foods.map(toFoodInputPayload),
+    ...(operation ? { operation } : {}),
   };
 }

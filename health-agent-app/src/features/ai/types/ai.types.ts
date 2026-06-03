@@ -79,6 +79,7 @@ export interface ParsedFoodPayload {
 export interface DietParseCardPayload {
   foods: ParsedFoodPayload[];
   meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack' | null;
+  operation?: 'append' | 'replace';
   confidence: number;
   nutrition_summary?: {
     total_calories: number;
