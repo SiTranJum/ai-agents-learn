@@ -18,6 +18,7 @@ from app.agents.memory.subgraph import build_memory_subgraph
 from app.agents.prompts.chat_system import build_chat_messages, build_intent_messages
 from app.core.exceptions import LLMProviderException
 from app.schemas.chat import ChatCard, ChatCardAction
+from app.schemas.body import BodyParseResult
 from app.schemas.diet import ParseResult
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,12 @@ async def identify_intent(state: ChatState) -> dict[str, Any]:
 @log_node
 def route_after_intent(state: ChatState) -> str:
     """Route only implemented domain subgraphs; unfinished domains use general chat."""
-    return "diet" if state.get("intent") == "diet" else "general"
+    intent = state.get("intent")
+    if intent == "diet":
+        return "diet"
+    if intent == "body":
+        return "body"
+    return "general"
 
 
 @log_node
@@ -203,6 +209,47 @@ def _parse_result_to_card(parse_result: ParseResult, suggested_date: date | None
     )
 
 
+_BODY_TYPE_LABEL = {
+    "water": "饮水",
+    "sleep": "睡眠",
+    "exercise": "运动",
+    "bowel": "排便",
+}
+
+
+def _body_result_to_card(parse_result: BodyParseResult, suggested_date: date | None) -> ChatCard:
+    payload = parse_result.model_dump(mode="json")
+    payload["suggested_date"] = (suggested_date or date.today()).isoformat()
+    return ChatCard(
+        type="body_parse",
+        payload=payload,
+        actions=[
+            ChatCardAction(kind="confirm_create_body_record", label="确认保存"),
+            ChatCardAction(kind="cancel_body_record", label="取消"),
+        ],
+    )
+
+
+def _body_response_text(parse_result: BodyParseResult) -> str:
+    """根据解析出的身体数据类型生成确认引导文案。"""
+    rt = parse_result.record_type.value
+    label = _BODY_TYPE_LABEL.get(rt, "数据")
+    if rt == "water" and parse_result.water_amount:
+        return f"我识别到饮水 {parse_result.water_amount}ml。请确认后保存。"
+    if rt == "sleep":
+        parts = []
+        if parse_result.sleep_bed_time and parse_result.sleep_wake_time:
+            parts.append(f"{parse_result.sleep_bed_time}–{parse_result.sleep_wake_time}")
+        return f"我识别到睡眠记录{('（' + '，'.join(parts) + '）') if parts else ''}。请确认后保存。"
+    if rt == "exercise":
+        seg = parse_result.exercise_type or "运动"
+        dur = f" {parse_result.exercise_duration} 分钟" if parse_result.exercise_duration else ""
+        return f"我识别到{seg}{dur}。请确认后保存。"
+    if rt == "bowel":
+        return "我识别到排便记录。请确认后保存。"
+    return f"我识别到{label}记录。请确认后保存。"
+
+
 @log_node
 async def wrap_response(state: ChatState) -> dict[str, Any]:
     """Normalize branch outputs into ``ai_response`` + ``response_cards``.
@@ -243,6 +290,17 @@ async def wrap_response(state: ChatState) -> dict[str, Any]:
         meal_type = parse_result.meal_type.value if parse_result.meal_type else "snack"
         response = f"我识别到 {food_count} 项食物，餐次为 {meal_type}。请确认后再保存到饮食记录。"
         return {"ai_response": response, "response_cards": [card.model_dump(mode="json")], "choice_prompts": []}
+
+    # 身体数据意图：把 body_parse_result 转成 body_parse 卡片
+    if state.get("intent") == "body" and state.get("body_parse_result") is not None:
+        body_result = cast(BodyParseResult, state["body_parse_result"])
+        card = _body_result_to_card(body_result, state.get("body_date"))
+        response = _body_response_text(body_result)
+        return {
+            "ai_response": response,
+            "response_cards": [card.model_dump(mode="json")],
+            "choice_prompts": [],
+        }
 
     return {
         "ai_response": state.get("ai_response") or "我已经收到你的消息。",

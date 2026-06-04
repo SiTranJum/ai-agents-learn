@@ -43,6 +43,8 @@ CHAT_NODE_LABELS: Mapping[str, str] = {
     "enrich_nutrition": "正在计算营养...",
     "infer_meal_type": "正在推断餐次...",
     "save_record": "正在保存记录...",
+    # body 子图节点
+    "parse_body_text": "正在分析身体数据...",
 }
 
 SUGGESTION_NODE_LABELS: Mapping[str, str] = {

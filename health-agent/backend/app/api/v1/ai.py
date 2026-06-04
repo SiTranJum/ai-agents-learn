@@ -21,6 +21,7 @@ from app.core.exceptions import ValidationException
 from app.core.responses import paginated, success
 from app.core.tracing import build_langsmith_config
 from app.dependencies import (
+    BodyServiceDep,
     ChatAgentDep,
     ChatServiceDep,
     CurrentUserDep,
@@ -258,6 +259,7 @@ async def send_message(
     chat_service: ChatServiceDep,
     chat_agent: ChatAgentDep,
     diet_service: DietServiceDep,
+    body_service: BodyServiceDep,
     memory_service: MemoryServiceDep,
     rag_service: RagServiceDep,
 ):
@@ -312,6 +314,9 @@ async def send_message(
         "diet_image_url": context.get("image_url"),
         "diet_date": _parse_referenced_date(context),
         "diet_service": diet_service,
+        "body_input_text": user_text,
+        "body_date": _parse_referenced_date(context),
+        "body_service": body_service,
         "memory_service": memory_service,
         "rag_service": rag_service,
         "embedding_client": memory_service.embedding_client,

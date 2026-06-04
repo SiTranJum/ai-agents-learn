@@ -80,6 +80,14 @@ class ChatState(TypedDict, total=False):
     mode: str | None
     diet_service: Any
 
+    # ---------- 领域字段：身体数据（body subgraph） ----------
+    # 输入
+    body_input_text: str | None
+    body_date: date | None
+    # subgraph 产出
+    body_parse_result: Any
+    body_service: Any
+
     # ---------- Agent 工具依赖（由 API 层按请求注入，不持久化） ----------
     memory_service: Any
     rag_service: Any
