@@ -103,7 +103,34 @@ export interface DietParseCard {
   actions: ChatCardActionRaw[];
 }
 
-export type ChatCard = DietParseCard | {
+export type BodyRecordKind = 'water' | 'sleep' | 'exercise' | 'bowel';
+
+export interface BodyParseCardPayload {
+  record_type: BodyRecordKind;
+  operation?: 'append' | 'replace';
+  confidence?: number;
+  // water
+  water_amount?: number | null;
+  // sleep
+  sleep_bed_time?: string | null;
+  sleep_wake_time?: string | null;
+  sleep_quality?: 'excellent' | 'good' | 'fair' | 'poor' | null;
+  // exercise
+  exercise_type?: string | null;
+  exercise_duration?: number | null;
+  // bowel
+  bowel_time?: string | null;
+  bowel_status?: 'normal' | 'constipation' | 'diarrhea' | null;
+  suggested_date?: string;
+}
+
+export interface BodyParseCard {
+  type: 'body_parse';
+  payload: BodyParseCardPayload;
+  actions: ChatCardActionRaw[];
+}
+
+export type ChatCard = DietParseCard | BodyParseCard | {
   type: string;
   payload: Record<string, unknown>;
   actions: ChatCardActionRaw[];

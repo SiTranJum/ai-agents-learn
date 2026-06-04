@@ -10,12 +10,14 @@ import type {
   MessageSegment,
   ToolCallState,
   DietParseCard,
+  BodyParseCard,
 } from '../types/ai.types';
 import { createSSEStream } from '../services/streamingClient';
 import type { MockStreamHandle } from '../demo/types';
 import { useAIStore } from '../store/aiStore';
 import { getCardId } from '../utils/cardId';
 import { useDietStore } from '@features/diet/store/dietStore';
+import { useBodyPendingStore } from '@features/data/store/bodyPendingStore';
 import type { FoodItem, MealType } from '@features/diet/types/diet.types';
 
 function localTodayStr(): string {
@@ -65,6 +67,29 @@ function syncDietParseToPending(card: ChatCard, sessionId: string | null): void 
     cardId: getCardId(card),
     sessionId: sessionId ?? undefined,
     createdAt: Date.now(),
+  });
+}
+
+/** AI 解析身体数据卡片 → 写入 bodyPendingStore，首页辅助卡片显示待确认态 */
+function syncBodyParseToPending(card: ChatCard, sessionId: string | null): void {
+  if (card.type !== 'body_parse') return;
+  const p = (card as BodyParseCard).payload;
+  if (!p.record_type) return;
+  useBodyPendingStore.getState().setPending({
+    date: p.suggested_date ?? localTodayStr(),
+    recordType: p.record_type,
+    operation: p.operation ?? 'replace',
+    cardId: getCardId(card),
+    sessionId: sessionId ?? undefined,
+    createdAt: Date.now(),
+    waterAmount: p.water_amount ?? undefined,
+    sleepBedTime: p.sleep_bed_time ?? undefined,
+    sleepWakeTime: p.sleep_wake_time ?? undefined,
+    sleepQuality: p.sleep_quality ?? undefined,
+    exerciseType: p.exercise_type ?? undefined,
+    exerciseDuration: p.exercise_duration ?? undefined,
+    bowelTime: p.bowel_time ?? undefined,
+    bowelStatus: p.bowel_status ?? undefined,
   });
 }
 
@@ -158,6 +183,9 @@ export function useStreamingChat(): UseStreamingChatReturn {
         // AI 解析饮食卡片 → 同步写入 dietStore.pendingRecords，
         // 让首页对应餐次卡片显示"待确认"态（确认/修改/取消）
         syncDietParseToPending(card, useAIStore.getState().currentSessionId);
+        // AI 解析身体数据卡片 → 同步写入 bodyPendingStore，
+        // 让首页辅助卡片（饮水/睡眠/运动/排便）显示"待确认"态
+        syncBodyParseToPending(card, useAIStore.getState().currentSessionId);
         updateLastAIMessage((msg) => ({
           ...msg,
           status: null,

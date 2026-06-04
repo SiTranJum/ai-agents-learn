@@ -18,8 +18,11 @@ import { dietService } from '@features/diet/services/dietService';
 import { dataService } from '@features/data/services/dataService';
 import { suggestionService } from '@features/suggestion/services/suggestionService';
 import { useDietStore } from '@features/diet/store/dietStore';
+import { useBodyPendingStore } from '@features/data/store/bodyPendingStore';
+import type { PendingBodyRecord } from '@features/data/store/bodyPendingStore';
 import type { DietPageData, DietRecord } from '@features/diet/types/diet.types';
 import type { TodayRecords } from '@features/data/types/data.types';
+import type { AuxiliaryPending } from '../types/home.types';
 
 export interface HomeService {
   /**
@@ -231,7 +234,57 @@ export async function fetchDietSummary(date: string) {
 /** 辅助记录：饮水/睡眠/运动/排便 */
 export async function fetchBodyToday(date: string): Promise<HomeAuxiliary> {
   const today = await dataService.getTodayRecords(date);
-  return mapAuxiliary(today);
+  const aux = mapAuxiliary(today);
+  return mergeBodyPending(aux, date);
+}
+
+const SLEEP_QUALITY_LABEL: Record<string, string> = {
+  excellent: '极佳',
+  good: '良好',
+  fair: '一般',
+  poor: '较差',
+};
+
+/** 把单条 pending 记录转成首页卡片展示用的预览文本 */
+function pendingSummary(p: PendingBodyRecord): string {
+  switch (p.recordType) {
+    case 'water':
+      return p.operation === 'append'
+        ? `+${p.waterAmount ?? 0} ml`
+        : `${p.waterAmount ?? 0} ml`;
+    case 'sleep': {
+      const range =
+        p.sleepBedTime && p.sleepWakeTime
+          ? `${p.sleepBedTime}–${p.sleepWakeTime}`
+          : '睡眠';
+      const q = p.sleepQuality ? ` ${SLEEP_QUALITY_LABEL[p.sleepQuality] ?? ''}` : '';
+      return `${range}${q}`.trim();
+    }
+    case 'exercise': {
+      const t = p.exerciseType ?? '运动';
+      const d = p.exerciseDuration ? ` ${p.exerciseDuration} 分钟` : '';
+      return `${t}${d}`;
+    }
+    case 'bowel':
+      return BOWEL_LABEL[p.bowelStatus ?? 'normal'] ?? '已记录';
+  }
+}
+
+/** 合并 bodyPendingStore：某类型有 pending 时，给 aux.pending 填充预览 */
+function mergeBodyPending(aux: HomeAuxiliary, date: string): HomeAuxiliary {
+  const records = useBodyPendingStore.getState().pendingRecords;
+  const pending: NonNullable<HomeAuxiliary['pending']> = {};
+  (['water', 'sleep', 'exercise', 'bowel'] as const).forEach((rt) => {
+    const p = records[`${date}_${rt}`];
+    if (p) {
+      const item: AuxiliaryPending = {
+        summary: pendingSummary(p),
+        operation: p.operation,
+      };
+      pending[rt] = item;
+    }
+  });
+  return Object.keys(pending).length > 0 ? { ...aux, pending } : aux;
 }
 
 /** AI 每日洞察（带 5s 超时保护） */

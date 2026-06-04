@@ -28,7 +28,9 @@ import { useAIInsightStream } from '../hooks/useAIInsightStream';
 import { useHomeStore } from '../store/homeStore';
 import { useDataStore } from '@features/data/store/dataStore';
 import { useDietStore } from '@features/diet/store/dietStore';
+import { useBodyPendingStore } from '@features/data/store/bodyPendingStore';
 import { dietService } from '@features/diet/services/dietService';
+import { dataService } from '@features/data/services/dataService';
 import { useAIStore } from '@features/ai/store/aiStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@shared/feedback/Toast';
@@ -69,6 +71,13 @@ export function HomeScreen() {
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: ['home/diet', date] });
   }, [pendingRecords, date, queryClient]);
+
+  // 订阅 bodyPendingStore：AI 解析身体数据后写入 pending 时，
+  // 重新拉取首页辅助卡片，让对应类型显示"待确认"态（确认/取消）
+  const bodyPendingRecords = useBodyPendingStore((s) => s.pendingRecords);
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['home'] });
+  }, [bodyPendingRecords, date, queryClient]);
 
   // 每次 tab 获得焦点时检查日期是否跨天，跨天则自动刷新为今天
   useFocusEffect(
@@ -185,6 +194,62 @@ export function HomeScreen() {
     [navigation]
   );
 
+  // 确认 AI 解析的辅助记录（饮水/睡眠/运动/排便）
+  const handleConfirmAux = useCallback(
+    async (type: AuxiliaryItemType) => {
+      const pending = useBodyPendingStore.getState().getPending(date, type);
+      if (!pending) return;
+      try {
+        if (type === 'water') {
+          // 饮水走累加/覆盖语义
+          await dataService.addWaterAmount(date, pending.waterAmount ?? 0);
+        } else if (type === 'sleep') {
+          await dataService.saveBodyData('sleep', {
+            date,
+            bedTime: pending.sleepBedTime ?? '23:00',
+            wakeTime: pending.sleepWakeTime ?? '07:00',
+            quality: pending.sleepQuality ?? 'good',
+          } as any);
+        } else if (type === 'exercise') {
+          await dataService.saveBodyData('exercise', {
+            date,
+            type: pending.exerciseType ?? '运动',
+            duration: pending.exerciseDuration ?? 30,
+          } as any);
+        } else if (type === 'bowel') {
+          await dataService.saveBodyData('bowel', {
+            date,
+            time: pending.bowelTime ?? '08:00',
+            status: pending.bowelStatus ?? 'normal',
+          } as any);
+        }
+        useBodyPendingStore.getState().clearPending(date, type);
+        if (pending.cardId) {
+          useAIStore.getState().setCardStatus(pending.cardId, 'submitted');
+        }
+        queryClient.invalidateQueries({ queryKey: ['home'] });
+        toast.show({ type: 'success', message: '已保存' });
+      } catch {
+        toast.show({ type: 'error', message: '保存失败，请重试' });
+      }
+    },
+    [date, queryClient, toast]
+  );
+
+  // 取消 AI 解析的辅助记录
+  const handleCancelAux = useCallback(
+    (type: AuxiliaryItemType) => {
+      const pending = useBodyPendingStore.getState().getPending(date, type);
+      useBodyPendingStore.getState().clearPending(date, type);
+      if (pending?.cardId) {
+        useAIStore.getState().setCardStatus(pending.cardId, 'cancelled');
+      }
+      queryClient.invalidateQueries({ queryKey: ['home'] });
+      toast.show({ type: 'info', message: '已取消' });
+    },
+    [date, queryClient, toast]
+  );
+
   if (isLoading && !data) {
     return (
       <PageContainer>
@@ -264,6 +329,8 @@ export function HomeScreen() {
           <AuxiliaryRecordGrid
             auxiliary={data.auxiliary}
             onItemPress={handleAuxItemPress}
+            onConfirm={handleConfirmAux}
+            onCancel={handleCancelAux}
           />
         </SectionBlock>
       </ScrollView>

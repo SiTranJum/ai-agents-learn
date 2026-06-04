@@ -32,6 +32,20 @@ export interface HomeAuxiliary {
   sleep: { duration: string } | null;
   exercise: { duration: string } | null;
   bowel: { status: string } | null;
+  /** AI 解析后待确认的辅助记录预览（按类型）。有值则首页卡片显示「待确认」态 */
+  pending?: {
+    water?: AuxiliaryPending;
+    sleep?: AuxiliaryPending;
+    exercise?: AuxiliaryPending;
+    bowel?: AuxiliaryPending;
+  };
+}
+
+/** 辅助记录的 pending 预览：summary 用于卡片展示，operation 用于标签 */
+export interface AuxiliaryPending {
+  /** 卡片上展示的预览文本，如 "+250 ml"、"23:00–07:00 良好"、"跑步 30 分钟" */
+  summary: string;
+  operation?: 'append' | 'replace';
 }
 
 export interface HomeData {
