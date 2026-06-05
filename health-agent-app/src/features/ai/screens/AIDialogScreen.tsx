@@ -9,8 +9,8 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -47,6 +47,26 @@ export function AIDialogScreen() {
   const setOverlayState = useAIStore((s) => s.setOverlayState);
 
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // 监听键盘事件
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showListener = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+
+    const hideListener = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, []);
 
   // 离开全屏页面时把 overlay 状态降到 collapsed
   useFocusEffect(
@@ -129,10 +149,7 @@ export function AIDialogScreen() {
         )}
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.flex1}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={styles.flex1}>
         <ChatMessageList
           messages={messages}
           isAIThinking={isStreaming}
@@ -142,14 +159,14 @@ export function AIDialogScreen() {
           cardStatus={cardStatus}
         />
 
-        {/* 底部输入栏 */}
-        <View style={styles.inputBarWrap}>
+        {/* 底部输入栏：键盘弹起时通过 marginBottom 上推 */}
+        <View style={[styles.inputBarWrap, { marginBottom: keyboardHeight }]}>
           <AIInputBar
             onSend={send}
             placeholder="问我任何健康问题..."
           />
         </View>
-      </KeyboardAvoidingView>
+      </View>
 
       <NutritionBottomSheet
         visible={sheetVisible}

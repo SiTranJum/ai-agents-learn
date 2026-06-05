@@ -31,11 +31,14 @@ export function GlobalAIInputBar() {
     [overlayState, setOverlayState, send]
   );
 
-  const handleFocus = useCallback(() => {
-    if (overlayState === 'collapsed' && hasMessages) {
+  const handleInputPress = useCallback(() => {
+    // 有历史消息时，点击输入框自动展开浮层（如果未展开）
+    console.log('[GlobalAIInputBar] onInputPress triggered', { hasMessages, overlayState });
+    if (hasMessages && overlayState === 'collapsed') {
+      console.log('[GlobalAIInputBar] Opening overlay');
       setOverlayState('floating');
     }
-  }, [overlayState, hasMessages, setOverlayState]);
+  }, [hasMessages, overlayState, setOverlayState]);
 
   const handleCamera = useCallback(() => {
     setOverlayState('fullscreen');
@@ -54,7 +57,7 @@ export function GlobalAIInputBar() {
         onSend={handleSend}
         onCamera={handleCamera}
         onVoice={handleVoice}
-        onFocus={handleFocus}
+        onInputPress={handleInputPress}
         placeholder="说点什么..."
       />
     </View>

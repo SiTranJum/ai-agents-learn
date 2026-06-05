@@ -1,12 +1,14 @@
 // DateSwitcher - 日期切换栏
-// 左右箭头切换日期 + 中央日期显示
+// 仅负责外层 UI（日期文字 + 日历图标）；日期选择器逻辑委托给平台专属的 DatePicker：
+//   - Web   → DatePicker.web.tsx（浏览器原生 <input type="date">）
+//   - 原生  → DatePicker.tsx（@react-native-community/datetimepicker）
 // 参考: docs/prd/v1/ui-design/04-diet-record-page.md §3.1, §6.5
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '@app/styles/theme';
-import { todayStr } from '@shared/utils/date';
+import { DatePicker } from './DatePicker';
 
 export interface DateSwitcherProps {
   /** 当前选中的日期 YYYY-MM-DD */
@@ -27,47 +29,24 @@ function formatDate(dateStr: string): string {
   return `${y}年${m}月${day}日 周${wd}`;
 }
 
-function shiftDate(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 export function DateSwitcher({
   date,
   onDateChange,
   disableFuture = true,
 }: DateSwitcherProps) {
-  const isToday = date === todayStr();
-  const canGoNext = !disableFuture || !isToday;
-
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        onPress={() => onDateChange(shiftDate(date, -1))}
-        style={styles.btn}
-        activeOpacity={0.7}
-      >
-        <Feather name="chevron-left" size={22} color={theme.colors.textPrimary} />
-      </TouchableOpacity>
-
-      <Text style={styles.label}>{formatDate(date)}</Text>
-
-      <TouchableOpacity
-        onPress={() => canGoNext && onDateChange(shiftDate(date, 1))}
-        style={styles.btn}
-        activeOpacity={canGoNext ? 0.7 : 1}
-        disabled={!canGoNext}
-      >
-        <Feather
-          name="chevron-right"
-          size={22}
-          color={canGoNext ? theme.colors.textPrimary : theme.colors.divider}
-        />
-      </TouchableOpacity>
+      <DatePicker date={date} onDateChange={onDateChange} disableFuture={disableFuture}>
+        <View style={styles.dateButton}>
+          <Text style={styles.label}>{formatDate(date)}</Text>
+          <Feather
+            name="calendar"
+            size={16}
+            color={theme.colors.textSecondary}
+            style={styles.calendarIcon}
+          />
+        </View>
+      </DatePicker>
     </View>
   );
 }
@@ -76,20 +55,24 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: theme.layout.pageHorizontalPadding,
     paddingVertical: theme.spacing.md,
     backgroundColor: theme.colors.bgPage,
   },
-  btn: {
-    width: 40,
-    height: 40,
+  dateButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: theme.radius.full,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.radius.md,
+    gap: theme.spacing.xs,
   },
   label: {
     ...theme.typography.cardTitle,
     color: theme.colors.textPrimary,
+  },
+  calendarIcon: {
+    marginLeft: 4,
   },
 });

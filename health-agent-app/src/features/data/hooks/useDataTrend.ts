@@ -93,7 +93,13 @@ export function useSaveBodyData() {
       });
       qc.invalidateQueries({ queryKey: ['data', 'trend'] });
       qc.invalidateQueries({ queryKey: ['data', 'recent'] });
-      qc.invalidateQueries({ queryKey: ['home'] });
+      // 刷新首页辅助卡片：使用 predicate 匹配所有 home/* 查询
+      qc.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('home/');
+        },
+      });
     },
   });
 }
@@ -109,7 +115,13 @@ export function useAddWater() {
         if (!old) return old;
         return { ...old, water: saved };
       });
-      qc.invalidateQueries({ queryKey: ['home'] });
+      // 刷新首页辅助卡片：使用 predicate 匹配所有 home/* 查询
+      qc.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('home/');
+        },
+      });
     },
   });
 }

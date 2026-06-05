@@ -34,8 +34,10 @@ class Settings(BaseSettings):
     # ---------- 数据库 ----------
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/health_agent"
     database_echo: bool = False
-    database_pool_size: int = 10
-    database_max_overflow: int = 20
+    # Supabase 免费版/基础版连接池限制为 15，保守配置：pool_size=5, max_overflow=5（峰值10）
+    # 留余量给 Supabase Studio 等其他客户端
+    database_pool_size: int = 5
+    database_max_overflow: int = 5
 
     # ---------- Supabase ----------
     supabase_url: str = ""

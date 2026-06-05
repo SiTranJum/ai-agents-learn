@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, TextInput, TouchableOpacity, StyleSheet, Keyboard, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { theme } from '@app/styles/theme';
 
@@ -7,8 +7,8 @@ export interface AIInputBarProps {
   onSend: (message: string) => void;
   onCamera?: () => void;
   onVoice?: () => void;
-  /** 输入框获得焦点时触发；用于点击输入栏恢复历史浮层 */
-  onFocus?: () => void;
+  /** 输入框区域被点击时触发（包括首次获焦和后续点击） */
+  onInputPress?: () => void;
   placeholder?: string;
 }
 
@@ -16,10 +16,30 @@ export function AIInputBar({
   onSend,
   onCamera,
   onVoice,
-  onFocus,
+  onInputPress,
   placeholder = '说点什么...',
 }: AIInputBarProps) {
   const [text, setText] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // 监听键盘事件，获取键盘高度
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showListener = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+
+    const hideListener = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, []);
 
   const handleSend = () => {
     if (text.trim()) {
@@ -29,7 +49,7 @@ export function AIInputBar({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { marginBottom: Math.max(0, keyboardHeight - 60) }]}>
       {onCamera && (
         <TouchableOpacity style={styles.iconBtn} onPress={onCamera}>
           <Feather name="camera" size={20} color={theme.colors.textTertiary} />
@@ -49,7 +69,7 @@ export function AIInputBar({
           placeholderTextColor={theme.colors.textTertiary}
           returnKeyType="send"
           onSubmitEditing={handleSend}
-          onFocus={onFocus}
+          onPressIn={onInputPress}
         />
       </View>
       <TouchableOpacity

@@ -19,6 +19,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 /**
  * 自定义 tabBar：将 GlobalAIInputBar 放在系统 Tab Bar 之上
  * 布局：[ Tab 内容 ] → [ AIInputBar 56px ] → [ Tab Bar 60px ]
+ * 键盘处理：AIInputBar 和 AIChatOverlay 内部监听键盘事件，自动调整 marginBottom
  */
 function TabBarWithAIInput(props: BottomTabBarProps) {
   return (
