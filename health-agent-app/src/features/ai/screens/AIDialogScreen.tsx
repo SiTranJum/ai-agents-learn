@@ -16,6 +16,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { theme } from '@app/styles/theme';
 import { PageContainer } from '@shared/layout/PageContainer/PageContainer';
@@ -27,7 +28,17 @@ import { ChatMessageList } from '../components/ChatMessageList';
 import { NutritionBottomSheet } from '../components/NutritionBottomSheet';
 import { useStreamingChat } from '../hooks/useStreamingChat';
 import { useAIStore } from '../store/aiStore';
-import type { ChatAction, ChatCard, ChatMessage, ChoicePrompt } from '../types/ai.types';
+import { useDietStore } from '@features/diet/store/dietStore';
+import { useBodyPendingStore } from '@features/data/store/bodyPendingStore';
+import { dietService } from '@features/diet/services/dietService';
+import { dataService } from '@features/data/services/dataService';
+import type { ChatAction, ChatCard, ChatMessage, ChoicePrompt, DietParseCard, BodyParseCard } from '../types/ai.types';
+import { getCardId } from '../utils/cardId';
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'AIDialog'>;
 type R = RouteProp<MainStackParamList, 'AIDialog'>;
@@ -36,6 +47,7 @@ export function AIDialogScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<R>();
   const toast = useToast();
+  const queryClient = useQueryClient();
 
   // T6: 流式 hook 替换老 useAIChat
   const {
@@ -45,6 +57,7 @@ export function AIDialogScreen() {
   const nutritionResult = useAIStore((s) => s.nutritionResult);
   const setNutritionResult = useAIStore((s) => s.setNutritionResult);
   const setOverlayState = useAIStore((s) => s.setOverlayState);
+  const setCardStatus = useAIStore((s) => s.setCardStatus);
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -104,16 +117,121 @@ export function AIDialogScreen() {
     [nutritionResult, toast, navigation]
   );
 
-  // T6: 卡片 action（确认保存 / 编辑 / 跳过）
+  // T6: 卡片 action（确认保存 / 编辑 / 跳过 / 取消）
   const handleCardAction = useCallback(
-    (card: ChatCard, actionId: string, _label: string) => {
+    async (card: ChatCard, actionId: string, _label: string) => {
+      const cardId = getCardId(card);
+      const date = todayStr();
+
+      // 编辑：跳转到编辑页
       if (actionId === 'edit_diet_items') {
         navigation.navigate('DietEdit', {});
         return;
       }
+
+      // 饮食确认：本地静默保存，不走 SSE
+      if (actionId === 'confirm_create_diet_record') {
+        const pending = useDietStore.getState().pendingRecords[cardId];
+        if (!pending) {
+          toast.show({ type: 'error', message: '未找到待保存数据' });
+          return;
+        }
+        try {
+          await dietService.saveDietRecord(
+            {
+              mealType: pending.mealType,
+              status: 'recorded',
+              foods: pending.foods,
+              totalCalories: pending.foods.reduce((sum, f) => sum + f.calories, 0),
+              nutrients: {
+                carbs: pending.foods.reduce((sum, f) => sum + f.carbs, 0),
+                protein: pending.foods.reduce((sum, f) => sum + f.protein, 0),
+                fat: pending.foods.reduce((sum, f) => sum + f.fat, 0),
+              },
+            },
+            pending.date,
+            pending.operation
+          );
+          useDietStore.getState().clearPending(pending.date, pending.mealType);
+          setCardStatus(cardId, 'submitted');
+          queryClient.invalidateQueries({ queryKey: ['diet'] });
+          queryClient.invalidateQueries({ queryKey: ['home/diet', date] });
+          toast.show({ type: 'success', message: '饮食记录已保存' });
+        } catch {
+          toast.show({ type: 'error', message: '保存失败，请重试' });
+        }
+        return;
+      }
+
+      // 饮食取消：本地静默清除
+      if (actionId === 'cancel_diet_record') {
+        const pending = useDietStore.getState().pendingRecords[cardId];
+        if (pending) {
+          useDietStore.getState().clearPending(pending.date, pending.mealType);
+          queryClient.invalidateQueries({ queryKey: ['home/diet', date] });
+        }
+        setCardStatus(cardId, 'cancelled');
+        toast.show({ type: 'info', message: '已取消' });
+        return;
+      }
+
+      // 身体数据确认：本地静默保存，不走 SSE
+      if (actionId === 'confirm_create_body_record') {
+        const bodyCard = card as BodyParseCard;
+        const recordType = bodyCard.payload.record_type;
+        const pending = useBodyPendingStore.getState().getPending(date, recordType);
+        if (!pending) {
+          toast.show({ type: 'error', message: '未找到待保存数据' });
+          return;
+        }
+        try {
+          if (recordType === 'water') {
+            await dataService.addWaterAmount(date, pending.waterAmount ?? 0);
+          } else if (recordType === 'sleep') {
+            await dataService.saveBodyData('sleep', {
+              date,
+              bedTime: pending.sleepBedTime ?? '23:00',
+              wakeTime: pending.sleepWakeTime ?? '07:00',
+              quality: pending.sleepQuality ?? 'good',
+            } as any);
+          } else if (recordType === 'exercise') {
+            await dataService.saveBodyData('exercise', {
+              date,
+              type: pending.exerciseType ?? '运动',
+              duration: pending.exerciseDuration ?? 30,
+            } as any);
+          } else if (recordType === 'bowel') {
+            await dataService.saveBodyData('bowel', {
+              date,
+              time: pending.bowelTime ?? '08:00',
+              status: pending.bowelStatus ?? 'normal',
+            } as any);
+          }
+          useBodyPendingStore.getState().clearPending(date, recordType);
+          setCardStatus(cardId, 'submitted');
+          queryClient.invalidateQueries({ queryKey: ['home/body', date] });
+          toast.show({ type: 'success', message: '已保存' });
+        } catch {
+          toast.show({ type: 'error', message: '保存失败，请重试' });
+        }
+        return;
+      }
+
+      // 身体数据取消：本地静默清除
+      if (actionId === 'cancel_body_record') {
+        const bodyCard = card as BodyParseCard;
+        const recordType = bodyCard.payload.record_type;
+        useBodyPendingStore.getState().clearPending(date, recordType);
+        setCardStatus(cardId, 'cancelled');
+        queryClient.invalidateQueries({ queryKey: ['home/body', date] });
+        toast.show({ type: 'info', message: '已取消' });
+        return;
+      }
+
+      // 其他 action：走原有 SSE 流程
       sendCardAction(card, actionId);
     },
-    [sendCardAction, navigation]
+    [navigation, sendCardAction, setCardStatus, queryClient, toast]
   );
 
   // T6: 选项 choice 回调

@@ -6,7 +6,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { theme } from '@app/styles/theme';
-import type { ChatCard, DietParseCard } from '../../types/ai.types';
+import type { ChatCard, DietParseCard, BodyParseCard } from '../../types/ai.types';
 
 interface Props {
   card: ChatCard;
@@ -23,6 +23,17 @@ export function StreamingCardView({ card, status = 'pending', onActionPress }: P
     return (
       <DietParseCardView
         card={card as DietParseCard}
+        status={status}
+        isInteractive={isInteractive}
+        onActionPress={onActionPress}
+      />
+    );
+  }
+
+  if (card.type === 'body_parse') {
+    return (
+      <BodyParseCardView
+        card={card as BodyParseCard}
         status={status}
         isInteractive={isInteractive}
         onActionPress={onActionPress}
@@ -99,6 +110,113 @@ function DietParseCardView({
                   styles.actionLabel,
                   idx === 0 && styles.actionLabelPrimary,
                 ]}
+              >
+                {a.label ?? a.kind}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ============ 身体数据卡片 ============
+
+const BODY_TYPE_LABEL: Record<string, string> = {
+  water: '💧 饮水',
+  sleep: '😴 睡眠',
+  exercise: '🏃 运动',
+  bowel: '🚽 排便',
+};
+
+const SLEEP_QUALITY_LABEL: Record<string, string> = {
+  excellent: '极佳',
+  good: '良好',
+  fair: '一般',
+  poor: '较差',
+};
+
+const BOWEL_STATUS_LABEL: Record<string, string> = {
+  normal: '正常',
+  constipation: '便秘',
+  diarrhea: '腹泻',
+};
+
+/** 把 body_parse payload 转成 [标签, 值] 明细行 */
+function bodyDetailRows(p: BodyParseCard['payload']): Array<[string, string]> {
+  const rows: Array<[string, string]> = [];
+  switch (p.record_type) {
+    case 'water': {
+      const prefix = p.operation === 'append' ? '本次新增' : '总量';
+      rows.push([prefix, `${p.water_amount ?? 0} ml`]);
+      break;
+    }
+    case 'sleep': {
+      if (p.sleep_bed_time && p.sleep_wake_time) {
+        rows.push(['时间', `${p.sleep_bed_time} – ${p.sleep_wake_time}`]);
+      }
+      if (p.sleep_quality) {
+        rows.push(['质量', SLEEP_QUALITY_LABEL[p.sleep_quality] ?? p.sleep_quality]);
+      }
+      break;
+    }
+    case 'exercise': {
+      if (p.exercise_type) rows.push(['类型', p.exercise_type]);
+      if (p.exercise_duration) rows.push(['时长', `${p.exercise_duration} 分钟`]);
+      break;
+    }
+    case 'bowel': {
+      if (p.bowel_time) rows.push(['时间', p.bowel_time]);
+      if (p.bowel_status) {
+        rows.push(['状态', BOWEL_STATUS_LABEL[p.bowel_status] ?? p.bowel_status]);
+      }
+      break;
+    }
+  }
+  if (p.suggested_date) rows.push(['日期', p.suggested_date]);
+  return rows;
+}
+
+function BodyParseCardView({
+  card,
+  status,
+  isInteractive,
+  onActionPress,
+}: {
+  card: BodyParseCard;
+  status: 'pending' | 'submitted' | 'cancelled';
+  isInteractive: boolean;
+  onActionPress?: (actionKind: string, label: string) => void;
+}) {
+  const p = card.payload;
+  const title = BODY_TYPE_LABEL[p.record_type] ?? '健康数据';
+  const rows = bodyDetailRows(p);
+
+  return (
+    <View style={[styles.card, !isInteractive && styles.cardDisabled]}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>{title}</Text>
+        {status === 'submitted' && <Text style={styles.statusBadge}>✓ 已保存</Text>}
+        {status === 'cancelled' && <Text style={styles.statusBadge}>已取消</Text>}
+      </View>
+      {rows.map(([label, value]) => (
+        <View key={label} style={styles.foodRow}>
+          <Text style={styles.foodName}>{label}</Text>
+          <Text style={styles.foodAmount}>{value}</Text>
+        </View>
+      ))}
+      {isInteractive && card.actions && card.actions.length > 0 && (
+        <View style={styles.actionsRow}>
+          {card.actions.map((a, idx) => (
+            <TouchableOpacity
+              key={idx}
+              style={[styles.actionBtn, idx === 0 && styles.actionBtnPrimary]}
+              onPress={() => onActionPress?.(a.kind, a.label ?? '')}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[styles.actionLabel, idx === 0 && styles.actionLabelPrimary]}
               >
                 {a.label ?? a.kind}
               </Text>

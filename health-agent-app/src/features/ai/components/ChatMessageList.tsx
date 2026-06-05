@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   },
   // T6: 流式消息样式
   streamingContainer: {
-    maxWidth: '85%',
+    maxWidth: '95%',
     paddingVertical: theme.spacing.xs,
   },
   errorRow: {

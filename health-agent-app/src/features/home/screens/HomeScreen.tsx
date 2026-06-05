@@ -76,7 +76,7 @@ export function HomeScreen() {
   // 重新拉取首页辅助卡片，让对应类型显示"待确认"态（确认/取消）
   const bodyPendingRecords = useBodyPendingStore((s) => s.pendingRecords);
   useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ['home'] });
+    queryClient.invalidateQueries({ queryKey: ['home/body', date] });
   }, [bodyPendingRecords, date, queryClient]);
 
   // 每次 tab 获得焦点时检查日期是否跨天，跨天则自动刷新为今天
@@ -227,7 +227,7 @@ export function HomeScreen() {
         if (pending.cardId) {
           useAIStore.getState().setCardStatus(pending.cardId, 'submitted');
         }
-        queryClient.invalidateQueries({ queryKey: ['home'] });
+        queryClient.invalidateQueries({ queryKey: ['home/body', date] });
         toast.show({ type: 'success', message: '已保存' });
       } catch {
         toast.show({ type: 'error', message: '保存失败，请重试' });
@@ -244,7 +244,7 @@ export function HomeScreen() {
       if (pending?.cardId) {
         useAIStore.getState().setCardStatus(pending.cardId, 'cancelled');
       }
-      queryClient.invalidateQueries({ queryKey: ['home'] });
+      queryClient.invalidateQueries({ queryKey: ['home/body', date] });
       toast.show({ type: 'info', message: '已取消' });
     },
     [date, queryClient, toast]

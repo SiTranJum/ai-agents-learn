@@ -279,7 +279,9 @@ export function useStreamingChat(): UseStreamingChatReturn {
   const sendCardAction = useCallback(
     (card: ChatCard, actionId: string) => {
       const cardId = getCardId(card);
-      setCardStatus(cardId, 'submitted');
+      // 取消类操作标记为 cancelled，其余（确认）标记为 submitted
+      const isCancel = actionId.startsWith('cancel_');
+      setCardStatus(cardId, isCancel ? 'cancelled' : 'submitted');
       _dispatch({
         type: 'card_action',
         card_id: cardId,
