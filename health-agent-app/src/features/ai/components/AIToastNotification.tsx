@@ -1,6 +1,6 @@
 // AIToastNotification - 弹幕式 AI 消息通知
-// 监听最新的 AI 消息，在首页输入框上方以弹幕形式滑动显示
-// 参考抖音直播弹幕效果
+// 监听最新的 AI 消息，在首页左下角/右下角以弹幕形式显示
+// 显示流式状态（识别意图、分析饮食）+ 文本内容 + 卡片摘要
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -16,47 +16,54 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '@app/styles/theme';
 import type { MainStackParamList } from '@app/navigation/types';
 import { useAIStore } from '../store/aiStore';
-import type { ChatMessage, ChatCard } from '../types/ai.types';
+import type { ChatMessage, ChatCard, MessageSegment } from '../types/ai.types';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
 interface ToastContent {
   messageId: string;
-  text: string;
+  lines: string[]; // 多行内容：[status, text, cardSummary]
   hasCard: boolean;
-  cardType?: string;
-  duration: number; // 停留时长（毫秒）
 }
 
 /** 从 AI 消息提取弹幕内容 */
 function extractToastContent(message: ChatMessage): ToastContent | null {
   if (message.role !== 'assistant' && message.role !== 'ai') return null;
-  if (message.isStreaming) return null; // 流式中不显示
 
-  // 优先显示卡片摘要
+  const lines: string[] = [];
+
+  // 1. 显示 status（识别意图、分析饮食等）
+  if (message.status) {
+    lines.push(`📝 ${message.status}`);
+  }
+
+  // 2. 显示文本内容（text_delta 累积）
   if (message.segments) {
+    const textSegments = message.segments.filter((s) => s.kind === 'text');
+    if (textSegments.length > 0) {
+      const fullText = textSegments.map((s) => s.kind === 'text' ? s.content : '').join('');
+      if (fullText.trim()) {
+        const truncated = fullText.length > 60 ? `${fullText.slice(0, 60)}...` : fullText;
+        lines.push(truncated);
+      }
+    }
+
+    // 3. 显示卡片摘要
     const cardSegment = message.segments.find((s) => s.kind === 'card');
     if (cardSegment && cardSegment.kind === 'card') {
-      const card = cardSegment.card;
-      return {
-        messageId: message.id,
-        text: formatCardSummary(card),
-        hasCard: true,
-        cardType: card.type,
-        duration: 5000, // 卡片停留 5 秒
-      };
+      const summary = formatCardSummary(cardSegment.card);
+      if (summary) {
+        lines.push(summary);
+      }
     }
   }
 
-  // 纯文本消息
-  const text = message.content || '';
-  if (!text.trim()) return null;
+  if (lines.length === 0) return null;
 
   return {
     messageId: message.id,
-    text: text.length > 50 ? `${text.slice(0, 50)}...` : text,
-    hasCard: false,
-    duration: 3000, // 文字停留 3 秒
+    lines,
+    hasCard: message.segments?.some((s) => s.kind === 'card') ?? false,
   };
 }
 
@@ -91,7 +98,7 @@ function formatCardSummary(card: ChatCard): string {
       return `${label}已记录`;
     }
     default:
-      return '🤖 AI 回复';
+      return '';
   }
 }
 
@@ -103,7 +110,7 @@ export function AIToastNotification() {
   const incrementUnread = useAIStore((s) => s.incrementUnread);
 
   const [currentToast, setCurrentToast] = useState<ToastContent | null>(null);
-  const translateX = useRef(new Animated.Value(400)).current; // 从右侧滑入
+  const translateY = useRef(new Animated.Value(200)).current; // 从下往上
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -111,24 +118,32 @@ export function AIToastNotification() {
 
     const lastMessage = messages[messages.length - 1];
 
-    // 已经弹过幕的消息不再重复
-    if (lastMessage.id === lastToastMessageId) return;
-
+    // 每次消息更新都检查（包括流式更新）
     const content = extractToastContent(lastMessage);
     if (!content) return;
 
-    // 显示弹幕
+    // 如果是同一条消息的更新，刷新内容但不重新触发动画
+    if (lastMessage.id === currentToast?.messageId) {
+      setCurrentToast(content);
+      return;
+    }
+
+    // 新消息：显示弹幕并记录
     setCurrentToast(content);
     setLastToastMessageId(content.messageId);
-    incrementUnread();
 
-    // 动画：从右向左滑入
-    translateX.setValue(400);
+    // 只在非流式状态增加未读（流式完成后才算一条完整消息）
+    if (!lastMessage.isStreaming) {
+      incrementUnread();
+    }
+
+    // 动画：从下往上弹出
+    translateY.setValue(200);
     opacity.setValue(0);
     Animated.parallel([
-      Animated.timing(translateX, {
+      Animated.timing(translateY, {
         toValue: 0,
-        duration: 500,
+        duration: 400,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -139,27 +154,29 @@ export function AIToastNotification() {
       }),
     ]).start();
 
-    // 停留后淡出
-    const timer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(translateX, {
-          toValue: -400,
-          duration: 400,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setCurrentToast(null);
-      });
-    }, content.duration);
+    // 如果消息流式完成，5秒后淡出
+    if (!lastMessage.isStreaming) {
+      const timer = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(translateY, {
+            toValue: 200,
+            duration: 300,
+            easing: Easing.in(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setCurrentToast(null);
+        });
+      }, 5000);
 
-    return () => clearTimeout(timer);
-  }, [messages, lastToastMessageId, setLastToastMessageId, incrementUnread, translateX, opacity]);
+      return () => clearTimeout(timer);
+    }
+  }, [messages, currentToast, lastToastMessageId, setLastToastMessageId, incrementUnread, translateY, opacity]);
 
   if (!currentToast) return null;
 
@@ -168,8 +185,8 @@ export function AIToastNotification() {
     navigation.navigate('AIDialog', {});
     // 立即隐藏弹幕
     Animated.parallel([
-      Animated.timing(translateX, {
-        toValue: -400,
+      Animated.timing(translateY, {
+        toValue: 200,
         duration: 200,
         useNativeDriver: true,
       }),
@@ -188,7 +205,7 @@ export function AIToastNotification() {
       style={[
         styles.container,
         {
-          transform: [{ translateX }],
+          transform: [{ translateY }],
           opacity,
         },
       ]}
@@ -198,11 +215,13 @@ export function AIToastNotification() {
         onPress={handlePress}
         activeOpacity={0.8}
       >
-        <Text style={styles.text} numberOfLines={2}>
-          🤖 {currentToast.text}
-        </Text>
+        {currentToast.lines.map((line, idx) => (
+          <Text key={idx} style={styles.text} numberOfLines={1}>
+            {line}
+          </Text>
+        ))}
         {currentToast.hasCard && (
-          <Text style={styles.hint}>点击查看详情</Text>
+          <Text style={styles.hint}>轻触展开</Text>
         )}
       </TouchableOpacity>
     </Animated.View>
@@ -212,25 +231,29 @@ export function AIToastNotification() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 120, // 在输入框上方 60px（输入框56px + TabBar60px + 间隙）
+    bottom: 70, // TabBar(60px) + 10px 间距
     left: theme.spacing.md,
-    right: theme.spacing.md,
+    maxWidth: 240, // 只占左下角小块区域
     zIndex: 999,
   },
   toast: {
-    backgroundColor: 'rgba(50, 50, 50, 0.95)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)', // 半透明白底
     borderRadius: theme.radius.lg,
     padding: theme.spacing.md,
     ...theme.shadows.card,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
   },
   text: {
-    ...theme.typography.body,
-    color: '#FFFFFF',
-    lineHeight: 20,
+    ...theme.typography.bodySm,
+    color: theme.colors.textPrimary,
+    lineHeight: 18,
+    marginBottom: 2,
   },
   hint: {
     ...theme.typography.caption,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: theme.colors.textTertiary,
     marginTop: theme.spacing.xs,
+    fontStyle: 'italic',
   },
 });
