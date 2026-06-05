@@ -1,6 +1,6 @@
-// GlobalAIInputBar - 全局 AI 输入栏 + 浮层
+// GlobalAIInputBar - 全局 AI 输入栏 + 弹幕通知
 // 挂在 TabNavigator 之上、TabBar 之上，4 个主 Tab 页面共享
-// T6 后：发消息先展开半屏浮层（流式），浮层内可展开全屏
+// 废除半屏浮层，改为弹幕通知 + 常驻展开按钮
 
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
@@ -12,52 +12,45 @@ import { theme } from '@app/styles/theme';
 import type { MainStackParamList } from '@app/navigation/types';
 import { useAIStore } from '../store/aiStore';
 import { useStreamingChat } from '../hooks/useStreamingChat';
-import { AIChatOverlay } from './AIChatOverlay';
+import { AIToastNotification } from './AIToastNotification';
 
 export function GlobalAIInputBar() {
   const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
-  const overlayState = useAIStore((s) => s.overlayState);
-  const setOverlayState = useAIStore((s) => s.setOverlayState);
-  const hasMessages = useAIStore((s) => s.chatMessages.length > 0);
+  const unreadCount = useAIStore((s) => s.unreadCount);
   const { send } = useStreamingChat();
 
   const handleSend = useCallback(
     (text: string) => {
-      if (overlayState === 'collapsed') {
-        setOverlayState('floating');
-      }
       send(text);
     },
-    [overlayState, setOverlayState, send]
+    [send]
   );
 
-  const handleInputPress = useCallback(() => {
-    // 有历史消息时，点击输入框自动展开浮层（如果未展开）
-    console.log('[GlobalAIInputBar] onInputPress triggered', { hasMessages, overlayState });
-    if (hasMessages && overlayState === 'collapsed') {
-      console.log('[GlobalAIInputBar] Opening overlay');
-      setOverlayState('floating');
-    }
-  }, [hasMessages, overlayState, setOverlayState]);
+  const handleExpandPress = useCallback(() => {
+    // 点击展开按钮 → 进入全屏对话页
+    navigation.navigate('AIDialog', {});
+  }, [navigation]);
 
   const handleCamera = useCallback(() => {
-    setOverlayState('fullscreen');
     navigation.navigate('AIDialog', {});
-  }, [navigation, setOverlayState]);
+  }, [navigation]);
 
   const handleVoice = useCallback(() => {
-    setOverlayState('fullscreen');
     navigation.navigate('AIDialog', {});
-  }, [navigation, setOverlayState]);
+  }, [navigation]);
 
   return (
     <View style={styles.wrap}>
-      <AIChatOverlay />
+      {/* 弹幕通知 */}
+      <AIToastNotification />
+
+      {/* 输入栏 */}
       <AIInputBar
         onSend={handleSend}
         onCamera={handleCamera}
         onVoice={handleVoice}
-        onInputPress={handleInputPress}
+        onExpandPress={handleExpandPress}
+        unreadCount={unreadCount}
         placeholder="说点什么..."
       />
     </View>

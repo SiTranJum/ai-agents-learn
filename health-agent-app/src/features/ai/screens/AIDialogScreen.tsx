@@ -58,9 +58,15 @@ export function AIDialogScreen() {
   const setNutritionResult = useAIStore((s) => s.setNutritionResult);
   const setOverlayState = useAIStore((s) => s.setOverlayState);
   const setCardStatus = useAIStore((s) => s.setCardStatus);
+  const clearUnread = useAIStore((s) => s.clearUnread);
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // 进入全屏对话页时清零未读
+  useEffect(() => {
+    clearUnread();
+  }, [clearUnread]);
 
   // 监听键盘事件
   useEffect(() => {
