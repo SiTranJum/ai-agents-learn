@@ -10,6 +10,7 @@ import {
   Animated,
   TouchableOpacity,
   Easing,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -215,14 +216,20 @@ export function AIToastNotification() {
         onPress={handlePress}
         activeOpacity={0.8}
       >
-        {currentToast.lines.map((line, idx) => (
-          <Text key={idx} style={styles.text} numberOfLines={1}>
-            {line}
-          </Text>
-        ))}
-        {currentToast.hasCard && (
-          <Text style={styles.hint}>轻触展开</Text>
-        )}
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+        >
+          {currentToast.lines.map((line, idx) => (
+            <Text key={idx} style={styles.text}>
+              {line}
+            </Text>
+          ))}
+          {currentToast.hasCard && (
+            <Text style={styles.hint}>轻触展开</Text>
+          )}
+        </ScrollView>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -234,12 +241,17 @@ const styles = StyleSheet.create({
     bottom: 70, // TabBar(60px) + 10px 间距
     left: theme.spacing.md,
     maxWidth: 240, // 只占左下角小块区域
+    maxHeight: 150, // 最大高度，超出可滚动
     zIndex: 999,
   },
   toast: {
     // 完全透明，无背景无边框，裸露的文字弹幕
     paddingVertical: theme.spacing.xs,
     paddingHorizontal: theme.spacing.sm,
+  },
+  scrollView: {
+    // 透明滚动容器
+    flexGrow: 0,
   },
   text: {
     ...theme.typography.bodySm,
