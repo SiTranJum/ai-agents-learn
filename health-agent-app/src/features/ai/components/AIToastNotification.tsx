@@ -237,23 +237,28 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   toast: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)', // 半透明白底
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.md,
-    ...theme.shadows.card,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.08)',
+    // 完全透明，无背景无边框，裸露的文字弹幕
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
   },
   text: {
     ...theme.typography.bodySm,
     color: theme.colors.textPrimary,
-    lineHeight: 18,
-    marginBottom: 2,
+    lineHeight: 20,
+    marginBottom: 4,
+    // 文字描边，确保在任何背景上都清晰可见
+    textShadowColor: 'rgba(255, 255, 255, 0.9)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 3,
+    fontWeight: '600',
   },
   hint: {
     ...theme.typography.caption,
-    color: theme.colors.textTertiary,
+    color: theme.colors.primary,
     marginTop: theme.spacing.xs,
-    fontStyle: 'italic',
+    fontWeight: '600',
+    textShadowColor: 'rgba(255, 255, 255, 0.8)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
   },
 });
