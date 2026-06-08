@@ -8,10 +8,11 @@ import {
   Text,
   StyleSheet,
   Animated,
-  TouchableOpacity,
   Easing,
   ScrollView,
+  Pressable,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '@app/styles/theme';
@@ -106,37 +107,64 @@ function formatCardSummary(card: ChatCard): string {
 export function AIToastNotification() {
   const navigation = useNavigation<Nav>();
   const messages = useAIStore((s) => s.chatMessages);
-  const lastToastMessageId = useAIStore((s) => s.lastToastMessageId);
   const setLastToastMessageId = useAIStore((s) => s.setLastToastMessageId);
   const incrementUnread = useAIStore((s) => s.incrementUnread);
 
   const [currentToast, setCurrentToast] = useState<ToastContent | null>(null);
-  const translateY = useRef(new Animated.Value(200)).current; // 从下往上
+  const currentMessageIdRef = useRef<string | null>(null); // 追踪当前弹幕对应的消息 ID
+  const translateY = useRef(new Animated.Value(200)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (messages.length === 0) return;
 
     const lastMessage = messages[messages.length - 1];
 
-    // 每次消息更新都检查（包括流式更新）
+    // 只处理 AI 消息
     const content = extractToastContent(lastMessage);
     if (!content) return;
 
-    // 如果是同一条消息的更新，刷新内容但不重新触发动画
-    if (lastMessage.id === currentToast?.messageId) {
+    // 同一条消息的流式更新：只刷新内容，不重新触发动画
+    if (lastMessage.id === currentMessageIdRef.current) {
       setCurrentToast(content);
+
+      // 流式完成时设置淡出定时器
+      if (!lastMessage.isStreaming) {
+        if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+        fadeTimerRef.current = setTimeout(() => {
+          Animated.parallel([
+            Animated.timing(translateY, {
+              toValue: 200,
+              duration: 300,
+              easing: Easing.in(Easing.cubic),
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacity, {
+              toValue: 0,
+              duration: 300,
+              useNativeDriver: true,
+            }),
+          ]).start(() => {
+            setCurrentToast(null);
+            currentMessageIdRef.current = null;
+          });
+        }, 5000);
+      }
       return;
     }
 
-    // 新消息：显示弹幕并记录
+    // 新消息：更新 ref、显示弹幕、触发动画
+    currentMessageIdRef.current = lastMessage.id;
     setCurrentToast(content);
     setLastToastMessageId(content.messageId);
 
-    // 只在非流式状态增加未读（流式完成后才算一条完整消息）
     if (!lastMessage.isStreaming) {
       incrementUnread();
     }
+
+    // 清除旧定时器
+    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
 
     // 动画：从下往上弹出
     translateY.setValue(200);
@@ -155,9 +183,9 @@ export function AIToastNotification() {
       }),
     ]).start();
 
-    // 如果消息流式完成，5秒后淡出
+    // 非流式消息：5秒后淡出
     if (!lastMessage.isStreaming) {
-      const timer = setTimeout(() => {
+      fadeTimerRef.current = setTimeout(() => {
         Animated.parallel([
           Animated.timing(translateY, {
             toValue: 200,
@@ -172,12 +200,11 @@ export function AIToastNotification() {
           }),
         ]).start(() => {
           setCurrentToast(null);
+          currentMessageIdRef.current = null;
         });
       }, 5000);
-
-      return () => clearTimeout(timer);
     }
-  }, [messages, currentToast, lastToastMessageId, setLastToastMessageId, incrementUnread, translateY, opacity]);
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!currentToast) return null;
 
@@ -211,26 +238,28 @@ export function AIToastNotification() {
         },
       ]}
     >
-      <TouchableOpacity
-        style={styles.toast}
-        onPress={handlePress}
-        activeOpacity={0.8}
-      >
+      <BlurView intensity={40} tint="light" style={styles.blur}>
         <ScrollView
           style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
+          scrollEnabled
+          bounces={false}
+          overScrollMode="never"
         >
           {currentToast.lines.map((line, idx) => (
             <Text key={idx} style={styles.text}>
               {line}
             </Text>
           ))}
-          {currentToast.hasCard && (
-            <Text style={styles.hint}>轻触展开</Text>
-          )}
         </ScrollView>
-      </TouchableOpacity>
+        {currentToast.hasCard && (
+          <Pressable onPress={handlePress} style={styles.expandBtn}>
+            <Text style={styles.hint}>轻触展开</Text>
+          </Pressable>
+        )}
+      </BlurView>
     </Animated.View>
   );
 }
@@ -240,37 +269,44 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 70, // TabBar(60px) + 10px 间距
     left: theme.spacing.md,
-    maxWidth: 240, // 只占左下角小块区域
-    maxHeight: 150, // 最大高度，超出可滚动
+    maxWidth: 260, // 只占左下角小块区域
+    maxHeight: 160, // 最大高度，超出可滚动
     zIndex: 999,
+    // 轻微投影，让毛玻璃块从背景中浮起来
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  toast: {
-    // 完全透明，无背景无边框，裸露的文字弹幕
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
+  blur: {
+    borderRadius: theme.radius.lg,
+    overflow: 'hidden', // 关键：裁剪模糊到圆角内
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    // 加厚白底，彻底遮住背景文字
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
   },
   scrollView: {
-    // 透明滚动容器
-    flexGrow: 0,
+    maxHeight: 120, // 固定最大高度，超出部分可滚动
+  },
+  scrollContent: {
+    paddingBottom: theme.spacing.xs,
   },
   text: {
     ...theme.typography.bodySm,
     color: theme.colors.textPrimary,
     lineHeight: 20,
     marginBottom: 4,
-    // 文字描边，确保在任何背景上都清晰可见
-    textShadowColor: 'rgba(255, 255, 255, 0.9)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 3,
-    fontWeight: '600',
+  },
+  expandBtn: {
+    alignSelf: 'flex-start',
+    marginTop: theme.spacing.xs,
+    paddingTop: theme.spacing.xs,
   },
   hint: {
     ...theme.typography.caption,
     color: theme.colors.primary,
-    marginTop: theme.spacing.xs,
     fontWeight: '600',
-    textShadowColor: 'rgba(255, 255, 255, 0.8)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 2,
   },
 });
