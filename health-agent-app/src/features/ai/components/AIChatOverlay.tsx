@@ -31,7 +31,7 @@ function getCardExpandLabel(cardType?: string): string {
     case 'suggestion':
       return '查看建议';
     case 'insight':
-      return '查看洞察';
+      return '查看报告';
     default:
       return '查看详情';
   }
