@@ -1,7 +1,3 @@
-// PlanDetailScreen - 计划详情页 (P07)
-// 参考: docs/specs/frontend/modules/14-plan-module.md §P07
-// UI 文稿: docs/prd/v1/ui-design/09-plan-detail-page.md
-
 import React, { useCallback, useState } from 'react';
 import {
   View,
@@ -27,11 +23,7 @@ import { useToast } from '@shared/feedback/Toast';
 import type { MainStackParamList } from '@app/navigation/types';
 
 import { TaskList } from '../components/TaskList';
-import {
-  usePlanDetail,
-  useTerminatePlan,
-  useToggleTask,
-} from '../hooks/usePlanData';
+import { usePlanDetail, useTerminatePlan, useToggleTask } from '../hooks/usePlanData';
 import type { PlanStatus } from '../types/plan.types';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'PlanDetail'>;
@@ -50,7 +42,6 @@ export function PlanDetailScreen() {
 
   const planId = route.params?.planId;
   const { data: plan, isLoading } = usePlanDetail(planId);
-
   const toggleMutation = useToggleTask(planId ?? '');
   const terminateMutation = useTerminatePlan();
 
@@ -72,11 +63,11 @@ export function PlanDetailScreen() {
       toast.show({ type: 'success', message: '计划已终止' });
       navigation.goBack();
     } catch {
-      toast.show({ type: 'error', message: '操作失败，请重试' });
+      toast.show({ type: 'error', message: '终止计划失败，请重试' });
     } finally {
       setShowTerminateConfirm(false);
     }
-  }, [planId, terminateMutation, toast, navigation]);
+  }, [navigation, planId, terminateMutation, toast]);
 
   if (isLoading || !plan) {
     return (
@@ -91,100 +82,97 @@ export function PlanDetailScreen() {
   const statusStyle = STATUS_CONFIG[plan.status];
   const isActive = plan.status === 'active';
   const isCompleted = plan.status === 'completed';
-  const chartWidth = Dimensions.get('window').width - 32 - 32;
+  const chartWidth = Dimensions.get('window').width - 64;
 
   return (
     <PageContainer useSafeArea>
-      {/* 顶部导航栏 */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
           <Feather name="chevron-left" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>{plan.name}</Text>
         <View style={[styles.statusTag, { backgroundColor: statusStyle.bg }]}>
-          <Text style={[styles.statusText, { color: statusStyle.text }]}>
-            {statusStyle.label}
-          </Text>
+          <Text style={[styles.statusText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* 警告卡片 */}
-        {plan.warning && (
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {plan.warning ? (
           <Card style={styles.warningCard}>
-            <Text style={styles.warningTitle}>
-              连续 {plan.warning.daysMissed} 天未达标
-            </Text>
+            <Text style={styles.warningTitle}>连续 {plan.warning.daysMissed} 天未达标</Text>
             <Text style={styles.warningDesc}>{plan.warning.description}</Text>
           </Card>
-        )}
+        ) : null}
 
-        {/* 目标信息卡片 */}
         <Card>
-          {plan.targetWeight != null && (
-            <Row label="目标体重" value={`${plan.targetWeight} kg`} />
-          )}
-          {plan.duration && <Row label="时间周期" value={plan.duration} />}
-          {plan.currentPhase && <Row label="当前阶段" value={plan.currentPhase} last />}
-          {plan.dailyCalorieTarget != null && (
-            <Row label="每日热量" value={`${plan.dailyCalorieTarget} kcal`} last />
-          )}
+          {plan.targetWeight != null ? <Row label="目标体重" value={`${plan.targetWeight} kg`} /> : null}
+          {plan.duration ? <Row label="计划周期" value={plan.duration} /> : null}
+          {plan.currentPhase ? <Row label="当前阶段" value={plan.currentPhase} /> : null}
+          <Row label="今日任务" value={`${plan.completedTasks}/${plan.totalTasks}`} />
+          <Row label="连续达标" value={`${plan.streakDays} 天`} last={plan.dailyCalorieTarget == null} />
+          {plan.dailyCalorieTarget != null ? <Row label="每日热量" value={`${plan.dailyCalorieTarget} kcal`} last /> : null}
         </Card>
 
-        {/* 今日任务 */}
-        <Text style={styles.sectionTitle}>
-          {isCompleted ? '计划总结' : '今日任务'}
-        </Text>
+        {plan.phases.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>阶段时间线</Text>
+            <Card>
+              {plan.phases.map((phase, index) => (
+                <View key={phase.id} style={[styles.phaseBlock, index !== plan.phases.length - 1 && styles.phaseBorder]}>
+                  <Text style={styles.phaseTitle}>{phase.title}</Text>
+                  <Text style={styles.phaseMeta}>
+                    {phase.startDate} 至 {phase.endDate}
+                  </Text>
+                  <Text style={styles.phaseGoal}>{phase.goal}</Text>
+                  {phase.tasks.map((task) => (
+                    <Text key={task.id} style={styles.phaseTask}>
+                      • {task.text}
+                    </Text>
+                  ))}
+                </View>
+              ))}
+            </Card>
+          </>
+        ) : null}
+
+        <Text style={styles.sectionTitle}>{isCompleted ? '计划总结' : '今日任务'}</Text>
         {isCompleted ? (
           <Card>
             <Text style={styles.summaryText}>{plan.aiSuggestion}</Text>
           </Card>
         ) : (
-          <TaskList
-            tasks={plan.tasks}
-            readonly={!isActive}
-            onToggle={handleToggleTask}
-          />
+          <TaskList tasks={plan.tasks} readonly={!isActive} onToggle={handleToggleTask} />
         )}
 
-        {/* 执行进度 */}
-        {plan.trendData.length > 0 && (
+        {plan.trendData.length > 0 ? (
           <>
-            <Text style={styles.sectionTitle}>执行进度</Text>
+            <Text style={styles.sectionTitle}>执行趋势</Text>
             <Card>
               <LineChart
                 data={{
-                  labels: sampleLabels(plan.trendData.map((p) => p.date), 5),
-                  datasets: [{ data: plan.trendData.map((p) => p.value) }],
+                  labels: sampleLabels(plan.trendData.map((point) => point.date), 5),
+                  datasets: [{ data: plan.trendData.map((point) => point.value) }],
                 }}
                 width={chartWidth}
                 height={180}
               />
             </Card>
           </>
-        )}
+        ) : null}
 
-        {/* AI 建议 */}
-        {!isCompleted && (
+        {!isCompleted ? (
           <>
-            <Text style={styles.sectionTitle}>AI 建议</Text>
+            <Text style={styles.sectionTitle}>AI 调整建议</Text>
             <Card>
               <Text style={styles.adviceText}>{plan.aiSuggestion}</Text>
             </Card>
           </>
-        )}
+        ) : null}
 
-        {/* 底部操作 */}
         <View style={styles.actions}>
           {isCompleted ? (
             <View style={styles.actionBtn}>
-              <Button
-                variant="primary"
-                onPress={() => navigation.navigate('PlanCreate')}
-              >
+              <Button variant="primary" onPress={() => navigation.navigate('PlanCreate')}>
                 创建新计划
               </Button>
             </View>
@@ -193,18 +181,13 @@ export function PlanDetailScreen() {
               <View style={styles.actionBtn}>
                 <Button
                   variant="primary"
-                  onPress={() =>
-                    toast.show({ type: 'info', message: '修改功能即将上线' })
-                  }
+                  onPress={() => toast.show({ type: 'info', message: '可以在 AI 对话里直接提出计划调整需求' })}
                 >
                   修改计划
                 </Button>
               </View>
               <View style={styles.actionBtn}>
-                <Button
-                  variant="secondary"
-                  onPress={() => setShowTerminateConfirm(true)}
-                >
+                <Button variant="secondary" onPress={() => setShowTerminateConfirm(true)}>
                   终止计划
                 </Button>
               </View>
@@ -216,9 +199,9 @@ export function PlanDetailScreen() {
       <ConfirmDialog
         visible={showTerminateConfirm}
         title="终止计划？"
-        message="终止后计划将不再追踪进度，无法恢复。"
-        confirmText="确认终止"
-        cancelText="再想想"
+        message="终止后将不再追踪当前计划进度。"
+        confirmText="终止"
+        cancelText="取消"
         variant="danger"
         onConfirm={handleTerminate}
         onCancel={() => setShowTerminateConfirm(false)}
@@ -236,21 +219,17 @@ function Row({ label, value, last }: { label: string; value: string; last?: bool
   );
 }
 
-function sampleLabels(arr: string[], n: number): string[] {
-  if (arr.length <= n) {
-    return arr.map(formatLabel);
+function sampleLabels(labels: string[], count: number): string[] {
+  if (labels.length <= count) {
+    return labels.map(formatLabel);
   }
-  const step = Math.floor(arr.length / n);
-  const out: string[] = [];
-  for (let i = 0; i < arr.length; i += step) {
-    out.push(formatLabel(arr[i]));
-    if (out.length >= n) break;
-  }
-  return out;
+  const step = Math.max(1, Math.floor(labels.length / count));
+  return labels.filter((_, index) => index % step === 0).slice(0, count).map(formatLabel);
 }
-function formatLabel(d: string): string {
-  const parts = d.split('-');
-  if (parts.length !== 3) return d;
+
+function formatLabel(value: string): string {
+  const parts = value.split('-');
+  if (parts.length !== 3) return value;
   return `${Number(parts[1])}/${Number(parts[2])}`;
 }
 
@@ -327,6 +306,35 @@ const styles = StyleSheet.create({
   warningDesc: {
     ...theme.typography.bodySm,
     color: theme.colors.textSecondary,
+  },
+  phaseBlock: {
+    paddingVertical: theme.spacing.sm,
+  },
+  phaseBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.divider,
+  },
+  phaseTitle: {
+    ...theme.typography.body,
+    color: theme.colors.textPrimary,
+    fontWeight: '600',
+  },
+  phaseMeta: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.xs,
+  },
+  phaseGoal: {
+    ...theme.typography.bodySm,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.xs,
+    lineHeight: 20,
+  },
+  phaseTask: {
+    ...theme.typography.bodySm,
+    color: theme.colors.textPrimary,
+    marginTop: theme.spacing.xs,
+    lineHeight: 20,
   },
   adviceText: {
     ...theme.typography.body,

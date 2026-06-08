@@ -23,6 +23,7 @@ export interface HomePlan {
   id: string;
   name: string;
   progress: number; // 0-100
+  currentPhase?: string;
   completedTasks: number;
   totalTasks: number;
 }

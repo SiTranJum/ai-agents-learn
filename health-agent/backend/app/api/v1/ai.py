@@ -25,8 +25,10 @@ from app.dependencies import (
     ChatAgentDep,
     ChatServiceDep,
     CurrentUserDep,
+    CurrentUserWithProfileDep,
     DietServiceDep,
     MemoryServiceDep,
+    PlanServiceDep,
     RagServiceDep,
 )
 from app.schemas.chat import ChatCard, ChatRole, ChatStreamRequest
@@ -385,12 +387,13 @@ async def _stream_card_action(
 @router.post("/chat")
 async def send_message(
     payload: ChatStreamRequest,
-    user: CurrentUserDep,
+    user: CurrentUserWithProfileDep,
     chat_service: ChatServiceDep,
     chat_agent: ChatAgentDep,
     diet_service: DietServiceDep,
     body_service: BodyServiceDep,
     memory_service: MemoryServiceDep,
+    plan_service: PlanServiceDep,
     rag_service: RagServiceDep,
 ):
     """流式 chat 端点（SSE）。
@@ -417,7 +420,12 @@ async def send_message(
     # ============ T9: card_action 快速路径 ============
     # 卡片确认/取消等明确操作不需要走 LangGraph，
     # 直接调对应 service，把结果包装成最小流式响应。
-    if payload.type == "card_action":
+    if payload.type == "card_action" and (payload.action_id or "") in {
+        "confirm_create_diet_record",
+        "edit_diet_items",
+        "confirm_create_body_record",
+        "cancel_body_record",
+    }:
         return await _stream_card_action(
             payload=payload,
             session_id=session_id,
@@ -441,6 +449,11 @@ async def send_message(
         "user_message": user_text,
         "chat_history": [item.model_dump(mode="json") for item in history],
         "context": context,
+        "profile": user.profile,
+        "plan_service": plan_service,
+        "request_type": payload.type,
+        "card_action_id": payload.action_id,
+        "card_action_payload": payload.action_payload,
         "diet_input_text": user_text,
         "diet_image_url": context.get("image_url"),
         "diet_date": _parse_referenced_date(context),

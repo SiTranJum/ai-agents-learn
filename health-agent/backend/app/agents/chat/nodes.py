@@ -84,6 +84,8 @@ def route_after_intent(state: ChatState) -> str:
         return "diet"
     if intent == "body":
         return "body"
+    if intent == "plan":
+        return "plan"
     return "general"
 
 
@@ -305,7 +307,7 @@ async def wrap_response(state: ChatState) -> dict[str, Any]:
     return {
         "ai_response": state.get("ai_response") or "我已经收到你的消息。",
         "response_cards": state.get("response_cards", []) or [],
-        "choice_prompts": [],
+        "choice_prompts": state.get("choice_prompts", []) or [],
     }
 
 

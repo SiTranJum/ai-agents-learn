@@ -25,7 +25,7 @@ from app.db.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMix
 
 
 class Plan(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
-    """User health plan header and task JSON."""
+    """User health plan header with compatibility task JSON and phased JSON."""
 
     __tablename__ = "plans"
     __table_args__ = (
@@ -41,6 +41,7 @@ class Plan(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     target_date: Mapped[date] = mapped_column(Date, nullable=False)
     tasks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    phases: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     terminated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     termination_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 

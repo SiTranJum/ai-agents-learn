@@ -20,6 +20,7 @@ from app.agents.chat.nodes import (
 from app.agents.body.subgraph import build_body_subgraph
 from app.agents.chat.state import ChatState
 from app.agents.diet.subgraph import build_diet_subgraph
+from app.agents.plan.subgraph import build_plan_subgraph
 
 
 def build_chat_agent():
@@ -34,6 +35,7 @@ def build_chat_agent():
     graph.add_node("identify_intent", cast(Any, identify_intent))
     graph.add_node("diet", build_diet_subgraph())
     graph.add_node("body", build_body_subgraph())
+    graph.add_node("plan", build_plan_subgraph())
     graph.add_node("recall_memories", cast(Any, recall_memories))
     graph.add_node("search_knowledge", cast(Any, search_knowledge))
     graph.add_node("assemble_prompt", cast(Any, assemble_prompt))
@@ -45,10 +47,11 @@ def build_chat_agent():
     graph.add_conditional_edges(
         "identify_intent",
         route_after_intent,
-        {"diet": "diet", "body": "body", "general": "recall_memories"},
+        {"diet": "diet", "body": "body", "plan": "plan", "general": "recall_memories"},
     )
     graph.add_edge("diet", "wrap_response")
     graph.add_edge("body", "wrap_response")
+    graph.add_edge("plan", "wrap_response")
     graph.add_edge("recall_memories", "search_knowledge")
     graph.add_edge("search_knowledge", "assemble_prompt")
     graph.add_edge("assemble_prompt", "call_llm")

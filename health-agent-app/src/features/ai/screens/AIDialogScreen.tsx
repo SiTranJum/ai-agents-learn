@@ -135,6 +135,11 @@ export function AIDialogScreen() {
         return;
       }
 
+      if (actionId === 'view_plan_detail' && 'plan_id' in card.payload && typeof card.payload.plan_id === 'string') {
+        navigation.navigate('PlanDetail', { planId: card.payload.plan_id });
+        return;
+      }
+
       // 饮食确认：本地静默保存，不走 SSE
       if (actionId === 'confirm_create_diet_record') {
         const pending = useDietStore.getState().pendingRecords[cardId];

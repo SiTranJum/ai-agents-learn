@@ -14,6 +14,7 @@ import type {
   HomePlan,
   MealType,
 } from '../types/home.types';
+import { apiClient } from '@core/api/client';
 import { dietService } from '@features/diet/services/dietService';
 import { dataService } from '@features/data/services/dataService';
 import { suggestionService } from '@features/suggestion/services/suggestionService';
@@ -23,6 +24,7 @@ import type { PendingBodyRecord } from '@features/data/store/bodyPendingStore';
 import type { DietPageData, DietRecord } from '@features/diet/types/diet.types';
 import type { TodayRecords } from '@features/data/types/data.types';
 import type { AuxiliaryPending } from '../types/home.types';
+import type { PlanProgressRaw, PlanResponseRaw } from '@features/plan/types/plan.types';
 
 export interface HomeService {
   /**
@@ -152,7 +154,24 @@ export function assembleHomeData(
 
 /** TODO(Phase 8): 改为 planService.listActive() */
 async function fetchActivePlan(): Promise<HomePlan | null> {
-  return null;
+  const listed = await apiClient.getPaginated<PlanResponseRaw>('/plans?status=active&page=1&page_size=1');
+  const active = listed.data[0];
+  if (!active) {
+    return null;
+  }
+  const progress = await apiClient.get<PlanProgressRaw>(`/plans/${active.id}/progress`);
+  const today = new Date().toISOString().slice(0, 10);
+  const currentPhase =
+    active.phases.find((phase) => phase.start_date <= today && phase.end_date >= today)?.title ??
+    active.phases[0]?.title;
+  return {
+    id: active.id,
+    name: active.name,
+    progress: Math.round(progress.compliance_rate * 100),
+    currentPhase,
+    completedTasks: progress.completed_tasks,
+    totalTasks: progress.total_tasks,
+  };
 }
 
 const DEFAULT_INSIGHT = '记得多喝水、均衡饮食、保持运动。';

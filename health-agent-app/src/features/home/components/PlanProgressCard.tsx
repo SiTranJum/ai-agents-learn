@@ -1,15 +1,12 @@
-// PlanProgressCard - 计划进度卡片
-// 有计划：名称 + 状态标签 + 进度条 + 任务完成数
-// 无计划：显示"创建计划"引导
-// 参考: docs/prd/v1/ui-design/03-home-dashboard.md §3.F, §5.1
-
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+
 import { Card } from '@shared/ui/Card';
 import { ProgressBar } from '@shared/ui/ProgressBar';
 import { Tag } from '@shared/ui/Tag';
 import { theme } from '@app/styles/theme';
+
 import type { HomePlan } from '../types/home.types';
 
 export interface PlanProgressCardProps {
@@ -28,12 +25,12 @@ export function PlanProgressCard({ plan, onPress, onCreatePlan }: PlanProgressCa
           </View>
           <Text style={styles.title}>计划</Text>
         </View>
-        <Text style={styles.emptyText}>还没有计划，和 AI 聊聊你的健康目标吧</Text>
-        {onCreatePlan && (
+        <Text style={styles.emptyText}>还没有进行中的计划，和 AI 聊聊你的健康目标。</Text>
+        {onCreatePlan ? (
           <TouchableOpacity onPress={onCreatePlan} style={styles.createBtn} activeOpacity={0.8}>
             <Text style={styles.createBtnText}>创建计划</Text>
           </TouchableOpacity>
-        )}
+        ) : null}
       </Card>
     );
   }
@@ -59,8 +56,9 @@ export function PlanProgressCard({ plan, onPress, onCreatePlan }: PlanProgressCa
         <Text style={styles.taskText}>
           今日任务 {plan.completedTasks}/{plan.totalTasks} 已完成
         </Text>
-        {onPress && <Text style={styles.link}>查看计划 →</Text>}
+        {onPress ? <Text style={styles.link}>查看计划</Text> : null}
       </View>
+      {plan.currentPhase ? <Text style={styles.phaseText}>当前阶段：{plan.currentPhase}</Text> : null}
     </Card>
   );
 }
@@ -113,6 +111,11 @@ const styles = StyleSheet.create({
     ...theme.typography.bodySm,
     color: theme.colors.primary,
     fontWeight: '600',
+  },
+  phaseText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.xs,
   },
   emptyText: {
     ...theme.typography.body,

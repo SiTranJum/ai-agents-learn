@@ -1,96 +1,62 @@
-// 计划模块类型定义
-// 参考: docs/specs/frontend/modules/14-plan-module.md §4
-
 export type PlanType = 'weight_loss' | 'nutrition_adjustment' | 'habit_formation';
 export type PlanStatus = 'active' | 'completed' | 'terminated';
-export type BackendPlanType = 'weight_loss' | 'nutrition_adjustment' | 'habit_formation';
-export type BackendPlanStatus = 'active' | 'completed' | 'terminated';
 
-// 计划列表项
 export interface PlanListItem {
   id: string;
   name: string;
   type: PlanType;
   status: PlanStatus;
-  /** 进度 0-100 */
   progress: number;
   startDate: string;
   endDate: string;
+  currentPhase?: string;
 }
 
-// 任务项
 export interface PlanTask {
   id: string;
   text: string;
   completed: boolean;
+  frequency?: string;
+  timePeriod?: string | null;
 }
 
-// 趋势点
+export interface PlanPhase {
+  id: string;
+  title: string;
+  goal: string;
+  startDate: string;
+  endDate: string;
+  tasks: PlanTask[];
+}
+
 export interface PlanTrendPoint {
   date: string;
   value: number;
 }
 
-// 计划详情
 export interface PlanDetail {
   id: string;
   name: string;
   type: PlanType;
   status: PlanStatus;
   targetWeight?: number;
-  /** 每日热量目标 kcal */
   dailyCalorieTarget?: number;
-  /** 时间周期描述（如 "3个月"） */
   duration?: string;
-  /** 当前阶段（如 "第2阶段"） */
   currentPhase?: string;
   startDate: string;
   endDate: string;
-  /** 进度 0-100 */
   progress: number;
+  completedTasks: number;
+  totalTasks: number;
+  streakDays: number;
   tasks: PlanTask[];
+  phases: PlanPhase[];
   trendData: PlanTrendPoint[];
   aiSuggestion: string;
-  /** 是否连续未达标（V1 简化为标志位） */
   warning?: {
     daysMissed: number;
     description: string;
   };
-}
-
-// ===== 对话相关 =====
-export type ChatRole = 'ai' | 'user';
-
-export interface ChatMessage {
-  id: string;
-  role: ChatRole;
-  content: string;
-  timestamp: string;
-  /** AI 提问时附带的快捷选项 */
-  quickOptions?: string[];
-  /** AI 最后一条消息可附带计划摘要 */
-  planSummary?: PlanSummary;
-  /** 末尾"操作按钮"组（如 [确认创建, 修改目标] 或 [查看计划]） */
-  actionButtons?: ChatActionButton[];
-}
-
-export interface ChatActionButton {
-  /** 唯一标识，用于点击回调匹配 */
-  key: string;
-  label: string;
-  variant: 'primary' | 'secondary';
-}
-
-export interface PlanSummary {
-  name: string;
-  type: PlanType;
-  targetWeight?: number;
-  dailyCalorieTarget?: number;
-  /** "3个月" / "1个月" / 自定义文案 */
-  duration: string;
-  /** 阶段数（如 3 个阶段） */
-  phases?: number;
-  keyRules: string[];
 }
 
 export interface PlanTargetRaw {
@@ -108,22 +74,81 @@ export interface PlanTaskRaw {
   time_period?: string | null;
 }
 
-// noinspection JSUnusedGlobalSymbols -- exported for service-layer backend mapping
+export interface PlanPhaseRaw {
+  id: string;
+  title: string;
+  goal: string;
+  start_date: string;
+  end_date: string;
+  tasks: PlanTaskRaw[];
+}
+
 export interface PlanResponseRaw {
   id: string;
   name: string;
   goal_description: string;
-  plan_type: BackendPlanType;
-  status: BackendPlanStatus;
+  plan_type: PlanType;
+  status: PlanStatus;
   start_date: string;
   target_date: string;
   targets: PlanTargetRaw;
   tasks: PlanTaskRaw[];
+  phases: PlanPhaseRaw[];
   created_at: string;
   updated_at: string;
 }
 
-// 对话流程的步骤标识
+export interface DailyExecutionRaw {
+  id?: string | null;
+  date: string;
+  calories_consumed: number;
+  calories_target: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  status: 'on_track' | 'deviation' | 'missed';
+}
+
+export interface PlanProgressRaw {
+  plan_id: string;
+  total_days: number;
+  elapsed_days: number;
+  compliance_rate: number;
+  streak_days: number;
+  completed_tasks: number;
+  total_tasks: number;
+  completed_task_ids: string[];
+  daily_records: DailyExecutionRaw[];
+}
+
+export type ChatRole = 'ai' | 'user';
+
+export interface ChatActionButton {
+  key: string;
+  label: string;
+  variant: 'primary' | 'secondary';
+}
+
+export interface PlanSummary {
+  name: string;
+  type: PlanType;
+  targetWeight?: number;
+  dailyCalorieTarget?: number;
+  duration: string;
+  phases?: number;
+  keyRules: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  role: ChatRole;
+  content: string;
+  timestamp: string;
+  quickOptions?: string[];
+  planSummary?: PlanSummary;
+  actionButtons?: ChatActionButton[];
+}
+
 export type ChatStep =
   | 'ask_type'
   | 'ask_target_weight'
