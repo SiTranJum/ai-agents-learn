@@ -18,6 +18,10 @@ interface AIStore {
   overlayState: OverlayState;
   /** 卡片状态 map（T6 流式卡片用） */
   cardStatus: Map<string, CardStatusValue>;
+  /** 未读 AI 消息数（进入全屏对话后清零） */
+  unreadCount: number;
+  /** 最后一条已弹幕通知的消息 ID */
+  lastToastMessageId: string | null;
 
   addMessage: (message: ChatMessage) => void;
   /** 流式更新：找最后一条 assistant 消息并用 updater 替换 */
@@ -27,6 +31,10 @@ interface AIStore {
   setNutritionResult: (data: NutritionData | null) => void;
   setOverlayState: (state: OverlayState) => void;
   setCardStatus: (cardId: string, status: CardStatusValue) => void;
+  setUnreadCount: (count: number) => void;
+  incrementUnread: () => void;
+  clearUnread: () => void;
+  setLastToastMessageId: (id: string | null) => void;
   clearChat: () => void;
 }
 
@@ -37,6 +45,8 @@ export const useAIStore = create<AIStore>((set) => ({
   nutritionResult: null,
   overlayState: 'collapsed',
   cardStatus: new Map(),
+  unreadCount: 0,
+  lastToastMessageId: null,
 
   addMessage: (message) =>
     set((s) => ({ chatMessages: [...s.chatMessages, message] })),
@@ -65,6 +75,11 @@ export const useAIStore = create<AIStore>((set) => ({
       return { cardStatus: next };
     }),
 
+  setUnreadCount: (count) => set({ unreadCount: count }),
+  incrementUnread: () => set((s) => ({ unreadCount: s.unreadCount + 1 })),
+  clearUnread: () => set({ unreadCount: 0 }),
+  setLastToastMessageId: (id) => set({ lastToastMessageId: id }),
+
   clearChat: () =>
     set({
       chatMessages: [],
@@ -73,5 +88,7 @@ export const useAIStore = create<AIStore>((set) => ({
       nutritionResult: null,
       overlayState: 'collapsed',
       cardStatus: new Map(),
+      unreadCount: 0,
+      lastToastMessageId: null,
     }),
 }));

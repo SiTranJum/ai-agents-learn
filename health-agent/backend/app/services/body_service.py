@@ -334,7 +334,12 @@ class BodyService:
             record = await self.repo.create_water(
                 WaterRecord(date=data.date, amount_ml=data.amount, target_ml=data.target)
             )
+        elif data.operation == "replace":
+            # 覆盖当日总量（用户更正"一共喝了/说错了"）
+            record.amount_ml = data.amount
+            record.target_ml = data.target
         else:
+            # append（默认）：累加到当日已有饮水量
             record.amount_ml += data.amount
             record.target_ml = data.target
         await self.repo.session.commit()

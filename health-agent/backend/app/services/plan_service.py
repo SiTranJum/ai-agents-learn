@@ -1,17 +1,17 @@
 """Plan service.
 
-This service is deterministic: CRUD, validation, BMR and progress calculation only.
-LLM orchestration belongs to ``app.agents.plan``.
+This service owns deterministic plan CRUD, compatibility shaping, safety checks,
+and progress computation. LLM orchestration stays in ``app.agents.plan``.
 """
-# ruff: noqa: RUF001,RUF002
 
 from __future__ import annotations
 
+import math
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
-from app.core.logging import log_all_service_methods
 from app.core.exceptions import ConflictException, NotFoundException, ValidationException
+from app.core.logging import log_all_service_methods
 from app.db.models.plan import Plan, PlanCheckIn, PlanExecution, PlanTarget
 from app.db.repositories.plan_repo import PlanRepository
 from app.schemas.diet import NutritionSummary
@@ -21,6 +21,8 @@ from app.schemas.plan import (
     DailyExecution,
     ExecutionStatus,
     PlanDraft,
+    PlanPhase,
+    PlanPhaseDraft,
     PlanProgress,
     PlanResponse,
     PlanStatus,
@@ -34,7 +36,7 @@ from app.schemas.plan import (
 
 @log_all_service_methods
 class PlanService:
-    """Plan CRUD and deterministic calculations. No LLM calls here."""
+    """Plan CRUD and deterministic calculations."""
 
     def __init__(self, repo: PlanRepository, *, profile: object | None = None) -> None:
         self.repo = repo
@@ -43,22 +45,34 @@ class PlanService:
     async def has_active_plan(self) -> bool:
         return await self.repo.has_active_plan()
 
+    async def get_active_plan(self) -> PlanResponse | None:
+        plan = await self.repo.get_active_plan()
+        if plan is None:
+            return None
+        return await self._response(plan)
+
     async def create_plan_from_draft(self, draft: PlanDraft) -> PlanResponse:
         if await self.has_active_plan():
-            raise ConflictException("已有活跃计划", code="PLAN_ALREADY_ACTIVE")
-        violations = self.safety_check(draft, self.profile)
+            raise ConflictException("Active plan already exists", code="PLAN_ALREADY_ACTIVE")
+        normalized = self.normalize_draft(draft)
+        violations = self.safety_check(normalized, self.profile)
         if violations:
-            raise ValidationException("计划安全校验失败", code=violations[0], details=[{"reason": item} for item in violations])
+            raise ValidationException(
+                "Plan safety validation failed",
+                code=violations[0],
+                details=[{"reason": item} for item in violations],
+            )
         plan = Plan(
-            name=draft.name,
-            goal_description=draft.goal_description,
-            plan_type=draft.plan_type.value,
+            name=normalized.name,
+            goal_description=normalized.goal_description,
+            plan_type=normalized.plan_type.value,
             status=PlanStatus.active.value,
-            start_date=draft.start_date,
-            target_date=draft.target_date,
-            tasks=[self._task_to_json(task) for task in draft.tasks],
+            start_date=normalized.start_date,
+            target_date=normalized.target_date,
+            tasks=[self._task_to_json(task) for task in normalized.tasks],
+            phases=[self._phase_to_json(phase) for phase in normalized.phases],
         )
-        target = PlanTarget(**draft.targets.model_dump())
+        target = PlanTarget(**normalized.targets.model_dump())
         created = await self.repo.create_plan(plan, target)
         await self.repo.session.commit()
         return await self._response(created)
@@ -83,7 +97,7 @@ class PlanService:
     async def update_plan(self, plan_id: uuid.UUID, data: PlanUpdate) -> PlanResponse:
         plan = await self._get_plan_or_404(plan_id)
         if plan.status != PlanStatus.active.value:
-            raise ValidationException("计划不可修改", code="PLAN_NOT_MODIFIABLE")
+            raise ValidationException("Plan is not modifiable", code="PLAN_NOT_MODIFIABLE")
         target = await self.repo.get_target(plan.id)
         if target is None:
             target = PlanTarget(user_id=self.repo.user_id, plan_id=plan.id)
@@ -95,25 +109,41 @@ class PlanService:
             if value is not None:
                 setattr(target, field, value)
         if data.tasks is not None:
-            plan.tasks = [self._task_to_json(task) for task in data.tasks]
-        draft = PlanDraft(
-            name=plan.name,
-            goal_description=plan.goal_description,
-            plan_type=PlanType(plan.plan_type),
-            start_date=plan.start_date,
-            target_date=plan.target_date,
-            targets=PlanTargets(
-                daily_calories=target.daily_calories,
-                protein_target=target.protein_target,
-                fat_target=target.fat_target,
-                carbs_target=target.carbs_target,
-                weight_target=target.weight_target,
-            ),
-            tasks=[PlanTaskUpdate(**task) for task in plan.tasks],
+            tasks = [self._task_to_json(task) for task in data.tasks]
+            plan.tasks = tasks
+            existing_phases = plan.phases or []
+            if existing_phases:
+                updated = dict(existing_phases[0])
+                updated["tasks"] = tasks
+                existing_phases[0] = updated
+                plan.phases = existing_phases
+        normalized = self.normalize_draft(
+            PlanDraft(
+                name=plan.name,
+                goal_description=plan.goal_description,
+                plan_type=PlanType(plan.plan_type),
+                start_date=plan.start_date,
+                target_date=plan.target_date,
+                targets=PlanTargets(
+                    daily_calories=target.daily_calories,
+                    protein_target=target.protein_target,
+                    fat_target=target.fat_target,
+                    carbs_target=target.carbs_target,
+                    weight_target=target.weight_target,
+                ),
+                tasks=[PlanTaskUpdate(**task) for task in plan.tasks],
+                phases=[self._phase_draft_from_json(phase) for phase in (plan.phases or [])],
+            )
         )
-        violations = self.safety_check(draft, self.profile)
+        violations = self.safety_check(normalized, self.profile)
         if violations:
-            raise ValidationException("计划安全校验失败", code=violations[0], details=[{"reason": item} for item in violations])
+            raise ValidationException(
+                "Plan safety validation failed",
+                code=violations[0],
+                details=[{"reason": item} for item in violations],
+            )
+        plan.phases = [self._phase_to_json(phase) for phase in normalized.phases]
+        plan.tasks = [self._task_to_json(task) for task in normalized.tasks]
         await self.repo.session.commit()
         return await self._response(plan)
 
@@ -128,7 +158,7 @@ class PlanService:
     async def create_check_in(self, plan_id: uuid.UUID, data: CheckInCreate) -> CheckInResponse:
         plan = await self._get_plan_or_404(plan_id)
         if await self.repo.check_in_exists(plan.id, data.task_id, data.date):
-            raise ConflictException("当天已打卡", code="CHECK_IN_DUPLICATE")
+            raise ConflictException("Check-in already exists for this date", code="CHECK_IN_DUPLICATE")
         check_in = await self.repo.create_check_in(
             PlanCheckIn(
                 plan_id=plan.id,
@@ -144,17 +174,30 @@ class PlanService:
     async def get_progress(self, plan_id: uuid.UUID) -> PlanProgress:
         plan = await self._get_plan_or_404(plan_id)
         records = await self.repo.list_executions(plan.id, desc=False, offset=0, limit=500)
-        total_days = max((plan.target_date - plan.start_date).days + 1, 1)
         today = date.today()
+        check_ins = await self.repo.list_check_ins(plan.id, target_date=today)
+        total_days = max((plan.target_date - plan.start_date).days + 1, 1)
         elapsed_days = min(max((today - plan.start_date).days + 1, 0), total_days)
         on_track = [record for record in records if record.status == ExecutionStatus.on_track.value]
-        compliance_rate = len(on_track) / elapsed_days if elapsed_days > 0 else 0
+        completed_task_ids = [
+            item.task_id
+            for item in check_ins
+            if item.completed and item.task_id is not None
+        ]
+        task_ids = {
+            uuid.UUID(str(task["id"]))
+            for task in (plan.tasks or [])
+            if isinstance(task, dict) and task.get("id")
+        }
         return PlanProgress(
             plan_id=plan.id,
             total_days=total_days,
             elapsed_days=elapsed_days,
-            compliance_rate=round(compliance_rate, 4),
+            compliance_rate=round(len(on_track) / elapsed_days, 4) if elapsed_days > 0 else 0,
             streak_days=self._streak_days(records),
+            completed_tasks=len(completed_task_ids),
+            total_tasks=len(task_ids),
+            completed_task_ids=completed_task_ids,
             daily_records=[self._execution_response(record) for record in records],
         )
 
@@ -187,30 +230,21 @@ class PlanService:
         record_date: date,
         nutrition_summary: NutritionSummary | None = None,
     ) -> None:
-        """饮食记录变化后同步当天活跃计划执行记录。
-
-        Phase 10 最小闭环：API 层在饮食创建后传入当天营养汇总，
-        本方法按当前活跃计划目标计算 ``PlanExecution``，并用
-        ``(plan_id, date)`` 幂等 upsert。
-        """
         plan = await self.repo.get_active_plan()
-        if plan is None:
+        if plan is None or nutrition_summary is None:
             return
         target = await self.repo.get_target(plan.id)
-        nutrition = nutrition_summary
-        if nutrition is None:
-            return
         calories_target = float(getattr(target, "daily_calories", None) or 0)
         execution = PlanExecution(
             plan_id=plan.id,
             date=record_date,
-            calories_consumed=float(getattr(nutrition, "total_calories", 0) or 0),
+            calories_consumed=float(getattr(nutrition_summary, "total_calories", 0) or 0),
             calories_target=calories_target,
-            protein=float(getattr(nutrition, "total_protein", 0) or 0),
-            fat=float(getattr(nutrition, "total_fat", 0) or 0),
-            carbs=float(getattr(nutrition, "total_carbs", 0) or 0),
+            protein=float(getattr(nutrition_summary, "total_protein", 0) or 0),
+            fat=float(getattr(nutrition_summary, "total_fat", 0) or 0),
+            carbs=float(getattr(nutrition_summary, "total_carbs", 0) or 0),
             status=self.calculate_execution_status(
-                float(getattr(nutrition, "total_calories", 0) or 0),
+                float(getattr(nutrition_summary, "total_calories", 0) or 0),
                 calories_target,
             ).value,
         )
@@ -218,14 +252,24 @@ class PlanService:
         await self.repo.session.commit()
 
     async def run_modification_rules(self, plan_id: uuid.UUID) -> list[str]:
-        """Return deterministic rule hits only; LLM suggestions stay in plan_agent."""
         plan = await self._get_plan_or_404(plan_id)
         records = await self.repo.list_executions(plan.id, offset=0, limit=7)
         if len([record for record in records[:5] if record.status == ExecutionStatus.missed.value]) >= 5:
-            return ["连续 5 天未达标，建议调整目标或任务强度"]
+            return ["You have missed the target for 5 days in a row. Consider reducing task intensity."]
         if date.today() > plan.target_date:
-            return ["计划已超过目标日期，建议续期或终止"]
+            return ["This plan has passed its target date. Consider extending or closing it."]
         return []
+
+    def normalize_draft(self, draft: PlanDraft) -> PlanDraft:
+        tasks = list(draft.tasks)
+        phases = list(draft.phases)
+        if not phases:
+            phases = self._default_phases_for_tasks(tasks, draft.start_date, draft.target_date)
+        if not tasks:
+            tasks = [task for phase in phases for task in phase.tasks]
+        phases = self._ensure_phase_ids(phases)
+        tasks = self._ensure_task_ids(tasks)
+        return draft.model_copy(update={"tasks": tasks, "phases": phases})
 
     @staticmethod
     def calculate_bmr(weight_kg: float, height_cm: float, age: int, gender: str) -> float:
@@ -266,11 +310,14 @@ class PlanService:
     async def _get_plan_or_404(self, plan_id: uuid.UUID) -> Plan:
         plan = await self.repo.get_plan(plan_id)
         if plan is None:
-            raise NotFoundException("计划不存在", code="PLAN_NOT_FOUND")
+            raise NotFoundException("Plan not found", code="PLAN_NOT_FOUND")
         return plan
 
     async def _response(self, plan: Plan) -> PlanResponse:
         target = await self.repo.get_target(plan.id)
+        phases_json = plan.phases or []
+        if not phases_json:
+            phases_json = [self._compat_phase_from_tasks(plan.tasks or [], plan.start_date, plan.target_date)]
         return PlanResponse(
             id=plan.id,
             name=plan.name,
@@ -280,10 +327,58 @@ class PlanService:
             start_date=plan.start_date,
             target_date=plan.target_date,
             targets=PlanTargets.model_validate(target, from_attributes=True) if target else PlanTargets(),
-            tasks=[PlanTask(**task) for task in plan.tasks],
+            tasks=[PlanTask(**task) for task in (plan.tasks or [])],
+            phases=[PlanPhase(**phase) for phase in phases_json],
             created_at=plan.created_at,
             updated_at=plan.updated_at,
         )
+
+    @staticmethod
+    def _ensure_task_ids(tasks: list[PlanTaskUpdate]) -> list[PlanTaskUpdate]:
+        ensured: list[PlanTaskUpdate] = []
+        for task in tasks:
+            ensured.append(task if task.id is not None else task.model_copy(update={"id": uuid.uuid4()}))
+        return ensured
+
+    @classmethod
+    def _ensure_phase_ids(cls, phases: list[PlanPhaseDraft]) -> list[PlanPhaseDraft]:
+        ensured: list[PlanPhaseDraft] = []
+        for phase in phases:
+            tasks = cls._ensure_task_ids(list(phase.tasks))
+            ensured.append(
+                phase
+                if phase.id is not None and tasks == list(phase.tasks)
+                else phase.model_copy(update={"id": phase.id or uuid.uuid4(), "tasks": tasks})
+            )
+        return ensured
+
+    @staticmethod
+    def _default_phases_for_tasks(
+        tasks: list[PlanTaskUpdate],
+        start_date: date,
+        target_date: date,
+    ) -> list[PlanPhaseDraft]:
+        return [
+            PlanPhaseDraft(
+                id=uuid.uuid4(),
+                title="Main phase",
+                goal="Complete the current plan safely and consistently.",
+                start_date=start_date,
+                end_date=target_date,
+                tasks=tasks,
+            )
+        ]
+
+    @staticmethod
+    def _compat_phase_from_tasks(tasks: list[dict[str, object]], start_date: date, target_date: date) -> dict[str, object]:
+        return {
+            "id": str(uuid.uuid4()),
+            "title": "Main phase",
+            "goal": "Complete the current plan safely and consistently.",
+            "start_date": start_date.isoformat(),
+            "end_date": target_date.isoformat(),
+            "tasks": tasks,
+        }
 
     @staticmethod
     def _task_to_json(task: PlanTaskUpdate) -> dict[str, object]:
@@ -294,6 +389,29 @@ class PlanService:
             "frequency": task.frequency,
             "time_period": task.time_period,
         }
+
+    @classmethod
+    def _phase_to_json(cls, phase: PlanPhaseDraft) -> dict[str, object]:
+        phase_id = phase.id or uuid.uuid4()
+        return {
+            "id": str(phase_id),
+            "title": phase.title,
+            "goal": phase.goal,
+            "start_date": phase.start_date.isoformat(),
+            "end_date": phase.end_date.isoformat(),
+            "tasks": [cls._task_to_json(task) for task in phase.tasks],
+        }
+
+    @staticmethod
+    def _phase_draft_from_json(phase: dict[str, object]) -> PlanPhaseDraft:
+        return PlanPhaseDraft(
+            id=uuid.UUID(str(phase.get("id"))) if phase.get("id") else None,
+            title=str(phase.get("title") or "Phase"),
+            goal=str(phase.get("goal") or "Progress safely"),
+            start_date=date.fromisoformat(str(phase.get("start_date"))),
+            end_date=date.fromisoformat(str(phase.get("end_date"))),
+            tasks=[PlanTaskUpdate(**task) for task in list(phase.get("tasks") or [])],
+        )
 
     @staticmethod
     def _check_in_response(check_in: PlanCheckIn) -> CheckInResponse:
@@ -346,11 +464,43 @@ class PlanService:
             return float(value)
         return None
 
+    def build_safe_adjusted_draft(self, draft: PlanDraft, violations: list[str]) -> PlanDraft:
+        adjusted = self.normalize_draft(draft)
+        targets = adjusted.targets.model_copy()
+        end_date = adjusted.target_date
+        if "CALORIES_BELOW_BMR" in violations:
+            bmr = self._profile_bmr(self.profile)
+            if bmr is not None:
+                targets = targets.model_copy(update={"daily_calories": int(math.ceil(bmr))})
+        if "PLAN_DURATION_INVALID" in violations:
+            days = min(max((adjusted.target_date - adjusted.start_date).days + 1, 28), 168)
+            end_date = adjusted.start_date + timedelta(days=days - 1)
+        if "WEIGHT_LOSS_TOO_FAST" in violations:
+            current_weight = self._profile_number(self.profile, "current_weight")
+            target_weight = adjusted.targets.weight_target
+            if current_weight is not None and target_weight is not None:
+                total_loss = max(current_weight - target_weight, 1)
+                safe_days = int(math.ceil(total_loss) * 7)
+                end_date = max(end_date, adjusted.start_date + timedelta(days=safe_days - 1))
+        phases = self._stretch_phases(adjusted.phases, adjusted.start_date, end_date)
+        return adjusted.model_copy(update={"targets": targets, "target_date": end_date, "phases": phases})
+
+    @staticmethod
+    def _stretch_phases(phases: list[PlanPhaseDraft], start_date: date, target_date: date) -> list[PlanPhaseDraft]:
+        if not phases:
+            return phases
+        total_days = max((target_date - start_date).days + 1, 1)
+        phase_count = len(phases)
+        cursor = start_date
+        stretched: list[PlanPhaseDraft] = []
+        for index, phase in enumerate(phases):
+            remaining_days = total_days - (cursor - start_date).days
+            remaining_phases = phase_count - index
+            phase_days = max(1, remaining_days // remaining_phases)
+            phase_end = target_date if index == phase_count - 1 else cursor + timedelta(days=phase_days - 1)
+            stretched.append(phase.model_copy(update={"start_date": cursor, "end_date": phase_end}))
+            cursor = phase_end + timedelta(days=1)
+        return stretched
+
 
 __all__ = ["PlanService"]
-
-
-
-
-
-

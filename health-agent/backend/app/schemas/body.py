@@ -151,6 +151,7 @@ class ExerciseRecordUpdate(BaseModel):
 class WaterRecordCreate(BodyCreateBase):
     amount: int = Field(ge=1, le=5000, description="本次新增饮水量 ml")
     target: int = Field(default=2000, ge=500, le=10000)
+    operation: str = Field(default="append", description="append=累加到当日 / replace=覆盖当日")
 
 
 class WaterRecordUpdate(BaseModel):
@@ -292,7 +293,45 @@ class TrendResponse(BaseModel):
     target: float | None = None
 
 
+class BodyParseOperation(StrEnum):
+    """身体数据写入语义（仅 water 用 append；其余恒 replace）。"""
+
+    replace = "replace"
+    append = "append"
+
+
+class BodyParseResult(BaseModel):
+    """LLM 解析自然语言身体数据的结构化结果。
+
+    一次 LLM 调用同时判断：记录类型 + 各字段 + 写入语义。
+    仅覆盖可对话录入的四类：water/sleep/exercise/bowel。
+    weight/measurement 暂不接 AI（首页无对应卡片）。
+    """
+
+    record_type: BodyRecordType
+    operation: BodyParseOperation = BodyParseOperation.replace
+    confidence: float = Field(default=0.7, ge=0, le=1)
+
+    # water
+    water_amount: int | None = Field(default=None, ge=1, le=5000, description="饮水量 ml")
+
+    # sleep
+    sleep_bed_time: str | None = Field(default=None, description="入睡 HH:mm")
+    sleep_wake_time: str | None = Field(default=None, description="起床 HH:mm")
+    sleep_quality: SleepQuality | None = None
+
+    # exercise
+    exercise_type: str | None = Field(default=None, max_length=50)
+    exercise_duration: int | None = Field(default=None, ge=1, le=600, description="分钟")
+
+    # bowel
+    bowel_time: str | None = Field(default=None, description="HH:mm")
+    bowel_status: BowelStatus | None = None
+
+
 __all__ = [
+    "BodyParseOperation",
+    "BodyParseResult",
     "BodyRecordResponse",
     "BodyRecordType",
     "BowelRecordCreate",

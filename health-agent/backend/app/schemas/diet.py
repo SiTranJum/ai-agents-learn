@@ -23,6 +23,17 @@ class DataSource(StrEnum):
     llm_estimate = "llm_estimate"
 
 
+class DietOperation(StrEnum):
+    """饮食记录写入语义。
+
+    - ``replace``：替换该餐次（默认）。首次记录、或用户更正（"说错了/改成…"）时使用。
+    - ``append``：在该餐次**已保存**记录基础上追加（"还/又/再吃了…"）。
+    """
+
+    replace = "replace"
+    append = "append"
+
+
 class NutritionSummary(BaseModel):
     total_calories: float = Field(default=0, ge=0)
     total_protein: float = Field(default=0, ge=0)
@@ -75,6 +86,7 @@ class DietRecordCreate(BaseModel):
     meal_type: MealType
     date: date_ = Field(default_factory=date_.today)
     foods: list[FoodItemInput] = Field(min_length=1, max_length=20)
+    operation: DietOperation = DietOperation.replace
 
     @model_validator(mode="after")
     def validate_create_input(self) -> DietRecordCreate:
@@ -125,6 +137,7 @@ class DietRecordResponse(BaseModel):
 class ParseResult(BaseModel):
     foods: list[ParsedFood]
     meal_type: MealType | None = None
+    operation: DietOperation = DietOperation.replace
     confidence: float = Field(ge=0, le=1)
     nutrition_summary: NutritionSummary = Field(default_factory=NutritionSummary)
 
@@ -152,6 +165,7 @@ def week_end(start_date: date_) -> date_:
 __all__ = [
     "DailySummary",
     "DataSource",
+    "DietOperation",
     "DietRecordCreate",
     "DietRecordResponse",
     "DietRecordUpdate",

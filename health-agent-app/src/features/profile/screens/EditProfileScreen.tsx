@@ -23,6 +23,8 @@ import { PageContainer } from '@shared/layout/PageContainer/PageContainer';
 import { Card } from '@shared/ui/Card';
 import { Button } from '@shared/ui/Button';
 import { TextInput } from '@shared/forms/TextInput';
+import { DatePicker } from '@shared/forms/DatePicker';
+import { RulerPicker } from '@shared/forms/RulerPicker';
 import { Picker } from '@shared/forms/Picker';
 import { MultiSelectTags } from '@shared/forms/MultiSelectTags';
 import { ConfirmDialog } from '@shared/feedback/ConfirmDialog';
@@ -53,13 +55,13 @@ export function EditProfileScreen() {
   // 表单状态（profile 加载完成后初始化）
   const [nickname, setNickname] = useState('');
   const [gender, setGender] = useState<Gender>('male');
-  const [birthDate, setBirthDate] = useState('');
-  const [height, setHeight] = useState('');
-  const [weight, setWeight] = useState('');
-  const [targetWeight, setTargetWeight] = useState('');
+  const [age, setAge] = useState(0);
+  const [height, setHeight] = useState(0);
+  const [weight, setWeight] = useState(0);
+  const [targetWeight, setTargetWeight] = useState(0);
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>('moderate');
   const [goalType, setGoalType] = useState('');
-  const [dailyCalorie, setDailyCalorie] = useState('');
+  const [dailyCalorie, setDailyCalorie] = useState(0);
   const [dietType, setDietType] = useState('均衡饮食');
   const [allergies, setAllergies] = useState<string[]>([]);
   const [restrictions, setRestrictions] = useState<string[]>([]);
@@ -77,17 +79,21 @@ export function EditProfileScreen() {
     if (profile && !initialized) {
       setNickname(profile.nickname);
       setGender(profile.gender);
-      setBirthDate(profile.birthDate);
-      setHeight(String(profile.height));
-      setWeight(String(profile.weight));
-      setTargetWeight(String(profile.targetWeight));
+      // 从 birthDate 计算年龄
+      const birthDate = new Date(profile.birthDate);
+      const today = new Date();
+      let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        calculatedAge--;
+      }
+      setAge(calculatedAge > 0 ? calculatedAge : 25);
+      setHeight(profile.height);
+      setWeight(profile.weight);
+      setTargetWeight(profile.targetWeight);
       setActivityLevel(profile.activityLevel);
       setGoalType(profile.goalType ?? '');
-      setDailyCalorie(
-        profile.dailyCalorieTarget != null
-          ? String(profile.dailyCalorieTarget)
-          : ''
-      );
+      setDailyCalorie(profile.dailyCalorieTarget ?? 0);
       setDietType(profile.dietType);
       setAllergies(profile.allergies);
       setRestrictions(profile.restrictions);
@@ -114,37 +120,40 @@ export function EditProfileScreen() {
       toast.show({ type: 'error', message: '昵称需 1-20 字符' });
       return;
     }
-    const h = parseFloat(height);
-    if (!(h >= 50 && h <= 250)) {
-      toast.show({ type: 'error', message: '身高需在 50-250 cm 之间' });
+    if (age < 18 || age > 100) {
+      toast.show({ type: 'error', message: '请选择年龄 (18-100 岁)' });
       return;
     }
-    const w = parseFloat(weight);
-    if (!(w >= 20 && w <= 300)) {
-      toast.show({ type: 'error', message: '体重需在 20-300 kg 之间' });
+    if (!height || height < 50 || height > 250) {
+      toast.show({ type: 'error', message: '请选择身高 (50-250 cm)' });
       return;
     }
-    const tw = parseFloat(targetWeight);
-    if (!(tw >= 20 && tw <= 300)) {
-      toast.show({ type: 'error', message: '目标体重需在 20-300 kg 之间' });
+    if (!weight || weight < 20 || weight > 300) {
+      toast.show({ type: 'error', message: '请选择体重 (20-300 kg)' });
       return;
     }
-    if (!birthDate) {
-      toast.show({ type: 'error', message: '请填写出生日期' });
+    if (!targetWeight || targetWeight < 20 || targetWeight > 300) {
+      toast.show({ type: 'error', message: '请选择目标体重 (20-300 kg)' });
       return;
     }
+
+    // 从年龄计算出生日期（假设生日是今年的今天）
+    const today = new Date();
+    const birthYear = today.getFullYear() - age;
+    const birthDate = new Date(birthYear, today.getMonth(), today.getDate());
+    const birthDateStr = birthDate.toISOString().split('T')[0];
 
     try {
       await updateMutation.mutateAsync({
         nickname: nickname.trim(),
         gender,
-        birthDate,
-        height: h,
-        weight: w,
-        targetWeight: tw,
+        birthDate: birthDateStr,
+        height,
+        weight,
+        targetWeight,
         activityLevel,
         goalType: goalType || undefined,
-        dailyCalorieTarget: dailyCalorie ? parseInt(dailyCalorie, 10) : undefined,
+        dailyCalorieTarget: dailyCalorie || undefined,
         dietType,
         allergies,
         restrictions,
@@ -159,7 +168,7 @@ export function EditProfileScreen() {
       toast.show({ type: 'error', message: '保存失败，请重试' });
     }
   }, [
-    nickname, gender, birthDate, height, weight, targetWeight,
+    nickname, gender, age, height, weight, targetWeight,
     activityLevel, goalType, dailyCalorie, dietType,
     allergies, restrictions, dislikedFoods,
     diseases, medications, medicalAdvice,
@@ -216,23 +225,32 @@ export function EditProfileScreen() {
               onChange={(v) => set(setGender)(v as Gender)}
               options={[...GENDER_OPTIONS]}
             />
-            <TextInput
-              label="出生日期 (YYYY-MM-DD)"
-              value={birthDate}
-              onChangeText={set(setBirthDate)}
-              placeholder="1995-06-15"
+            <Picker
+              label="年龄"
+              value={age.toString()}
+              onChange={(v) => set(setAge)(parseInt(v, 10))}
+              options={Array.from({ length: 83 }, (_, i) => ({
+                label: `${i + 18} 岁`,
+                value: (i + 18).toString(),
+              }))}
             />
-            <TextInput
-              label="身高 (cm)"
+            <RulerPicker
+              label="身高"
               value={height}
-              onChangeText={set(setHeight)}
-              keyboardType="numeric"
+              onChange={set(setHeight)}
+              min={50}
+              max={250}
+              step={1}
+              unit="cm"
             />
-            <TextInput
-              label="体重 (kg)"
+            <RulerPicker
+              label="体重"
               value={weight}
-              onChangeText={set(setWeight)}
-              keyboardType="decimal-pad"
+              onChange={set(setWeight)}
+              min={20}
+              max={300}
+              step={0.1}
+              unit="kg"
             />
             <Picker
               label="活动量"
@@ -250,18 +268,24 @@ export function EditProfileScreen() {
               onChange={set(setGoalType)}
               options={GOAL_TYPE_OPTIONS}
             />
-            <TextInput
-              label="目标体重 (kg)"
+            <RulerPicker
+              label="目标体重"
               value={targetWeight}
-              onChangeText={set(setTargetWeight)}
-              keyboardType="decimal-pad"
+              onChange={set(setTargetWeight)}
+              min={20}
+              max={300}
+              step={0.1}
+              unit="kg"
             />
             <TextInput
-              label="每日热量目标 (kcal)"
-              value={dailyCalorie}
-              onChangeText={set(setDailyCalorie)}
+              label="每日热量目标"
+              value={dailyCalorie > 0 ? dailyCalorie.toString() : ''}
+              onChangeText={(v) => {
+                const num = parseInt(v, 10);
+                set(setDailyCalorie)(isNaN(num) ? 0 : num);
+              }}
               keyboardType="numeric"
-              placeholder="可选，如 2100"
+              placeholder="如 2000"
             />
           </Section>
 

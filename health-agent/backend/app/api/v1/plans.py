@@ -1,4 +1,4 @@
-"""Plan system API endpoints."""
+"""Plan API endpoints."""
 
 from __future__ import annotations
 
@@ -6,12 +6,17 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import Annotated, Any, AsyncIterator
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Query, status
 
+from app.agents.plan.conversation import run_plan_conversation
 from app.core.exceptions import ConflictException, ValidationException
 from app.core.responses import paginated, success
-from app.dependencies import get_current_user_with_profile, get_plan_agent, get_plan_service
-from app.schemas.auth import CurrentUser
+from app.dependencies import (
+    CurrentUserWithProfileDep,
+    MemoryServiceDep,
+    PlanAgentDep,
+    PlanServiceDep,
+)
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.schemas.plan import (
     CheckInCreate,
@@ -22,18 +27,35 @@ from app.schemas.plan import (
     PlanProgress,
     PlanResponse,
     PlanStatus,
+    PlanStreamRequest,
     PlanTerminateRequest,
     PlanUpdate,
 )
-from app.services.plan_service import PlanService
 from app.streaming import StreamEvent, StreamEventType, sse_response
-from app.streaming.translator import PLAN_NODE_LABELS
 
 router = APIRouter(prefix="/plans", tags=["plans"])
 
-CurrentUserWithProfileDep = Annotated[CurrentUser, Depends(get_current_user_with_profile)]
-PlanServiceDep = Annotated[PlanService, Depends(get_plan_service)]
-PlanAgentDep = Annotated[Any, Depends(get_plan_agent)]
+
+def _resolve_stream_message(payload: PlanStreamRequest) -> str:
+    if payload.type == "text":
+        if not payload.message:
+            raise ValidationException("Missing plan message", code="PLAN_MESSAGE_REQUIRED")
+        return payload.message
+    if payload.type == "choice_response":
+        if payload.free_text:
+            return payload.free_text
+        if payload.selected_value:
+            return payload.selected_value
+        raise ValidationException("Missing choice response", code="PLAN_CHOICE_REQUIRED")
+    if payload.type == "card_action":
+        return payload.message or f"[card_action] {payload.action_id or 'action'}"
+    raise ValidationException("Unsupported request type", code="PLAN_STREAM_TYPE_INVALID")
+
+
+def _chunk_text(text: str, chunk_size: int = 80) -> list[str]:
+    if len(text) <= chunk_size:
+        return [text]
+    return [text[index : index + chunk_size] for index in range(0, len(text), chunk_size)]
 
 
 @router.post("", response_model=ApiResponse[PlanResponse], status_code=status.HTTP_201_CREATED)
@@ -43,9 +65,8 @@ async def create_plan(
     service: PlanServiceDep,
     plan_agent: PlanAgentDep,
 ) -> dict[str, Any]:
-    """Create a plan through plan_agent. LLM calls happen only in agent nodes."""
     if await service.has_active_plan():
-        raise ConflictException("已有活跃计划", code="PLAN_ALREADY_ACTIVE")
+        raise ConflictException("Active plan already exists", code="PLAN_ALREADY_ACTIVE")
     result = await plan_agent.ainvoke(
         {
             "user_id": str(user.id),
@@ -56,80 +77,60 @@ async def create_plan(
         }
     )
     if result.get("error"):
-        raise ValidationException("计划创建失败", code=str(result["error"]))
+        raise ValidationException("Plan creation failed", code=str(result["error"]))
     data = result["result"]
     return success(data.model_dump(mode="json"))
 
 
 @router.post("/stream")
 async def create_plan_stream(
-    payload: PlanCreate,
+    payload: PlanStreamRequest,
     user: CurrentUserWithProfileDep,
     service: PlanServiceDep,
-    plan_agent: PlanAgentDep,
+    memory_service: MemoryServiceDep,
 ):
-    """SSE 流式创建计划 (T11)。
-
-    事件序列：
-      meta → status(×N) → card(plan) + done   (成功)
-      meta → status(×M) → error                (安全校验失败 / 内部错误)
-    """
     message_id = uuid.uuid4().hex
+    user_text = _resolve_stream_message(payload)
 
     async def gen() -> AsyncIterator[StreamEvent]:
         yield StreamEvent(
             type=StreamEventType.META,
-            data={"message_id": message_id, "started_at": datetime.now(timezone.utc).isoformat()},
+            data={"message_id": message_id, "session_id": payload.session_id, "started_at": datetime.now(timezone.utc).isoformat()},
         )
-
-        if await service.has_active_plan():
+        yield StreamEvent(type=StreamEventType.STATUS, data={"node": "handle_plan_turn", "label": "Preparing your plan..."})
+        try:
+            result = await run_plan_conversation(
+                user_message=user_text,
+                messages=payload.messages,
+                profile=user.profile,
+                plan_service=service,
+                memory_service=memory_service,
+                plan_type_hint=payload.plan_type_hint,
+                request_type=payload.type,
+                action_id=payload.action_id,
+                action_payload=payload.action_payload,
+            )
+        except ValidationException as exc:
             yield StreamEvent(
                 type=StreamEventType.ERROR,
-                data={"code": "PLAN_ALREADY_ACTIVE", "message": "已有活跃计划", "retriable": False},
+                data={"code": exc.code or "PLAN_STREAM_FAILED", "message": exc.message, "retriable": False},
+            )
+            return
+        except Exception as exc:  # pragma: no cover
+            yield StreamEvent(
+                type=StreamEventType.ERROR,
+                data={"code": "PLAN_STREAM_FAILED", "message": str(exc) or "Plan conversation failed", "retriable": True},
             )
             return
 
-        state = {
-            "user_id": str(user.id),
-            "goal_description": payload.goal_description,
-            "plan_type": payload.plan_type,
-            "profile": user.profile,
-            "plan_service": service,
-        }
-
-        final_output: dict[str, Any] = {}
-        async for ev in plan_agent.astream_events(state, version="v2"):
-            kind = ev.get("event")
-            name = ev.get("name", "")
-            if kind == "on_chain_start" and name in PLAN_NODE_LABELS:
-                yield StreamEvent(
-                    type=StreamEventType.STATUS,
-                    data={"node": name, "label": PLAN_NODE_LABELS[name]},
-                )
-            elif kind == "on_chain_end" and name == "persist_plan":
-                final_output = (ev.get("data") or {}).get("output") or {}
-
-        err = final_output.get("error")
-        if err:
-            yield StreamEvent(
-                type=StreamEventType.ERROR,
-                data={"code": str(err), "message": "计划创建失败", "retriable": True},
-            )
-            return
-
-        result = final_output.get("result")
-        if result is None:
-            yield StreamEvent(
-                type=StreamEventType.ERROR,
-                data={"code": "PLAN_NO_RESULT", "message": "未生成计划，请重试", "retriable": True},
-            )
-            return
-
-        yield StreamEvent(
-            type=StreamEventType.CARD,
-            data={"card": result.model_dump(mode="json"), "card_type": "plan"},
-        )
-        yield StreamEvent(type=StreamEventType.DONE, data={"message_id": message_id})
+        text = str(result.get("ai_response") or "")
+        for chunk in _chunk_text(text):
+            yield StreamEvent(type=StreamEventType.TEXT_DELTA, data={"content": chunk})
+        for card in result.get("response_cards", []) or []:
+            yield StreamEvent(type=StreamEventType.CARD, data={"card": card})
+        for prompt in result.get("choice_prompts", []) or []:
+            yield StreamEvent(type=StreamEventType.CHOICE, data=prompt)
+        yield StreamEvent(type=StreamEventType.DONE, data={"message_id": message_id, "session_id": payload.session_id})
 
     return await sse_response(gen(), endpoint="plans/stream")
 
@@ -175,7 +176,7 @@ async def terminate_plan(
 ) -> dict[str, Any]:
     _ = user
     await service.terminate_plan(plan_id, payload.reason if payload else None)
-    return success(None, message="计划已终止")
+    return success(None, message="Plan terminated")
 
 
 @router.post("/{plan_id}/check-ins", response_model=ApiResponse[CheckInResponse], status_code=status.HTTP_201_CREATED)
@@ -221,5 +222,3 @@ async def list_execution(
 
 
 __all__ = ["router"]
-
-

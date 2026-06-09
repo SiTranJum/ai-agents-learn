@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { theme } from '@app/styles/theme';
 import type { ChatAction, ChatCard, ChatMessage, ChoicePrompt } from '../types/ai.types';
+import { getCardId } from '../utils/cardId';
 import {
   StatusChip,
   ToolCallChip,
@@ -144,7 +145,7 @@ function StreamingBubble({
             );
           }
           if (seg.kind === 'card') {
-            const cardId = `${seg.card.type}:${JSON.stringify(seg.card.payload).slice(0, 32)}`;
+            const cardId = getCardId(seg.card);
             return (
               <StreamingCardView
                 key={idx}
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
   },
   // T6: 流式消息样式
   streamingContainer: {
-    maxWidth: '85%',
+    width: '100%',  // 占满可用宽度，让卡片自己决定大小
     paddingVertical: theme.spacing.xs,
   },
   errorRow: {

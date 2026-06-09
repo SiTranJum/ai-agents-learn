@@ -116,6 +116,7 @@ async def upsert_record(
         meal_type=payload.meal_type,
         foods=payload.foods,
         record_date=payload.date,
+        operation=payload.operation,
     )
     daily = await service.get_daily_summary(payload.date)
     await plan_service.on_diet_record_created(payload.date, daily.total_nutrition)

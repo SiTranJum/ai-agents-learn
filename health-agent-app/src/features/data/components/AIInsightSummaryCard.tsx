@@ -28,7 +28,7 @@ export function AIInsightSummaryCard({ insights }: AIInsightSummaryCardProps) {
         <View style={styles.iconWrap}>
           <Feather name="zap" size={16} color={theme.colors.primary} />
         </View>
-        <Text style={styles.title}>AI 洞察</Text>
+        <Text style={styles.title}>趋势解读</Text>
       </View>
 
       {insights.map((it, idx) => (

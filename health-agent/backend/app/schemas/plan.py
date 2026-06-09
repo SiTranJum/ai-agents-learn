@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date as dt_date
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -31,15 +32,33 @@ class ExecutionStatus(StrEnum):
 class PlanTask(BaseModel):
     id: UUID
     description: str
-    frequency: str = "每天"
+    frequency: str = "daily"
     time_period: str | None = None
 
 
 class PlanTaskUpdate(BaseModel):
     id: UUID | None = None
     description: str = Field(min_length=1, max_length=200)
-    frequency: str = Field(default="每天", max_length=50)
+    frequency: str = Field(default="daily", max_length=50)
     time_period: str | None = Field(default=None, max_length=50)
+
+
+class PlanPhase(BaseModel):
+    id: UUID
+    title: str = Field(min_length=1, max_length=100)
+    goal: str = Field(min_length=1, max_length=300)
+    start_date: dt_date
+    end_date: dt_date
+    tasks: list[PlanTask] = Field(default_factory=list)
+
+
+class PlanPhaseDraft(BaseModel):
+    id: UUID | None = None
+    title: str = Field(min_length=1, max_length=100)
+    goal: str = Field(min_length=1, max_length=300)
+    start_date: dt_date
+    end_date: dt_date
+    tasks: list[PlanTaskUpdate] = Field(default_factory=list)
 
 
 class PlanTargets(BaseModel):
@@ -105,6 +124,9 @@ class PlanProgress(BaseModel):
     elapsed_days: int
     compliance_rate: float = Field(ge=0, le=1)
     streak_days: int = Field(ge=0)
+    completed_tasks: int = Field(default=0, ge=0)
+    total_tasks: int = Field(default=0, ge=0)
+    completed_task_ids: list[UUID] = Field(default_factory=list)
     daily_records: list[DailyExecution] = Field(default_factory=list)
 
 
@@ -116,6 +138,7 @@ class PlanDraft(BaseModel):
     target_date: dt_date
     targets: PlanTargets
     tasks: list[PlanTaskUpdate] = Field(default_factory=list)
+    phases: list[PlanPhaseDraft] = Field(default_factory=list)
 
 
 class PlanResponse(BaseModel):
@@ -130,8 +153,28 @@ class PlanResponse(BaseModel):
     target_date: dt_date
     targets: PlanTargets
     tasks: list[PlanTask] = Field(default_factory=list)
+    phases: list[PlanPhase] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
+
+
+class PlanConversationMessage(BaseModel):
+    role: Literal["user", "assistant", "system"] = "user"
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class PlanStreamRequest(BaseModel):
+    session_id: str | None = Field(default=None, max_length=64)
+    type: Literal["text", "card_action", "choice_response"] = "text"
+    message: str | None = Field(default=None, max_length=2000)
+    messages: list[PlanConversationMessage] = Field(default_factory=list)
+    plan_type_hint: PlanType | None = None
+    card_id: str | None = None
+    action_id: str | None = None
+    action_payload: dict[str, object] | None = None
+    prompt_id: str | None = None
+    selected_value: str | None = None
+    free_text: str | None = Field(default=None, max_length=2000)
 
 
 __all__ = [
@@ -139,11 +182,15 @@ __all__ = [
     "CheckInResponse",
     "DailyExecution",
     "ExecutionStatus",
+    "PlanConversationMessage",
     "PlanCreate",
     "PlanDraft",
+    "PlanPhase",
+    "PlanPhaseDraft",
     "PlanProgress",
     "PlanResponse",
     "PlanStatus",
+    "PlanStreamRequest",
     "PlanTargets",
     "PlanTask",
     "PlanTaskUpdate",
@@ -151,6 +198,3 @@ __all__ = [
     "PlanType",
     "PlanUpdate",
 ]
-
-
-

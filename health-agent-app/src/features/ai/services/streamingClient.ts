@@ -37,6 +37,8 @@ export interface ChatStreamRequest {
   prompt_id?: string;
   selected_value?: string;
   free_text?: string;
+
+  [key: string]: unknown;
 }
 
 /**

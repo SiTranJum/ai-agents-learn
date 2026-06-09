@@ -12,6 +12,7 @@ from app.db.repositories.diet_repo import DietRepository
 from app.schemas.diet import (
     DailySummary,
     DataSource,
+    DietOperation,
     DietRecordResponse,
     DietRecordUpdate,
     FoodItemInput,
@@ -145,24 +146,47 @@ class DietService:
         meal_type: MealType,
         foods: list[FoodItemInput],
         record_date: date,
+        operation: DietOperation = DietOperation.replace,
     ) -> DietRecordResponse:
-        """按 date + meal_type 替换为 1 条记录（upsert 语义）。
+        """按 date + meal_type 写入饮食记录。
 
-        1. 软删除该日期+餐次的所有现有记录
-        2. 创建一条新记录
-        3. 返回新记录
+        - ``replace``（默认）：软删除该日期+餐次的所有现有记录，再创建一条新记录。
+          首次记录、或用户更正（"说错了/改成…"）时使用。
+        - ``append``：把该日期+餐次已有记录的食物读出来，与本次食物合并后，
+          仍以"软删旧 + 建新"的方式落成 1 条记录（保持单餐单记录，避免幽灵记录）。
+          用户追加（"还/又/再吃了…"）时使用。
 
-        前端"保存饮食卡片"统一走此端点，避免同 mealType 多条记录的幽灵问题。
+        前端"保存饮食卡片"统一走此端点。
         """
         if len(foods) > 20:
             raise ValidationException(
                 "单条记录食物不能超过 20 项", code="DIET_RECORD_LIMIT_EXCEEDED"
             )
-        # 1. 软删除旧记录
+
+        # append 模式：先把该餐已有记录的食物取出，作为合并基底
+        existing_parsed: list[ParsedFood] = []
+        if operation == DietOperation.append:
+            existing = await self.repo.list_records(
+                start_date=record_date,
+                end_date=record_date,
+                meal_type=meal_type.value,
+                offset=0,
+                limit=50,
+            )
+            for record in existing:
+                for item in record.items:
+                    existing_parsed.append(self._item_to_parsed(item))
+
+        # 1. 软删除旧记录（append 也删，因为下面会把旧食物一起重新落库）
         await self.repo.soft_delete_by_date_meal(record_date, meal_type.value)
-        # 2. 创建新记录
-        parsed = [await self.food_input_to_parsed(food) for food in foods]
-        items = [self._parsed_food_to_item(food) for food in parsed]
+        # 2. 解析本次新增食物
+        new_parsed = [await self.food_input_to_parsed(food) for food in foods]
+        merged = existing_parsed + new_parsed
+        if len(merged) > 20:
+            raise ValidationException(
+                "单条记录食物不能超过 20 项", code="DIET_RECORD_LIMIT_EXCEEDED"
+            )
+        items = [self._parsed_food_to_item(food) for food in merged]
         record = await self.repo.create_record(
             meal_type=meal_type.value,
             record_date=record_date,
@@ -287,6 +311,25 @@ class DietService:
             sodium=food.sodium,
             data_source=food.data_source.value,
             food_id=food.food_id,
+        )
+
+    @staticmethod
+    def _item_to_parsed(item: DietItem) -> ParsedFood:
+        """DB DietItem → ParsedFood，用于 append 模式读出已有食物再合并落库。"""
+        return ParsedFood(
+            name=item.food_name,
+            amount=item.amount,
+            unit=item.unit,
+            amount_grams=item.amount_grams,
+            cooking_method=item.cooking_method,
+            calories=item.calories,
+            protein=item.protein,
+            fat=item.fat,
+            carbs=item.carbs,
+            fiber=item.fiber,
+            sodium=item.sodium,
+            data_source=DataSource(item.data_source),
+            food_id=item.food_id,
         )
 
     def _record_to_response(self, record: DietRecord) -> DietRecordResponse:

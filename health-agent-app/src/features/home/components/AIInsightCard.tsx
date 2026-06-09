@@ -39,7 +39,7 @@ export function AIInsightCard({
             <Feather name="zap" size={16} color={theme.colors.primary} />
           )}
         </View>
-        <Text style={styles.title}>AI 洞察</Text>
+        <Text style={styles.title}>趋势解读</Text>
       </View>
 
       {status && <Text style={styles.status}>{status}</Text>}
@@ -65,7 +65,7 @@ export function AIInsightCard({
 
       {onPress && !isStreaming && !hasError && (
         <TouchableOpacity onPress={onPress} style={styles.linkRow}>
-          <Text style={styles.link}>查看详情 →</Text>
+          <Text style={styles.link}>查看报告 →</Text>
         </TouchableOpacity>
       )}
     </Card>

@@ -110,9 +110,9 @@ async def draft_plan(state: PlanState) -> dict[str, Any]:
         async with llm_call("draft_plan", "qwen-plus", goal=state.get("goal_description") or ""):
             draft = await model.ainvoke(
                 build_plan_draft_messages(
-                    state.get("goal_description") or "",
-                    str(state.get("plan_type")) if state.get("plan_type") else None,
-                    state.get("profile"),
+                    goal_description=state.get("goal_description") or "",
+                    plan_type=str(state.get("plan_type")) if state.get("plan_type") else None,
+                    profile=state.get("profile"),
                 )
             )
         return {"draft": draft}

@@ -47,10 +47,15 @@ def get_chat_model(temperature: float = 0.3, **kwargs: Any) -> ChatOpenAI:
     - ``temperature`` 控制回复随机性; 结构化解析通常用 0.3, 对话可提高到 0.7。
     - ``timeout`` / ``max_retries`` 交给 LangChain 底层客户端处理, 调用方可按
       Agent 场景通过 ``kwargs`` 覆盖。
+    - ``stream_usage=True`` 让流式(streaming)调用也返回 token 用量统计。
+      OpenAI 兼容接口在流式模式下默认不带 usage, 该参数会附加
+      ``stream_options={"include_usage": true}``, 否则 LangSmith 中
+      token 会显示为 0。DashScope 兼容模式支持该选项。
     """
 
     timeout = kwargs.pop("timeout", settings.llm_timeout)
     max_retries = kwargs.pop("max_retries", settings.llm_max_retries)
+    stream_usage = kwargs.pop("stream_usage", True)
     return ChatOpenAI(
         model=settings.llm_model,
         base_url=settings.dashscope_base_url,
@@ -58,6 +63,7 @@ def get_chat_model(temperature: float = 0.3, **kwargs: Any) -> ChatOpenAI:
         temperature=temperature,
         timeout=timeout,
         max_retries=max_retries,
+        stream_usage=stream_usage,
         **kwargs,
     )
 

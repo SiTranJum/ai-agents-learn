@@ -117,7 +117,7 @@ export function DataScreen() {
           style={styles.analysisBtn}
           activeOpacity={0.7}
         >
-          <Text style={styles.analysisBtnText}>数据分析 →</Text>
+          <Text style={styles.analysisBtnText}>数据报告 →</Text>
         </TouchableOpacity>
       </View>
 

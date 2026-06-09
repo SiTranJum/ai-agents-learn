@@ -49,7 +49,7 @@ export function AnalysisScreen() {
         <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
           <Feather name="chevron-left" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>数据分析</Text>
+        <Text style={styles.title}>数据报告</Text>
         <View style={styles.backBtn} />
       </View>
 

@@ -19,12 +19,16 @@ from fastapi import APIRouter, Query
 
 from app.core.exceptions import ValidationException
 from app.core.responses import paginated, success
+from app.core.tracing import build_langsmith_config
 from app.dependencies import (
+    BodyServiceDep,
     ChatAgentDep,
     ChatServiceDep,
     CurrentUserDep,
+    CurrentUserWithProfileDep,
     DietServiceDep,
     MemoryServiceDep,
+    PlanServiceDep,
     RagServiceDep,
 )
 from app.schemas.chat import ChatCard, ChatRole, ChatStreamRequest
@@ -160,11 +164,133 @@ async def _handle_confirm_create_diet_record(
     return text, [confirmed_card]
 
 
+async def _handle_confirm_create_body_record(
+    payload: ChatStreamRequest,
+    body_service: Any,
+) -> tuple[str, list[dict[str, Any]]]:
+    """处理身体数据卡片"确认保存"按钮（饮水/睡眠/运动/排便）。
+
+    返回 ``(ai_response_text, response_cards)``，由调用方写入 SSE 流。
+
+    action_payload 期望结构（前端从原 body_parse 卡片 payload 复制）::
+
+        {
+            "record_type": "water" | "sleep" | "exercise" | "bowel",
+            "operation": "append" | "replace",   # 仅 water 用
+            "water_amount": 1000,
+            "sleep_bed_time": "23:00", "sleep_wake_time": "07:00", "sleep_quality": "good",
+            "exercise_type": "跑步", "exercise_duration": 30,
+            "bowel_time": "08:00", "bowel_status": "normal",
+            "suggested_date": "2026-06-03"   # 可选，缺失用今天
+        }
+    """
+    from datetime import date as date_cls
+
+    from app.schemas.body import (
+        BowelRecordCreate,
+        BowelStatus,
+        ExerciseRecordCreate,
+        SleepQuality,
+        SleepRecordCreate,
+        WaterRecordCreate,
+    )
+
+    ap = payload.action_payload or {}
+    record_type = ap.get("record_type")
+    if not record_type:
+        raise ValidationException(
+            "卡片操作缺少 record_type", code="CARD_ACTION_PAYLOAD_INVALID"
+        )
+
+    date_raw = ap.get("suggested_date")
+    record_date = (
+        date_cls.fromisoformat(str(date_raw)) if date_raw else date_cls.today()
+    )
+
+    if record_type == "water":
+        amount = ap.get("water_amount")
+        if not amount:
+            raise ValidationException("缺少饮水量", code="CARD_ACTION_PAYLOAD_INVALID")
+        await body_service.create_water(
+            WaterRecordCreate(
+                date=record_date,
+                amount=int(amount),
+                operation=ap.get("operation") or "append",
+            )
+        )
+        text = f"已记录饮水 {int(amount)}ml。"
+    elif record_type == "sleep":
+        bed = ap.get("sleep_bed_time")
+        wake = ap.get("sleep_wake_time")
+        if not bed or not wake:
+            raise ValidationException(
+                "缺少睡眠起止时间", code="CARD_ACTION_PAYLOAD_INVALID"
+            )
+        quality_raw = ap.get("sleep_quality") or "good"
+        try:
+            quality = SleepQuality(quality_raw)
+        except ValueError:
+            quality = SleepQuality.good
+        await body_service.create_sleep(
+            SleepRecordCreate(
+                date=record_date,
+                bed_time=str(bed),
+                wake_time=str(wake),
+                quality=quality,
+            )
+        )
+        text = "已记录睡眠数据。"
+    elif record_type == "exercise":
+        ex_type = ap.get("exercise_type") or "运动"
+        duration = ap.get("exercise_duration")
+        if not duration:
+            raise ValidationException("缺少运动时长", code="CARD_ACTION_PAYLOAD_INVALID")
+        await body_service.create_exercise(
+            ExerciseRecordCreate(
+                date=record_date,
+                type=str(ex_type),
+                duration=int(duration),
+            )
+        )
+        text = f"已记录{ex_type} {int(duration)} 分钟。"
+    elif record_type == "bowel":
+        status_raw = ap.get("bowel_status") or "normal"
+        try:
+            status = BowelStatus(status_raw)
+        except ValueError:
+            status = BowelStatus.normal
+        bowel_time = ap.get("bowel_time") or "08:00"
+        await body_service.create_bowel(
+            BowelRecordCreate(
+                date=record_date,
+                time=str(bowel_time),
+                status=status,
+            )
+        )
+        text = "已记录排便数据。"
+    else:
+        raise ValidationException(
+            f"不支持的身体数据类型: {record_type}", code="CARD_ACTION_PAYLOAD_INVALID"
+        )
+
+    # 回一张"已确认"状态卡片，让前端把原卡片标记为 submitted
+    confirmed_card = {
+        "type": "body_saved",
+        "payload": {
+            "record_type": record_type,
+            "date": record_date.isoformat(),
+        },
+        "actions": [],
+    }
+    return text, [confirmed_card]
+
+
 async def _stream_card_action(
     payload: ChatStreamRequest,
     session_id: str,
     chat_service: Any,
     diet_service: Any,
+    body_service: Any,
 ):
     """把 card_action 结果包装成最小 SSE 流（meta → text → card → done）。
 
@@ -191,6 +317,14 @@ async def _stream_card_action(
             elif action_id == "edit_diet_items":
                 # 编辑动作纯前端跳转，后端只回一个 ack
                 text = "好的，去编辑食物。"
+                cards = []
+            elif action_id == "confirm_create_body_record":
+                text, cards = await _handle_confirm_create_body_record(
+                    payload, body_service
+                )
+            elif action_id == "cancel_body_record":
+                # 取消动作：不落库，仅回一个 ack 让前端把卡片标记为 cancelled
+                text = "好的，已取消。"
                 cards = []
             else:
                 # 未识别的 action，回一条提示
@@ -253,11 +387,13 @@ async def _stream_card_action(
 @router.post("/chat")
 async def send_message(
     payload: ChatStreamRequest,
-    user: CurrentUserDep,
+    user: CurrentUserWithProfileDep,
     chat_service: ChatServiceDep,
     chat_agent: ChatAgentDep,
     diet_service: DietServiceDep,
+    body_service: BodyServiceDep,
     memory_service: MemoryServiceDep,
+    plan_service: PlanServiceDep,
     rag_service: RagServiceDep,
 ):
     """流式 chat 端点（SSE）。
@@ -284,12 +420,18 @@ async def send_message(
     # ============ T9: card_action 快速路径 ============
     # 卡片确认/取消等明确操作不需要走 LangGraph，
     # 直接调对应 service，把结果包装成最小流式响应。
-    if payload.type == "card_action":
+    if payload.type == "card_action" and (payload.action_id or "") in {
+        "confirm_create_diet_record",
+        "edit_diet_items",
+        "confirm_create_body_record",
+        "cancel_body_record",
+    }:
         return await _stream_card_action(
             payload=payload,
             session_id=session_id,
             chat_service=chat_service,
             diet_service=diet_service,
+            body_service=body_service,
         )
 
     history, _, _ = await chat_service.get_history(
@@ -307,10 +449,18 @@ async def send_message(
         "user_message": user_text,
         "chat_history": [item.model_dump(mode="json") for item in history],
         "context": context,
+        "profile": user.profile,
+        "plan_service": plan_service,
+        "request_type": payload.type,
+        "card_action_id": payload.action_id,
+        "card_action_payload": payload.action_payload,
         "diet_input_text": user_text,
         "diet_image_url": context.get("image_url"),
         "diet_date": _parse_referenced_date(context),
         "diet_service": diet_service,
+        "body_input_text": user_text,
+        "body_date": _parse_referenced_date(context),
+        "body_service": body_service,
         "memory_service": memory_service,
         "rag_service": rag_service,
         "embedding_client": memory_service.embedding_client,
@@ -347,9 +497,18 @@ async def send_message(
             },
         )
 
-        # 2. 翻译 LangGraph 事件
+        # 2. 翻译 LangGraph 事件，注入 LangSmith 追踪配置
+        langsmith_config = build_langsmith_config(
+            user_id=str(user.id),
+            endpoint="/api/v1/chat/stream",
+            extra_tags=["chat", payload.type],
+            extra_metadata={
+                "session_id": session_id,
+                "message_id": message_id,
+            },
+        )
         async for ev in translate_langgraph_events(
-            chat_agent, state, node_labels=CHAT_NODE_LABELS
+            chat_agent, state, node_labels=CHAT_NODE_LABELS, config=langsmith_config
         ):
             if ev.type == StreamEventType.TEXT_DELTA:
                 content = ev.data.get("content", "")

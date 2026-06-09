@@ -18,6 +18,24 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 
 import { theme } from '@app/styles/theme';
+
+/**
+ * 根据卡片类型返回展开按钮文案
+ */
+function getCardExpandLabel(cardType?: string): string {
+  if (!cardType) return '查看详情';
+
+  switch (cardType) {
+    case 'diet_parse':
+      return '查看并确认';
+    case 'suggestion':
+      return '查看建议';
+    case 'insight':
+      return '查看报告';
+    default:
+      return '查看详情';
+  }
+}
 import type { MainStackParamList } from '@app/navigation/types';
 import { useAIStore } from '../store/aiStore';
 import type { ChatMessage } from '../types/ai.types';
@@ -133,6 +151,11 @@ function OverlayMessage({
       (s) => s.kind === 'card' || s.kind === 'choice'
     );
 
+    // 获取第一个卡片类型用于展开文案
+    const firstCard = (message.segments || []).find((s) => s.kind === 'card');
+    const cardType = firstCard?.kind === 'card' ? firstCard.card.type : undefined;
+    const expandLabel = getCardExpandLabel(cardType);
+
     return (
       <View style={styles.msgRow}>
         <View style={styles.msgBubble}>
@@ -148,7 +171,7 @@ function OverlayMessage({
           ) : null}
           {hasRichContent && (
             <TouchableOpacity onPress={onExpand} style={styles.expandInline}>
-              <Text style={styles.expandInlineText}>展开查看详情 →</Text>
+              <Text style={styles.expandInlineText}>{expandLabel} →</Text>
             </TouchableOpacity>
           )}
           {message.error && (

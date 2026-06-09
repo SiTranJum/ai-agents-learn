@@ -28,6 +28,7 @@ from app.core.exceptions import BusinessRuleException, ValidationException
 from app.integrations.embedding import EmbeddingClient
 from app.schemas.diet import (
     DataSource,
+    DietOperation,
     FoodItemInput,
     MealType,
     NutritionSummary,
@@ -171,11 +172,15 @@ async def enrich_nutrition(state: ChatState) -> dict[str, Any]:
     summary = _summary(enriched)
     meal_type_raw = state.get("diet_meal_type")
     meal_type = MealType(meal_type_raw) if isinstance(meal_type_raw, str) else meal_type_raw
+    # 保留 parse_text 阶段 LLM 判断出的 operation（append/replace）
+    prev_result = state.get("diet_parse_result")
+    operation = prev_result.operation if prev_result is not None else DietOperation.replace
     return {
         "diet_parsed_foods": enriched,
         "diet_parse_result": ParseResult(
             foods=enriched,
             meal_type=meal_type,
+            operation=operation,
             confidence=state.get("diet_confidence", 0.7),
             nutrition_summary=summary,
         ),

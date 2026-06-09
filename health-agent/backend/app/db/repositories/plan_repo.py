@@ -155,6 +155,16 @@ class PlanRepository:
         await self.session.flush()
         return check_in
 
+    async def list_check_ins(self, plan_id: uuid.UUID, *, target_date: date | None = None) -> list[PlanCheckIn]:
+        stmt = select(PlanCheckIn).where(
+            PlanCheckIn.user_id == self.user_id,
+            PlanCheckIn.plan_id == plan_id,
+        )
+        if target_date is not None:
+            stmt = stmt.where(PlanCheckIn.date == target_date)
+        stmt = stmt.order_by(PlanCheckIn.date.desc(), PlanCheckIn.created_at.desc())
+        return list((await self.session.execute(stmt)).scalars().all())
+
     async def check_in_exists(self, plan_id: uuid.UUID, task_id: uuid.UUID | None, target_date: date) -> bool:
         stmt = select(PlanCheckIn.id).where(
             PlanCheckIn.user_id == self.user_id,

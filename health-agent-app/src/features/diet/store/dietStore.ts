@@ -9,6 +9,10 @@ export interface PendingDietRecord {
   date: string;
   mealType: MealType;
   foods: FoodItem[];
+  /** 写入语义：append（追加到已保存记录）| replace（替换，默认） */
+  operation?: 'append' | 'replace';
+  /** 来源 AI 卡片的唯一 id，用于首页确认/取消后同步聊天卡片状态 */
+  cardId?: string;
   sessionId?: string;
   createdAt: number; // timestamp，用于超时清理
 }
