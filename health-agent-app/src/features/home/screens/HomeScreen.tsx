@@ -94,10 +94,6 @@ export function HomeScreen() {
     navigation.navigate('BodyEdit', { recordType: 'weight' });
   }, [navigation]);
 
-  const handleViewPlan = useCallback(() => {
-    navigation.navigate('PlanList');
-  }, [navigation]);
-
   const handleMealPress = useCallback(
     (_mealType: MealType) => {
       navigation.navigate('DietTab');
@@ -303,7 +299,6 @@ export function HomeScreen() {
           <QuickActionBar
             onRecordDiet={handleRecordDiet}
             onRecordWeight={handleRecordWeight}
-            onViewPlan={handleViewPlan}
           />
           <MealTimelineCard
             meals={data.meals}

@@ -1,5 +1,5 @@
 // QuickActionBar - 快捷操作区
-// 三个等宽按钮：记录饮食、记录体重、查看计划
+// 两个等宽按钮：记录饮食、记录体重
 // 参考: docs/prd/v1/ui-design/03-home-dashboard.md §3.C, §6.1
 
 import React from 'react';
@@ -10,19 +10,16 @@ import { theme } from '@app/styles/theme';
 export interface QuickActionBarProps {
   onRecordDiet: () => void;
   onRecordWeight: () => void;
-  onViewPlan: () => void;
 }
 
 export function QuickActionBar({
   onRecordDiet,
   onRecordWeight,
-  onViewPlan,
 }: QuickActionBarProps) {
   return (
     <View style={styles.row}>
       <ActionButton icon="coffee" label="记录饮食" onPress={onRecordDiet} />
-      <ActionButton icon="bar-chart-2" label="记录体重" onPress={onRecordWeight} />
-      <ActionButton icon="clipboard" label="查看计划" onPress={onViewPlan} />
+      <ActionButton icon="activity" label="记录体重" onPress={onRecordWeight} />
     </View>
   );
 }
