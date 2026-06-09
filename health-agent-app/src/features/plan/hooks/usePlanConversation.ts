@@ -1,15 +1,86 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { createSSEStream } from '@features/ai/services/streamingClient';
-import type { ChatCard, ChatMessage, ChoicePrompt, MessageSegment } from '@features/ai/types/ai.types';
+import type { ChatCard, ChatMessage, ChoicePrompt, MessageSegment, DietParseCard, BodyParseCard } from '@features/ai/types/ai.types';
 import { getCardId } from '@features/ai/utils/cardId';
 import type { MockStreamHandle } from '@features/ai/demo/types';
+import { useDietStore } from '@features/diet/store/dietStore';
+import { useBodyPendingStore } from '@features/data/store/bodyPendingStore';
+import type { FoodItem, MealType } from '@features/diet/types/diet.types';
 
 type CardStatus = 'pending' | 'submitted' | 'cancelled';
 
 interface BackendTranscriptMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+}
+
+function localTodayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function inferMealTypeByTime(): MealType {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 10) return 'breakfast';
+  if (h >= 10 && h < 14) return 'lunch';
+  if (h >= 17 && h < 21) return 'dinner';
+  return 'snack';
+}
+
+function parsedFoodsToItems(foods: DietParseCard['payload']['foods']): FoodItem[] {
+  return foods.map((food, index) => ({
+    id: `pending-${Date.now()}-${index}`,
+    name: food.name,
+    amount: food.amount,
+    unit: food.unit,
+    amountGrams: food.amount_grams,
+    cookingMethod: food.cooking_method ?? undefined,
+    calories: food.calories,
+    protein: food.protein,
+    fat: food.fat,
+    carbs: food.carbs,
+    fiber: food.fiber ?? undefined,
+    sodium: food.sodium ?? undefined,
+    dataSource: food.data_source,
+  }));
+}
+
+function syncDietParseToPending(card: ChatCard, sessionId: string | null): void {
+  if (card.type !== 'diet_parse') return;
+  const { foods, meal_type, suggested_date, operation } = (card as DietParseCard).payload;
+  if (!foods || foods.length === 0) return;
+  useDietStore.getState().setPending({
+    date: suggested_date ?? localTodayStr(),
+    mealType: meal_type ?? inferMealTypeByTime(),
+    foods: parsedFoodsToItems(foods),
+    operation: operation ?? 'replace',
+    cardId: getCardId(card),
+    sessionId: sessionId ?? undefined,
+    createdAt: Date.now(),
+  });
+}
+
+function syncBodyParseToPending(card: ChatCard, sessionId: string | null): void {
+  if (card.type !== 'body_parse') return;
+  const payload = (card as BodyParseCard).payload;
+  if (!payload.record_type) return;
+  useBodyPendingStore.getState().setPending({
+    date: payload.suggested_date ?? localTodayStr(),
+    recordType: payload.record_type,
+    operation: payload.operation ?? 'replace',
+    cardId: getCardId(card),
+    sessionId: sessionId ?? undefined,
+    createdAt: Date.now(),
+    waterAmount: payload.water_amount ?? undefined,
+    sleepBedTime: payload.sleep_bed_time ?? undefined,
+    sleepWakeTime: payload.sleep_wake_time ?? undefined,
+    sleepQuality: payload.sleep_quality ?? undefined,
+    exerciseType: payload.exercise_type ?? undefined,
+    exerciseDuration: payload.exercise_duration ?? undefined,
+    bowelTime: payload.bowel_time ?? undefined,
+    bowelStatus: payload.bowel_status ?? undefined,
+  });
 }
 
 function messageText(message: ChatMessage): string {
@@ -24,12 +95,23 @@ function messageText(message: ChatMessage): string {
 }
 
 function toTranscript(messages: ChatMessage[]): BackendTranscriptMessage[] {
-  return messages
-    .map((message) => ({
-      role: (message.role === 'user' ? 'user' : message.role === 'system' ? 'system' : 'assistant') as BackendTranscriptMessage['role'],
-      content: messageText(message),
-    }))
-    .filter((message) => message.content.length > 0);
+  return messages.flatMap((message) => {
+    const role = (message.role === 'user' ? 'user' : message.role === 'system' ? 'system' : 'assistant') as BackendTranscriptMessage['role'];
+    const items: BackendTranscriptMessage[] = [];
+    const content = messageText(message);
+    if (content.length > 0) {
+      items.push({ role, content });
+    }
+    for (const segment of message.segments ?? []) {
+      if (segment.kind === 'card' && segment.card.type === 'plan_draft') {
+        items.push({
+          role: 'system',
+          content: `[plan_draft] ${JSON.stringify(segment.card.payload.draft)}`,
+        });
+      }
+    }
+    return items;
+  });
 }
 
 export function usePlanConversation() {
@@ -38,6 +120,7 @@ export function usePlanConversation() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [cardStatus, setCardStatusMap] = useState<Map<string, CardStatus>>(new Map());
   const streamRef = useRef<MockStreamHandle | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
 
   const setCardStatus = useCallback((cardId: string, status: CardStatus) => {
     setCardStatusMap((prev) => {
@@ -65,6 +148,7 @@ export function usePlanConversation() {
     (handle: MockStreamHandle) => {
       handle.on('meta', ({ session_id }) => {
         if (session_id) {
+          sessionIdRef.current = session_id;
           setSessionId(session_id);
         }
       });
@@ -92,6 +176,8 @@ export function usePlanConversation() {
       });
       handle.on('card', ({ card }) => {
         setCardStatus(getCardId(card), 'pending');
+        syncDietParseToPending(card, sessionIdRef.current);
+        syncBodyParseToPending(card, sessionIdRef.current);
         updateLastAssistant((message) => ({
           ...message,
           status: null,
@@ -200,6 +286,7 @@ export function usePlanConversation() {
     streamRef.current = null;
     setMessages([]);
     setIsStreaming(false);
+    sessionIdRef.current = null;
     setSessionId(null);
     setCardStatusMap(new Map());
   }, []);

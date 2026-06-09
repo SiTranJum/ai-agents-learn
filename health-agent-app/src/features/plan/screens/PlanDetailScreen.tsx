@@ -113,6 +113,15 @@ export function PlanDetailScreen() {
           {plan.dailyCalorieTarget != null ? <Row label="每日热量" value={`${plan.dailyCalorieTarget} kcal`} last /> : null}
         </Card>
 
+        <Text style={styles.sectionTitle}>{isCompleted ? '计划总结' : '今日任务'}</Text>
+        {isCompleted ? (
+          <Card>
+            <Text style={styles.summaryText}>{plan.aiSuggestion}</Text>
+          </Card>
+        ) : (
+          <TaskList tasks={plan.tasks} readonly={!isActive} onToggle={handleToggleTask} />
+        )}
+
         {plan.phases.length > 0 ? (
           <>
             <Text style={styles.sectionTitle}>阶段时间线</Text>
@@ -134,15 +143,6 @@ export function PlanDetailScreen() {
             </Card>
           </>
         ) : null}
-
-        <Text style={styles.sectionTitle}>{isCompleted ? '计划总结' : '今日任务'}</Text>
-        {isCompleted ? (
-          <Card>
-            <Text style={styles.summaryText}>{plan.aiSuggestion}</Text>
-          </Card>
-        ) : (
-          <TaskList tasks={plan.tasks} readonly={!isActive} onToggle={handleToggleTask} />
-        )}
 
         {plan.trendData.length > 0 ? (
           <>

@@ -93,6 +93,28 @@ function syncBodyParseToPending(card: ChatCard, sessionId: string | null): void 
   });
 }
 
+function findPendingPlanDraft(
+  messages: ChatMessage[],
+  cardStatus: Map<string, 'pending' | 'submitted' | 'cancelled'>
+): Record<string, unknown> | null {
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    const segments = message.segments ?? [];
+    for (let segmentIndex = segments.length - 1; segmentIndex >= 0; segmentIndex -= 1) {
+      const segment = segments[segmentIndex];
+      if (segment.kind !== 'card' || segment.card.type !== 'plan_draft') {
+        continue;
+      }
+      const cardId = getCardId(segment.card);
+      if ((cardStatus.get(cardId) ?? 'pending') === 'pending') {
+        const draft = segment.card.payload.draft;
+        return draft && typeof draft === 'object' ? (draft as Record<string, unknown>) : null;
+      }
+    }
+  }
+  return null;
+}
+
 interface UseStreamingChatReturn {
   messages: ChatMessage[];
   isStreaming: boolean;
@@ -106,6 +128,7 @@ interface UseStreamingChatReturn {
 
 export function useStreamingChat(): UseStreamingChatReturn {
   const streamRef = useRef<MockStreamHandle | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
 
   const messages = useAIStore((s) => s.chatMessages);
   const sessionId = useAIStore((s) => s.currentSessionId);
@@ -127,7 +150,10 @@ export function useStreamingChat(): UseStreamingChatReturn {
   const wireStreamHandlers = useCallback(
     (handle: MockStreamHandle) => {
       handle.on('meta', ({ session_id }) => {
-        if (session_id) setCurrentSessionId(session_id);
+        if (session_id) {
+          sessionIdRef.current = session_id;
+          setCurrentSessionId(session_id);
+        }
       });
 
       handle.on('status', ({ label }) => {
@@ -182,10 +208,10 @@ export function useStreamingChat(): UseStreamingChatReturn {
         setCardStatus(cardId, 'pending');
         // AI 解析饮食卡片 → 同步写入 dietStore.pendingRecords，
         // 让首页对应餐次卡片显示"待确认"态（确认/修改/取消）
-        syncDietParseToPending(card, useAIStore.getState().currentSessionId);
+        syncDietParseToPending(card, sessionIdRef.current);
         // AI 解析身体数据卡片 → 同步写入 bodyPendingStore，
         // 让首页辅助卡片（饮水/睡眠/运动/排便）显示"待确认"态
-        syncBodyParseToPending(card, useAIStore.getState().currentSessionId);
+        syncBodyParseToPending(card, sessionIdRef.current);
         updateLastAIMessage((msg) => ({
           ...msg,
           status: null,
@@ -252,14 +278,15 @@ export function useStreamingChat(): UseStreamingChatReturn {
 
   const send = useCallback(
     (text: string, ctx?: { image_url?: string; referenced_date?: string }) => {
+      const pendingPlanDraft = findPendingPlanDraft(messages, cardStatus);
       _dispatch({
         type: 'text',
         message: text,
-        context: ctx,
+        context: pendingPlanDraft ? { ...ctx, pending_plan_draft: pendingPlanDraft } : ctx,
         session_id: sessionId,
       });
     },
-    [_dispatch, sessionId]
+    [_dispatch, cardStatus, messages, sessionId]
   );
 
   const sendChoice = useCallback(

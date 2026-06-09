@@ -1,4 +1,4 @@
-import type { PlanDetail, PlanListItem, PlanSummary } from '../types/plan.types';
+import type { PlanDetail, PlanListItem } from '../types/plan.types';
 
 export const planListMock: PlanListItem[] = [
   {
@@ -96,32 +96,3 @@ export const planDetailsMock: Record<string, PlanDetail> = {
     aiSuggestion: '计划已完成。建议把当前节奏作为后续维持期的基础习惯。',
   },
 };
-
-export function buildDefaultSummary(
-  type: 'weight_loss' | 'nutrition_adjustment' | 'habit_formation' = 'weight_loss',
-  targetWeight = 70,
-  duration = '12 周'
-): PlanSummary {
-  const nameMap = {
-    weight_loss: '减重计划',
-    nutrition_adjustment: '营养调整计划',
-    habit_formation: '习惯养成计划',
-  } as const;
-  return {
-    name: nameMap[type],
-    type,
-    targetWeight: type === 'weight_loss' ? targetWeight : undefined,
-    dailyCalorieTarget: type === 'weight_loss' ? 1600 : 1800,
-    duration,
-    phases: 3,
-    keyRules:
-      type === 'weight_loss'
-        ? ['热量控制在 1600 kcal 左右', '每周至少 3 次有氧运动', '22:30 前入睡']
-        : type === 'nutrition_adjustment'
-          ? ['每日蛋白质不少于 80 g', '每餐加入蔬菜', '减少加工零食']
-          : ['每天步行至少 8000 步', '每天饮水 2000 ml', '保持稳定作息'],
-  };
-}
-
-export const TYPE_OPTIONS = ['减重', '营养', '习惯'];
-export const DURATION_OPTIONS = ['4 周', '12 周', '24 周'];

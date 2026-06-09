@@ -120,38 +120,3 @@ export interface PlanProgressRaw {
   completed_task_ids: string[];
   daily_records: DailyExecutionRaw[];
 }
-
-export type ChatRole = 'ai' | 'user';
-
-export interface ChatActionButton {
-  key: string;
-  label: string;
-  variant: 'primary' | 'secondary';
-}
-
-export interface PlanSummary {
-  name: string;
-  type: PlanType;
-  targetWeight?: number;
-  dailyCalorieTarget?: number;
-  duration: string;
-  phases?: number;
-  keyRules: string[];
-}
-
-export interface ChatMessage {
-  id: string;
-  role: ChatRole;
-  content: string;
-  timestamp: string;
-  quickOptions?: string[];
-  planSummary?: PlanSummary;
-  actionButtons?: ChatActionButton[];
-}
-
-export type ChatStep =
-  | 'ask_type'
-  | 'ask_target_weight'
-  | 'ask_duration'
-  | 'show_summary'
-  | 'created';

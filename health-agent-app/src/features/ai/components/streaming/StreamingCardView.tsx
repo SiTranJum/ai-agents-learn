@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
 import { theme } from '@app/styles/theme';
@@ -199,6 +199,14 @@ function PlanDraftCardView({
   onActionPress?: (actionKind: string, label: string) => void;
 }) {
   const { draft, violations = [] } = card.payload;
+  const [expanded, setExpanded] = useState(false);
+  const phases = draft.phases ?? [];
+  const firstPhase = phases[0];
+  const taskCount = phases.reduce((total, phase) => total + phase.tasks.length, 0) || draft.tasks.length;
+  const targetBits = [
+    draft.targets.weight_target != null ? `目标体重 ${draft.targets.weight_target} kg` : null,
+    draft.targets.daily_calories != null ? `${draft.targets.daily_calories} kcal/天` : null,
+  ].filter(Boolean);
   return (
     <View style={[styles.card, !isInteractive && styles.cardDisabled]}>
       <View style={styles.cardHeader}>
@@ -206,12 +214,20 @@ function PlanDraftCardView({
         <StatusBadge status={status} />
       </View>
       <Text style={styles.summary}>{draft.goal_description}</Text>
-      <View style={styles.summaryRow}>
-        <Text style={styles.foodAmount}>
-          {draft.start_date} 至 {draft.target_date}
-        </Text>
-        {draft.targets.daily_calories != null ? (
-          <Text style={styles.foodAmount}>{draft.targets.daily_calories} kcal/天</Text>
+      <View style={styles.metricGrid}>
+        <View style={styles.metricItem}>
+          <Text style={styles.metricLabel}>周期</Text>
+          <Text style={styles.metricValue}>{draft.start_date} 至 {draft.target_date}</Text>
+        </View>
+        <View style={styles.metricItem}>
+          <Text style={styles.metricLabel}>结构</Text>
+          <Text style={styles.metricValue}>{phases.length || 1} 个阶段 · {taskCount} 个任务</Text>
+        </View>
+        {targetBits.length > 0 ? (
+          <View style={styles.metricItem}>
+            <Text style={styles.metricLabel}>目标</Text>
+            <Text style={styles.metricValue}>{targetBits.join(' · ')}</Text>
+          </View>
         ) : null}
       </View>
       {violations.length > 0 ? (
@@ -220,20 +236,41 @@ function PlanDraftCardView({
           <Text style={styles.warningText}>{violations.join('，')}</Text>
         </View>
       ) : null}
-      {draft.phases.map((phase) => (
-        <View key={phase.id} style={styles.phaseBlock}>
-          <Text style={styles.phaseTitle}>{phase.title}</Text>
-          <Text style={styles.phaseMeta}>
-            {phase.start_date} 至 {phase.end_date}
-          </Text>
-          <Text style={styles.phaseGoal}>{phase.goal}</Text>
-          {phase.tasks.map((task) => (
-            <Text key={task.id} style={styles.phaseTask}>
-              · {task.description}
-            </Text>
+      {firstPhase ? (
+        <View style={styles.previewBlock}>
+          <Text style={styles.previewLabel}>先执行</Text>
+          <Text style={styles.phaseTitle}>{firstPhase.title}</Text>
+          <Text style={styles.phaseGoal}>{firstPhase.goal}</Text>
+          {firstPhase.tasks.slice(0, 3).map((task) => (
+            <View key={task.id} style={styles.taskRow}>
+              <View style={styles.taskDot} />
+              <Text style={styles.phaseTask}>{task.description}</Text>
+            </View>
           ))}
         </View>
-      ))}
+      ) : null}
+      {phases.length > 0 ? (
+        <TouchableOpacity style={styles.detailsToggle} onPress={() => setExpanded((value) => !value)} activeOpacity={0.75}>
+          <Text style={styles.detailsToggleText}>{expanded ? '收起阶段详情' : `展开 ${phases.length} 个阶段和全部任务`}</Text>
+        </TouchableOpacity>
+      ) : null}
+      {expanded
+        ? phases.map((phase) => (
+            <View key={phase.id} style={styles.phaseBlock}>
+              <Text style={styles.phaseTitle}>{phase.title}</Text>
+              <Text style={styles.phaseMeta}>
+                {phase.start_date} 至 {phase.end_date}
+              </Text>
+              <Text style={styles.phaseGoal}>{phase.goal}</Text>
+              {phase.tasks.map((task) => (
+                <View key={task.id} style={styles.taskRow}>
+                  <View style={styles.taskDot} />
+                  <Text style={styles.phaseTask}>{task.description}</Text>
+                </View>
+              ))}
+            </View>
+          ))
+        : null}
       <CardActions card={card} isInteractive={isInteractive} onActionPress={onActionPress} />
     </View>
   );
@@ -414,6 +451,49 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: '#8A5200',
   },
+  metricGrid: {
+    marginTop: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  metricItem: {
+    padding: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    backgroundColor: '#F6F8F4',
+  },
+  metricLabel: {
+    ...theme.typography.caption,
+    color: theme.colors.textTertiary,
+    marginBottom: 2,
+  },
+  metricValue: {
+    ...theme.typography.bodySm,
+    color: theme.colors.textPrimary,
+    fontWeight: '600',
+  },
+  previewBlock: {
+    marginTop: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    backgroundColor: '#F8F3EA',
+  },
+  previewLabel: {
+    ...theme.typography.caption,
+    color: '#8A5A16',
+    fontWeight: '600',
+    marginBottom: theme.spacing.xs,
+  },
+  detailsToggle: {
+    marginTop: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    alignItems: 'center',
+    borderRadius: theme.radius.md,
+    backgroundColor: '#F2F3F5',
+  },
+  detailsToggleText: {
+    ...theme.typography.bodySm,
+    color: theme.colors.textPrimary,
+    fontWeight: '600',
+  },
   phaseBlock: {
     marginTop: theme.spacing.md,
     paddingTop: theme.spacing.md,
@@ -439,7 +519,20 @@ const styles = StyleSheet.create({
   phaseTask: {
     ...theme.typography.bodySm,
     color: theme.colors.textPrimary,
-    marginTop: theme.spacing.xs,
+    flex: 1,
     lineHeight: 20,
+  },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+  },
+  taskDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 7,
+    backgroundColor: theme.colors.primary,
   },
 });

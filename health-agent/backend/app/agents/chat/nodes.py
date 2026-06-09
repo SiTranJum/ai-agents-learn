@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import date
 from typing import Any, cast
 
@@ -34,12 +35,16 @@ class IntentResult(BaseModel):
 
 def _rule_based_intent(message: str) -> Intent:
     text = message.strip().lower()
+    if re.search(r"(?:减|瘦|增)\s*\d+(?:\.\d+)?\s*(?:kg|公斤|斤)", text):
+        return "plan"
+    if any(keyword in text for keyword in ["计划", "目标", "减脂", "减肥", "增肌", "早睡", "作息", "习惯养成"]):
+        return "plan"
+    if any(phrase in text for phrase in ["改善饮食", "控制热量", "少吃外卖", "戒零食", "运动习惯"]):
+        return "plan"
     if any(keyword in text for keyword in ["吃", "饭", "餐", "早餐", "午餐", "晚餐", "零食", "热量", "卡路里", "鸡胸", "米饭"]):
         return "diet"
     if any(keyword in text for keyword in ["体重", "睡眠", "喝水", "运动", "围度", "排便"]):
         return "body"
-    if any(keyword in text for keyword in ["计划", "目标", "减脂", "减肥", "增肌"]):
-        return "plan"
     if any(keyword in text for keyword in ["建议", "推荐", "怎么", "如何", "应该"]):
         return "suggestion"
     if any(keyword in text for keyword in ["记住", "别忘", "忘记"]):

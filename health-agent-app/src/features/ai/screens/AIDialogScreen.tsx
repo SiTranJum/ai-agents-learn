@@ -142,7 +142,12 @@ export function AIDialogScreen() {
 
       // 饮食确认：本地静默保存，不走 SSE
       if (actionId === 'confirm_create_diet_record') {
-        const pending = useDietStore.getState().pendingRecords[cardId];
+        const dietCard = card as DietParseCard;
+        const { meal_type, suggested_date } = dietCard.payload;
+        const pending = useDietStore.getState().getPending(
+          suggested_date ?? date,
+          meal_type ?? ('breakfast' as MealType)
+        );
         if (!pending) {
           toast.show({ type: 'error', message: '未找到待保存数据' });
           return;
@@ -176,7 +181,12 @@ export function AIDialogScreen() {
 
       // 饮食取消：本地静默清除
       if (actionId === 'cancel_diet_record') {
-        const pending = useDietStore.getState().pendingRecords[cardId];
+        const dietCard = card as DietParseCard;
+        const { meal_type, suggested_date } = dietCard.payload;
+        const pending = useDietStore.getState().getPending(
+          suggested_date ?? date,
+          meal_type ?? ('breakfast' as MealType)
+        );
         if (pending) {
           useDietStore.getState().clearPending(pending.date, pending.mealType);
           queryClient.invalidateQueries({ queryKey: ['home/diet', date] });
@@ -190,35 +200,36 @@ export function AIDialogScreen() {
       if (actionId === 'confirm_create_body_record') {
         const bodyCard = card as BodyParseCard;
         const recordType = bodyCard.payload.record_type;
-        const pending = useBodyPendingStore.getState().getPending(date, recordType);
+        const recordDate = bodyCard.payload.suggested_date ?? date;
+        const pending = useBodyPendingStore.getState().getPending(recordDate, recordType);
         if (!pending) {
           toast.show({ type: 'error', message: '未找到待保存数据' });
           return;
         }
         try {
           if (recordType === 'water') {
-            await dataService.addWaterAmount(date, pending.waterAmount ?? 0);
+            await dataService.addWaterAmount(recordDate, pending.waterAmount ?? 0);
           } else if (recordType === 'sleep') {
             await dataService.saveBodyData('sleep', {
-              date,
+              date: recordDate,
               bedTime: pending.sleepBedTime ?? '23:00',
               wakeTime: pending.sleepWakeTime ?? '07:00',
               quality: pending.sleepQuality ?? 'good',
             } as any);
           } else if (recordType === 'exercise') {
             await dataService.saveBodyData('exercise', {
-              date,
+              date: recordDate,
               type: pending.exerciseType ?? '运动',
               duration: pending.exerciseDuration ?? 30,
             } as any);
           } else if (recordType === 'bowel') {
             await dataService.saveBodyData('bowel', {
-              date,
+              date: recordDate,
               time: pending.bowelTime ?? '08:00',
               status: pending.bowelStatus ?? 'normal',
             } as any);
           }
-          useBodyPendingStore.getState().clearPending(date, recordType);
+          useBodyPendingStore.getState().clearPending(recordDate, recordType);
           setCardStatus(cardId, 'submitted');
           queryClient.invalidateQueries({ queryKey: ['home/body', date] });
           toast.show({ type: 'success', message: '已保存' });
@@ -232,7 +243,8 @@ export function AIDialogScreen() {
       if (actionId === 'cancel_body_record') {
         const bodyCard = card as BodyParseCard;
         const recordType = bodyCard.payload.record_type;
-        useBodyPendingStore.getState().clearPending(date, recordType);
+        const recordDate = bodyCard.payload.suggested_date ?? date;
+        useBodyPendingStore.getState().clearPending(recordDate, recordType);
         setCardStatus(cardId, 'cancelled');
         queryClient.invalidateQueries({ queryKey: ['home/body', date] });
         toast.show({ type: 'info', message: '已取消' });

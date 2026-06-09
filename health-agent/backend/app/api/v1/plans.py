@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
+from contextlib import suppress
 from datetime import date, datetime, timezone
 from typing import Annotated, Any, AsyncIterator
 
@@ -35,6 +37,14 @@ from app.streaming import StreamEvent, StreamEventType, sse_response
 
 router = APIRouter(prefix="/plans", tags=["plans"])
 
+_PLAN_WAIT_STATUS_LABELS = (
+    "正在理解你的目标...",
+    "正在读取你的档案和记忆...",
+    "正在判断信息是否足够...",
+    "正在起草阶段化计划...",
+    "正在进行安全校验...",
+)
+
 
 def _resolve_stream_message(payload: PlanStreamRequest) -> str:
     if payload.type == "text":
@@ -56,6 +66,12 @@ def _chunk_text(text: str, chunk_size: int = 80) -> list[str]:
     if len(text) <= chunk_size:
         return [text]
     return [text[index : index + chunk_size] for index in range(0, len(text), chunk_size)]
+
+
+def _plan_draft_intro_text(card: dict[str, Any]) -> str:
+    if card.get("type") != "plan_draft":
+        return ""
+    return "\n\n我把草案放在下面了。先看目标、周期和第一阶段任务；需要看完整阶段时再展开。\n"
 
 
 @router.post("", response_model=ApiResponse[PlanResponse], status_code=status.HTTP_201_CREATED)
@@ -97,9 +113,9 @@ async def create_plan_stream(
             type=StreamEventType.META,
             data={"message_id": message_id, "session_id": payload.session_id, "started_at": datetime.now(timezone.utc).isoformat()},
         )
-        yield StreamEvent(type=StreamEventType.STATUS, data={"node": "handle_plan_turn", "label": "Preparing your plan..."})
-        try:
-            result = await run_plan_conversation(
+        yield StreamEvent(type=StreamEventType.STATUS, data={"node": "handle_plan_turn", "label": "正在理解你的计划需求..."})
+        task = asyncio.create_task(
+            run_plan_conversation(
                 user_message=user_text,
                 messages=payload.messages,
                 profile=user.profile,
@@ -110,6 +126,29 @@ async def create_plan_stream(
                 action_id=payload.action_id,
                 action_payload=payload.action_payload,
             )
+        )
+        status_index = 0
+        long_wait_notice_sent = False
+        try:
+            while True:
+                done, _ = await asyncio.wait({task}, timeout=2.5)
+                if done:
+                    break
+                if not long_wait_notice_sent:
+                    yield StreamEvent(
+                        type=StreamEventType.TEXT_DELTA,
+                        data={"content": "信息够了，我正在结合你的档案起草计划草案。草案不会自动保存，确认后才会创建。\n\n"},
+                    )
+                    long_wait_notice_sent = True
+                label = _PLAN_WAIT_STATUS_LABELS[min(status_index, len(_PLAN_WAIT_STATUS_LABELS) - 1)]
+                yield StreamEvent(type=StreamEventType.STATUS, data={"node": "handle_plan_turn", "label": label})
+                status_index += 1
+            result = await task
+        except asyncio.CancelledError:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+            raise
         except ValidationException as exc:
             yield StreamEvent(
                 type=StreamEventType.ERROR,
@@ -127,6 +166,10 @@ async def create_plan_stream(
         for chunk in _chunk_text(text):
             yield StreamEvent(type=StreamEventType.TEXT_DELTA, data={"content": chunk})
         for card in result.get("response_cards", []) or []:
+            intro = _plan_draft_intro_text(card)
+            if intro:
+                for chunk in _chunk_text(intro):
+                    yield StreamEvent(type=StreamEventType.TEXT_DELTA, data={"content": chunk})
             yield StreamEvent(type=StreamEventType.CARD, data={"card": card})
         for prompt in result.get("choice_prompts", []) or []:
             yield StreamEvent(type=StreamEventType.CHOICE, data=prompt)

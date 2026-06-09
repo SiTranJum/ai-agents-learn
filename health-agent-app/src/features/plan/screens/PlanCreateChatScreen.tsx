@@ -16,6 +16,8 @@ import { usePlanConversation } from '../hooks/usePlanConversation';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'PlanCreate'>;
 
+const STARTER_PROMPTS = ['12 周减 4kg', '改善外卖和零食习惯', '建立早睡和运动习惯'];
+
 export function PlanCreateChatScreen() {
   const navigation = useNavigation<Nav>();
   const { messages, isStreaming, send, sendChoice, sendCardAction, reset, cardStatus } = usePlanConversation();
@@ -55,16 +57,22 @@ export function PlanCreateChatScreen() {
         <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
           <Feather name="chevron-left" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>创建计划</Text>
+        <Text style={styles.title}>AI 定计划</Text>
         <View style={styles.backBtn} />
       </View>
 
-      <View style={styles.hero}>
-        <Text style={styles.heroTitle}>AI 会结合你的档案和记忆生成计划</Text>
-        <Text style={styles.heroText}>
-          直接描述你的目标、周期、限制和偏好；从第一轮开始就是真实 AI 对话。
-        </Text>
-      </View>
+      {messages.length === 0 ? (
+        <View style={styles.hero}>
+          <Text style={styles.heroTitle}>试试这样开始</Text>
+          <View style={styles.starterRow}>
+            {STARTER_PROMPTS.map((item) => (
+              <TouchableOpacity key={item} style={styles.starterChip} onPress={() => send(item)} activeOpacity={0.75}>
+                <Text style={styles.starterText}>{item}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.content}>
         <ChatMessageList
@@ -75,7 +83,7 @@ export function PlanCreateChatScreen() {
           cardStatus={cardStatus}
         />
         <View style={styles.inputBarWrap}>
-          <AIInputBar onSend={send} placeholder="例如：帮我 12 周减 4kg" />
+          <AIInputBar onSend={send} placeholder="说出目标，例如：12 周减 4kg" />
         </View>
       </View>
 
@@ -120,7 +128,7 @@ const styles = StyleSheet.create({
   },
   hero: {
     paddingHorizontal: theme.layout.pageHorizontalPadding,
-    paddingTop: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.md,
     gap: theme.spacing.xs,
   },
@@ -128,10 +136,22 @@ const styles = StyleSheet.create({
     ...theme.typography.cardTitle,
     color: theme.colors.textPrimary,
   },
-  heroText: {
+  starterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+  },
+  starterChip: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.pill,
+    backgroundColor: '#F2F3E8',
+  },
+  starterText: {
     ...theme.typography.bodySm,
-    color: theme.colors.textSecondary,
-    lineHeight: 20,
+    color: theme.colors.textPrimary,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
