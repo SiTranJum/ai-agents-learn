@@ -91,14 +91,17 @@ export function HomeScreen() {
   }, [navigation]);
 
   const handleRecordWeight = useCallback(() => {
-    navigation.navigate('BodyEdit', { recordType: 'weight' });
+    navigation.navigate('DataTab', {
+      screen: 'DataScreen',
+      params: { tab: 'weight', autoOpenSheet: true },
+    });
   }, [navigation]);
 
   const handleMealPress = useCallback(
-    (_mealType: MealType) => {
-      navigation.navigate('DietTab');
+    (mealType: MealType) => {
+      navigation.navigate('DietEdit', { mealType, date });
     },
-    [navigation]
+    [navigation, date]
   );
 
   // 确认 pending 餐次记录

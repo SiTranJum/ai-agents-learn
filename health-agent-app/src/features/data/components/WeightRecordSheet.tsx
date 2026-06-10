@@ -47,6 +47,7 @@ export function WeightRecordSheet({
   const [bodyFatRate, setBodyFatRate] = useState(record?.bodyFatRate != null ? String(record.bodyFatRate) : '');
   const [muscleRate, setMuscleRate] = useState(record?.muscleRate != null ? String(record.muscleRate) : '');
   const [note, setNote] = useState(record?.note ?? '');
+  const [showNote, setShowNote] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export function WeightRecordSheet({
     setBodyFatRate(record?.bodyFatRate != null && record.bodyFatRateSource === 'manual' ? String(record.bodyFatRate) : '');
     setMuscleRate(record?.muscleRate != null && record.muscleRateSource === 'manual' ? String(record.muscleRate) : '');
     setNote(record?.note ?? '');
+    setShowNote(false);
     setManualMode(false);
     setError(null);
   }, [visible, record, fallbackWeight]);
@@ -203,14 +205,20 @@ export function WeightRecordSheet({
             </View>
           </View>
 
-          <TextInput
-            label="备注（可选）"
-            value={note}
-            onChangeText={setNote}
-            placeholder="补充信息"
-            multiline
-            maxLength={100}
-          />
+          {!showNote ? (
+            <TouchableOpacity style={styles.addNoteButton} onPress={() => setShowNote(true)}>
+              <Text style={styles.addNoteText}>+ 添加备注</Text>
+            </TouchableOpacity>
+          ) : (
+            <TextInput
+              label="备注（可选）"
+              value={note}
+              onChangeText={setNote}
+              placeholder="补充信息"
+              multiline
+              maxLength={100}
+            />
+          )}
 
           <View style={styles.actions}>
             <View style={styles.actionButton}>
@@ -232,7 +240,7 @@ export function WeightRecordSheet({
 
 const styles = StyleSheet.create({
   content: {
-    maxHeight: 620,
+    maxHeight: 480,
   },
   headerRow: {
     flexDirection: 'row',
@@ -281,6 +289,14 @@ const styles = StyleSheet.create({
   },
   gridItem: {
     flex: 1,
+  },
+  addNoteButton: {
+    paddingVertical: theme.spacing.md,
+    alignItems: 'center',
+  },
+  addNoteText: {
+    ...theme.typography.body,
+    color: theme.colors.primary,
   },
   actions: {
     flexDirection: 'row',

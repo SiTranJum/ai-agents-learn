@@ -3,7 +3,7 @@
 // 参考: docs/specs/frontend/modules/13-data-module.md §P04
 // UI 文稿: docs/prd/v1/ui-design/06-data-page.md
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,9 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { CompositeNavigationProp, RouteProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
 import { theme } from '@app/styles/theme';
@@ -24,8 +24,10 @@ import type { MainStackParamList, TabParamList } from '@app/navigation/types';
 
 import { useDataStore } from '../store/dataStore';
 import {
+  useCalendarRecords,
   useAddWater,
   useRecentRecords,
+  useSaveBodyData,
   useTodayRecords,
   useTrendData,
 } from '../hooks/useDataTrend';
@@ -33,6 +35,8 @@ import { TimeRangeSelector } from '../components/TimeRangeSelector';
 import { DataTabBar } from '../components/DataTabBar';
 import { TrendChart } from '../components/TrendChart';
 import { DataRecordList } from '../components/DataRecordList';
+import { DataCalendarView } from '../components/DataCalendarView';
+import { WeightRecordSheet } from '../components/WeightRecordSheet';
 import {
   BowelCard,
   ExerciseCard,
@@ -42,6 +46,8 @@ import {
   WeightCard,
 } from '../components/TodayCards';
 import type { DataTabType } from '../types/data.types';
+import type { WeightRecord } from '../types/data.types';
+import { todayStr } from '@shared/utils/date';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<TabParamList, 'DataTab'>,
@@ -59,30 +65,69 @@ const TAB_TITLES: Record<DataTabType, string> = {
 
 export function DataScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProp<TabParamList, 'DataTab'>>();
   const toast = useToast();
 
   const selectedTab = useDataStore((s) => s.selectedTab);
   const setSelectedTab = useDataStore((s) => s.setSelectedTab);
   const selectedTimeRange = useDataStore((s) => s.selectedTimeRange);
   const setSelectedTimeRange = useDataStore((s) => s.setSelectedTimeRange);
+  const [recordViewMode, setRecordViewMode] = useState<'history' | 'calendar'>('history');
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [weightSheetVisible, setWeightSheetVisible] = useState(false);
+  const [editingWeightRecord, setEditingWeightRecord] = useState<WeightRecord | null>(null);
+
+  // 处理从首页跳转过来自动打开浮窗的情况
+  useEffect(() => {
+    const params = route.params as any;
+    if (params?.autoOpenSheet && params?.tab === 'weight') {
+      setWeightSheetVisible(true);
+      // 清除参数避免重复触发
+      navigation.setParams({ autoOpenSheet: undefined } as any);
+    }
+  }, [route.params, navigation]);
 
   const todayQuery = useTodayRecords();
   const trendQuery = useTrendData(selectedTab, selectedTimeRange);
   const recentQuery = useRecentRecords(selectedTab, 7);
+  const calendarQuery = useCalendarRecords(selectedTab, calendarMonth);
+  const saveBody = useSaveBodyData();
   const addWater = useAddWater();
 
   const handleEdit = useCallback(
     (recordType: DataTabType, recordId?: string) => {
+      if (recordType === 'weight') {
+        setEditingWeightRecord(recordId ? todayQuery.data?.weight ?? null : null);
+        setWeightSheetVisible(true);
+        return;
+      }
       navigation.navigate('BodyEdit', { recordType, recordId });
     },
-    [navigation]
+    [navigation, todayQuery.data?.weight]
+  );
+
+  const handleSaveWeight = useCallback(
+    async (record: Partial<WeightRecord>) => {
+      try {
+        await saveBody.mutateAsync({ type: 'weight', record });
+        toast.show({ type: 'success', message: '已保存体重记录' });
+        setWeightSheetVisible(false);
+        setEditingWeightRecord(null);
+      } catch {
+        toast.show({ type: 'error', message: '保存失败，请稍后重试' });
+      }
+    },
+    [saveBody, toast]
   );
 
   const handleAddWater = useCallback(
     async (amount: number) => {
       try {
         await addWater.mutateAsync({
-          date: todayQuery.data?.water?.date ?? new Date().toISOString().slice(0, 10),
+          date: todayQuery.data?.water?.date ?? todayStr(),
           amount,
         });
         toast.show({ type: 'success', message: `已添加 ${amount}ml` });
@@ -106,6 +151,11 @@ export function DataScreen() {
   const today = todayQuery.data;
   const isRefreshing =
     todayQuery.isRefetching || trendQuery.isRefetching || recentQuery.isRefetching;
+  const latestWeight = useMemo(() => {
+    const points = trendQuery.data?.points ?? [];
+    const last = points[points.length - 1];
+    return selectedTab === 'weight' ? last?.value : today?.weight?.weight;
+  }, [selectedTab, today?.weight?.weight, trendQuery.data?.points]);
 
   return (
     <PageContainer>
@@ -198,15 +248,56 @@ export function DataScreen() {
           )}
         </View>
 
-        {/* 历史记录 */}
+        {/* 历史记录 / 日历 */}
         <View style={styles.section}>
-          <DataRecordList
-            tab={selectedTab}
-            records={recentQuery.data ?? []}
-            isLoading={recentQuery.isLoading}
-          />
+          <View style={styles.recordModeRow}>
+            <TouchableOpacity
+              style={[styles.recordModeButton, recordViewMode === 'history' && styles.recordModeButtonActive]}
+              onPress={() => setRecordViewMode('history')}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.recordModeText, recordViewMode === 'history' && styles.recordModeTextActive]}>
+                历史记录
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.recordModeButton, recordViewMode === 'calendar' && styles.recordModeButtonActive]}
+              onPress={() => setRecordViewMode('calendar')}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.recordModeText, recordViewMode === 'calendar' && styles.recordModeTextActive]}>
+                日历
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {recordViewMode === 'history' ? (
+            <DataRecordList
+              tab={selectedTab}
+              records={recentQuery.data ?? []}
+              isLoading={recentQuery.isLoading}
+            />
+          ) : (
+            <DataCalendarView
+              tab={selectedTab}
+              month={calendarMonth}
+              records={calendarQuery.data ?? []}
+              isLoading={calendarQuery.isLoading}
+              onMonthChange={setCalendarMonth}
+            />
+          )}
         </View>
       </ScrollView>
+      <WeightRecordSheet
+        visible={weightSheetVisible}
+        record={editingWeightRecord}
+        fallbackWeight={latestWeight}
+        isSaving={saveBody.isPending}
+        onClose={() => {
+          setWeightSheetVisible(false);
+          setEditingWeightRecord(null);
+        }}
+        onSave={handleSaveWeight}
+      />
     </PageContainer>
   );
 }
@@ -239,6 +330,32 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: theme.spacing.xs,
+  },
+  recordModeRow: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    padding: 3,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.bgCard,
+    borderWidth: 1,
+    borderColor: theme.colors.divider,
+    marginBottom: theme.spacing.sm,
+  },
+  recordModeButton: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.radius.pill,
+  },
+  recordModeButtonActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  recordModeText: {
+    ...theme.typography.bodySm,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  recordModeTextActive: {
+    color: theme.colors.bgCard,
   },
   tabBarWrap: {
     marginHorizontal: -theme.layout.pageHorizontalPadding,
