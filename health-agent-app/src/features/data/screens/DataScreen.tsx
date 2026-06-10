@@ -97,12 +97,17 @@ export function DataScreen() {
   // 处理从首页跳转过来自动打开浮窗的情况
   useEffect(() => {
     const params = route.params as any;
-    if (params?.autoOpenSheet && params?.tab === 'weight') {
-      setWeightSheetVisible(true);
+    if (params?.autoOpenSheet && params?.tab) {
+      // 先切换到对应的Tab
+      setSelectedTab(params.tab);
+      // 再打开对应的浮窗
+      if (params.tab === 'weight') {
+        setWeightSheetVisible(true);
+      }
       // 清除参数避免重复触发
-      navigation.setParams({ autoOpenSheet: undefined } as any);
+      navigation.setParams({ autoOpenSheet: undefined, tab: undefined } as any);
     }
-  }, [route.params, navigation]);
+  }, [route.params, navigation, setSelectedTab]);
 
   const todayQuery = useTodayRecords();
   const trendQuery = useTrendData(selectedTab, selectedTimeRange);
