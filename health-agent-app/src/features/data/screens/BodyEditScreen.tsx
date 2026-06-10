@@ -24,8 +24,10 @@ import { PageContainer } from '@shared/layout/PageContainer/PageContainer';
 import { Button } from '@shared/ui/Button';
 import { TextInput } from '@shared/forms/TextInput';
 import { Picker } from '@shared/forms/Picker';
+import { DatePicker } from '@shared/forms/DatePicker';
 import { ConfirmDialog } from '@shared/feedback/ConfirmDialog';
 import { useToast } from '@shared/feedback/Toast';
+import { formatDate, formatFriendlyDate, parseLocalDate, todayStr } from '@shared/utils/date';
 import type { MainStackParamList } from '@app/navigation/types';
 
 import { useTodayRecords, useSaveBodyData } from '../hooks/useDataTrend';
@@ -69,8 +71,6 @@ const BOWEL_STATUS_OPTIONS: { label: string; value: BowelStatus }[] = [
   { label: '便秘', value: 'constipation' },
   { label: '腹泻', value: 'diarrhea' },
 ];
-
-const todayStr = (): string => new Date().toISOString().slice(0, 10);
 
 export function BodyEditScreen() {
   const navigation = useNavigation<Nav>();
@@ -122,6 +122,22 @@ export function BodyEditScreen() {
   // 体重
   const [weight, setWeight] = useState<string>(
     initial && recordType === 'weight' ? String((initial as WeightRecord).weight) : ''
+  );
+  const [bodyFatRate, setBodyFatRate] = useState<string>(
+    initial
+      && recordType === 'weight'
+      && (initial as WeightRecord).bodyFatRate != null
+      && (initial as WeightRecord).bodyFatRateSource === 'manual'
+      ? String((initial as WeightRecord).bodyFatRate)
+      : ''
+  );
+  const [muscleRate, setMuscleRate] = useState<string>(
+    initial
+      && recordType === 'weight'
+      && (initial as WeightRecord).muscleRate != null
+      && (initial as WeightRecord).muscleRateSource === 'manual'
+      ? String((initial as WeightRecord).muscleRate)
+      : ''
   );
 
   // 围度
@@ -208,10 +224,22 @@ export function BodyEditScreen() {
           toast.show({ type: 'error', message: '体重需在 20-300 kg 之间' });
           return;
         }
+        const fat = bodyFatRate ? parseFloat(bodyFatRate) : undefined;
+        const muscle = muscleRate ? parseFloat(muscleRate) : undefined;
+        if (fat !== undefined && (!Number.isFinite(fat) || fat < 3 || fat > 70)) {
+          toast.show({ type: 'error', message: '体脂率需在 3-70% 之间' });
+          return;
+        }
+        if (muscle !== undefined && (!Number.isFinite(muscle) || muscle < 10 || muscle > 80)) {
+          toast.show({ type: 'error', message: '肌肉率需在 10-80% 之间' });
+          return;
+        }
         payload = {
           ...payload,
           id: recordId,
           weight: Math.round(w * 10) / 10,
+          bodyFatRate: fat,
+          muscleRate: muscle,
           bmi: Math.round((w / (1.7 * 1.7)) * 10) / 10,
           change: 0,
           note,
@@ -287,7 +315,7 @@ export function BodyEditScreen() {
       toast.show({ type: 'error', message: '保存失败，请稍后重试' });
     }
   }, [
-    recordType, recordId, date, note, weight, waist, hip, thigh, arm,
+    recordType, recordId, date, note, weight, bodyFatRate, muscleRate, waist, hip, thigh, arm,
     bedTime, wakeTime, sleepQuality, sleepDurationMinutes,
     exerciseType, exerciseDuration, exerciseCalories,
     bowelTime, bowelStatus,
@@ -323,22 +351,42 @@ export function BodyEditScreen() {
         >
           {/* 日期 */}
           <Text style={styles.sectionTitle}>记录日期</Text>
-          <View style={styles.dateBox}>
-            <Text style={styles.dateText}>{date}</Text>
-            {isEdit && (
-              <Text style={styles.dateHint}>编辑模式下日期锁定</Text>
-            )}
-          </View>
+          <DatePicker
+            value={parseLocalDate(date)}
+            onChange={(next) => {
+              setDate(formatDate(next));
+              markDirty();
+            }}
+            displayFormatter={formatFriendlyDate}
+            minYear={2020}
+            maxYear={new Date().getFullYear()}
+          />
 
           {/* 动态表单 */}
           {recordType === 'weight' && (
-            <TextInput
-              label="体重 (kg)"
-              value={weight}
-              onChangeText={set(setWeight)}
-              placeholder="请输入体重"
-              keyboardType="decimal-pad"
-            />
+            <>
+              <TextInput
+                label="体重 (kg)"
+                value={weight}
+                onChangeText={set(setWeight)}
+                placeholder="请输入体重"
+                keyboardType="decimal-pad"
+              />
+              <TextInput
+                label="体脂率 (%)"
+                value={bodyFatRate}
+                onChangeText={set(setBodyFatRate)}
+                placeholder="可选"
+                keyboardType="decimal-pad"
+              />
+              <TextInput
+                label="肌肉率 (%)"
+                value={muscleRate}
+                onChangeText={set(setMuscleRate)}
+                placeholder="可选"
+                keyboardType="decimal-pad"
+              />
+            </>
           )}
 
           {recordType === 'measurement' && (

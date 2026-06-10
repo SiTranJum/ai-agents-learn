@@ -21,6 +21,8 @@ class WeightRecord(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     weight: Mapped[float] = mapped_column(Float, nullable=False)
+    body_fat_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    muscle_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 

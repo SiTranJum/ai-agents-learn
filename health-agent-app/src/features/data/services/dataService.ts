@@ -2,7 +2,7 @@
 // 契约: docs/specs/shared/api-contract.md §6
 
 import { apiClient } from '@core/api/client';
-import { todayStr } from '@shared/utils/date';
+import { formatDate, todayStr } from '@shared/utils/date';
 import type {
   AnalysisData,
   BodyRecord,
@@ -441,11 +441,12 @@ async function getList<T>(path: string): Promise<T[]> {
 export async function getRecentRecords(
   type: DataTabType,
   limit: number = 7,
-  options: { endDate?: string } = {}
+  options: { startDate?: string; endDate?: string } = {}
 ): Promise<BodyRecord[]> {
   const query = buildQuery({
     page: 1,
     page_size: limit,
+    start_date: options.startDate,
     end_date: options.endDate,
   });
   switch (type) {
@@ -474,4 +475,16 @@ export async function getRecentRecords(
       return raw.map(mapBowelRecord);
     }
   }
+}
+
+export async function getCalendarRecords(
+  type: DataTabType,
+  month: Date
+): Promise<BodyRecord[]> {
+  const start = new Date(month.getFullYear(), month.getMonth(), 1);
+  const end = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+  return getRecentRecords(type, 50, {
+    startDate: formatDate(start),
+    endDate: formatDate(end),
+  });
 }

@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Dimensions,
+  TouchableOpacity,
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from 'react-native';
@@ -23,6 +24,8 @@ export interface RulerPickerProps {
   step?: number;
   unit?: string;
   error?: string;
+  showValue?: boolean;
+  onValuePress?: () => void;
 }
 
 export function RulerPicker({
@@ -34,6 +37,8 @@ export function RulerPicker({
   step = 1,
   unit = '',
   error,
+  showValue = true,
+  onValuePress,
 }: RulerPickerProps) {
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentValue, setCurrentValue] = useState(value);
@@ -90,11 +95,18 @@ export function RulerPicker({
 
       <View style={[styles.rulerContainer, error ? styles.errorBorder : null]}>
         {/* 当前值显示 */}
-        <View style={styles.valueDisplay}>
-          <Text style={styles.valueText}>
-            {currentValue} {unit}
-          </Text>
-        </View>
+        {showValue && (
+          <TouchableOpacity
+            style={styles.valueDisplay}
+            activeOpacity={onValuePress ? 0.7 : 1}
+            onPress={onValuePress}
+            disabled={!onValuePress}
+          >
+            <Text style={styles.valueText}>
+              {currentValue} {unit}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* 中心指示器 */}
         <View style={styles.centerIndicator} />
@@ -188,7 +200,7 @@ const styles = StyleSheet.create({
     fontSize: 36,
     color: colors.primary,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: 0,
   },
   centerIndicator: {
     position: 'absolute',

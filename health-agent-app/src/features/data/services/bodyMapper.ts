@@ -18,6 +18,11 @@ export interface BackendWeightRecord {
   date: string;
   weight: number;
   bmi: number | null;
+  bmi_category?: 'underweight' | 'normal' | 'overweight' | 'obese' | null;
+  body_fat_rate?: number | null;
+  body_fat_rate_source?: 'manual' | 'estimated' | null;
+  muscle_rate?: number | null;
+  muscle_rate_source?: 'manual' | 'estimated' | null;
   change: number | null;
   note: string | null;
   anomaly_warning: string | null;
@@ -112,6 +117,11 @@ export function mapWeightRecord(r: BackendWeightRecord): WeightRecord {
     date: r.date,
     weight: r.weight,
     bmi: r.bmi,
+    bmiCategory: r.bmi_category ?? null,
+    bodyFatRate: r.body_fat_rate ?? null,
+    bodyFatRateSource: r.body_fat_rate_source ?? null,
+    muscleRate: r.muscle_rate ?? null,
+    muscleRateSource: r.muscle_rate_source ?? null,
     change: r.change ?? 0,
     note: r.note ?? undefined,
     anomalyWarning: r.anomaly_warning,
@@ -193,6 +203,8 @@ export function toWeightPayload(r: Partial<WeightRecord>) {
   return {
     date: r.date,
     weight: r.weight,
+    body_fat_rate: r.bodyFatRate ?? null,
+    muscle_rate: r.muscleRate ?? null,
     note: r.note ?? null,
   };
 }

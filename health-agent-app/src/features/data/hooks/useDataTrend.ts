@@ -2,7 +2,8 @@
 // 参考: docs/specs/frontend/modules/13-data-module.md §6
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { dataService, getRecentRecords } from '../services/dataService';
+import { todayStr } from '@shared/utils/date';
+import { dataService, getCalendarRecords, getRecentRecords } from '../services/dataService';
 import { useDataStore } from '../store/dataStore';
 import type {
   BodyRecord,
@@ -71,6 +72,14 @@ export function useRecentRecords(tab: DataTabType, limit: number = 7) {
   });
 }
 
+export function useCalendarRecords(tab: DataTabType, month: Date) {
+  const monthKey = `${month.getFullYear()}-${month.getMonth() + 1}`;
+  return useQuery({
+    queryKey: ['data', 'calendar', tab, monthKey],
+    queryFn: () => getCalendarRecords(tab, month),
+  });
+}
+
 export function useAnalysisData() {
   const range = useDataStore((s) => s.selectedTimeRange);
   return useQuery({
@@ -86,13 +95,18 @@ export function useSaveBodyData() {
     mutationFn: (params: { type: DataTabType; record: Partial<BodyRecord> }) =>
       dataService.saveBodyData(params.type, params.record),
     onSuccess: (saved, vars) => {
-      // 乐观更新：直接把返回值写入 today 缓存，避免等待 refetch
-      qc.setQueryData(['data', 'today'], (old: Record<string, unknown> | undefined) => {
-        if (!old) return old;
-        return { ...old, [vars.type]: saved };
-      });
+      if ((saved as { date?: string }).date === todayStr()) {
+        // 乐观更新：直接把返回值写入 today 缓存，避免等待 refetch
+        qc.setQueryData(['data', 'today'], (old: Record<string, unknown> | undefined) => {
+          if (!old) return old;
+          return { ...old, [vars.type]: saved };
+        });
+      } else {
+        qc.invalidateQueries({ queryKey: ['data', 'today'] });
+      }
       qc.invalidateQueries({ queryKey: ['data', 'trend'] });
       qc.invalidateQueries({ queryKey: ['data', 'recent'] });
+      qc.invalidateQueries({ queryKey: ['data', 'calendar'] });
       // 刷新首页辅助卡片：使用 predicate 匹配所有 home/* 查询
       qc.invalidateQueries({
         predicate: (query) => {
@@ -115,6 +129,7 @@ export function useAddWater() {
         if (!old) return old;
         return { ...old, water: saved };
       });
+      qc.invalidateQueries({ queryKey: ['data', 'calendar'] });
       // 刷新首页辅助卡片：使用 predicate 匹配所有 home/* 查询
       qc.invalidateQueries({
         predicate: (query) => {

@@ -19,6 +19,11 @@ export interface WeightRecord {
   date: string;
   weight: number;
   bmi: number | null;
+  bmiCategory?: 'underweight' | 'normal' | 'overweight' | 'obese' | null;
+  bodyFatRate?: number | null;
+  bodyFatRateSource?: 'manual' | 'estimated' | null;
+  muscleRate?: number | null;
+  muscleRateSource?: 'manual' | 'estimated' | null;
   /** 与昨日体重差值（kg） */
   change: number;
   note?: string;
@@ -152,6 +157,8 @@ export interface AnalysisData {
 export interface WeightFormData {
   date: string;
   weight: number;
+  bodyFatRate?: number;
+  muscleRate?: number;
   note?: string;
 }
 

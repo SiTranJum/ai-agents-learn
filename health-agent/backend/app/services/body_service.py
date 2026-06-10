@@ -70,15 +70,25 @@ class BodyService:
         *,
         height_cm: float | None = None,
         target_weight: float | None = None,
+        gender: str | None = None,
+        birth_date: date | None = None,
     ) -> None:
         self.repo = repo
         self.height_cm = height_cm
         self.target_weight = target_weight
+        self.gender = gender
+        self.birth_date = birth_date
 
     async def create_weight(self, data: WeightRecordCreate) -> WeightRecordResponse:
         history = await self._weight_history(data.date)
         record = await self.repo.create_weight(
-            WeightRecord(date=data.date, weight=round(data.weight, 1), note=data.note)
+            WeightRecord(
+                date=data.date,
+                weight=round(data.weight, 1),
+                body_fat_rate=self._round_optional(data.body_fat_rate),
+                muscle_rate=self._round_optional(data.muscle_rate),
+                note=data.note,
+            )
         )
         await self.repo.session.commit()
         return self._weight_response(record, anomaly_warning=self._detect_anomaly(data.weight, history))
@@ -116,6 +126,10 @@ class BodyService:
             record.date = data.date
         if data.weight is not None:
             record.weight = round(data.weight, 1)
+        if data.body_fat_rate is not None:
+            record.body_fat_rate = self._round_optional(data.body_fat_rate)
+        if data.muscle_rate is not None:
+            record.muscle_rate = self._round_optional(data.muscle_rate)
         if data.note is not None:
             record.note = data.note
         await self.repo.session.commit()
@@ -535,11 +549,33 @@ class BodyService:
         *,
         anomaly_warning: str | None = None,
     ) -> WeightRecordResponse:
+        bmi = self.calculate_bmi(record.weight)
+        estimated_body_fat = self.calculate_body_fat_rate(
+            bmi=bmi,
+            gender=self.gender,
+            birth_date=self.birth_date,
+            target_date=record.date,
+        )
+        body_fat_rate = (
+            record.body_fat_rate
+            if record.body_fat_rate is not None
+            else estimated_body_fat
+        )
+        muscle_rate = (
+            record.muscle_rate
+            if record.muscle_rate is not None
+            else self.calculate_muscle_rate(body_fat_rate)
+        )
         return WeightRecordResponse(
             id=record.id,
             date=record.date,
             weight=round(record.weight, 1),
-            bmi=self.calculate_bmi(record.weight),
+            bmi=bmi,
+            bmi_category=self.calculate_bmi_category(bmi),
+            body_fat_rate=body_fat_rate,
+            body_fat_rate_source=self._metric_source(record.body_fat_rate, body_fat_rate),
+            muscle_rate=muscle_rate,
+            muscle_rate_source=self._metric_source(record.muscle_rate, muscle_rate),
             change=0.0,
             note=record.note,
             anomaly_warning=anomaly_warning,
@@ -617,6 +653,52 @@ class BodyService:
             return None
         height_m = self.height_cm / 100
         return round(weight / (height_m * height_m), 1)
+
+    @staticmethod
+    def calculate_bmi_category(bmi: float | None) -> str | None:
+        if bmi is None:
+            return None
+        if bmi < 18.5:
+            return "underweight"
+        if bmi < 24:
+            return "normal"
+        if bmi < 28:
+            return "overweight"
+        return "obese"
+
+    @staticmethod
+    def calculate_body_fat_rate(
+        *,
+        bmi: float | None,
+        gender: str | None,
+        birth_date: date | None,
+        target_date: date,
+    ) -> float | None:
+        if bmi is None or birth_date is None or gender not in {"male", "female"}:
+            return None
+        age = max(
+            target_date.year
+            - birth_date.year
+            - ((target_date.month, target_date.day) < (birth_date.month, birth_date.day)),
+            1,
+        )
+        sex = 1 if gender == "male" else 0
+        return round(1.2 * bmi + 0.23 * age - 10.8 * sex - 5.4, 1)
+
+    @staticmethod
+    def calculate_muscle_rate(body_fat_rate: float | None) -> float | None:
+        if body_fat_rate is None:
+            return None
+        # V1 fallback estimate: manual or hardware data should replace this when available.
+        return round(max(10.0, min(80.0, 100 - body_fat_rate - 15)), 1)
+
+    @staticmethod
+    def _metric_source(manual_value: float | None, response_value: float | None) -> str | None:
+        if manual_value is not None:
+            return "manual"
+        if response_value is not None:
+            return "estimated"
+        return None
 
     def calculate_exercise_calories(self, exercise_type: str, duration_minutes: int) -> int:
         met = {

@@ -18,6 +18,7 @@ export interface DatePickerProps {
   error?: string;
   minYear?: number;
   maxYear?: number;
+  displayFormatter?: (date: Date) => string;
 }
 
 export function DatePicker({
@@ -28,6 +29,7 @@ export function DatePicker({
   error,
   minYear = 1900,
   maxYear = new Date().getFullYear(),
+  displayFormatter,
 }: DatePickerProps) {
   const [modalVisible, setModalVisible] = React.useState(false);
 
@@ -61,7 +63,7 @@ export function DatePicker({
     (_, i) => i + 1
   );
 
-  const displayValue = value ? format(value, 'yyyy-MM-dd') : '';
+  const displayValue = value ? (displayFormatter?.(value) ?? format(value, 'yyyy-MM-dd')) : '';
 
   const handleOpen = () => {
     if (value) {

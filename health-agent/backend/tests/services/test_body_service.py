@@ -61,7 +61,13 @@ class _FakeRepo:
 @pytest.mark.asyncio
 async def test_create_weight_calculates_bmi_and_trend_statistics() -> None:
     repo = _FakeRepo()
-    service = BodyService(repo=repo, height_cm=170, target_weight=60)  # type: ignore[arg-type]
+    service = BodyService(
+        repo=repo,
+        height_cm=170,
+        target_weight=60,
+        gender="female",
+        birth_date=date(1996, 5, 1),
+    )  # type: ignore[arg-type]
 
     for index, weight in enumerate([70.0, 69.5, 69.0]):
         await service.create_weight(
@@ -72,9 +78,38 @@ async def test_create_weight_calculates_bmi_and_trend_statistics() -> None:
     trend = await service.get_trends(BodyRecordType.weight, TimeRange.thirty_days)
 
     assert latest.bmi == 23.7
+    assert latest.bmi_category == "normal"
+    assert latest.body_fat_rate is not None
+    assert latest.body_fat_rate_source == "estimated"
+    assert latest.muscle_rate_source == "estimated"
     assert trend.statistics.latest == 68.5
     assert trend.statistics.change == -1.5
     assert trend.target == 60
+
+
+@pytest.mark.asyncio
+async def test_create_weight_prefers_manual_body_composition_values() -> None:
+    repo = _FakeRepo()
+    service = BodyService(
+        repo=repo,
+        height_cm=170,
+        gender="female",
+        birth_date=date(1996, 5, 1),
+    )  # type: ignore[arg-type]
+
+    result = await service.create_weight(
+        WeightRecordCreate(
+            date=date(2026, 5, 9),
+            weight=66.0,
+            body_fat_rate=24.6,
+            muscle_rate=39.2,
+        )
+    )
+
+    assert result.body_fat_rate == 24.6
+    assert result.body_fat_rate_source == "manual"
+    assert result.muscle_rate == 39.2
+    assert result.muscle_rate_source == "manual"
 
 
 @pytest.mark.asyncio

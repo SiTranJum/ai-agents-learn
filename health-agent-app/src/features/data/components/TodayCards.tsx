@@ -16,6 +16,7 @@ import type {
   WaterRecord,
   WeightRecord,
 } from '../types/data.types';
+import { BMI_CATEGORY_LABEL, METRIC_SOURCE_LABEL } from '../utils/weightMetrics';
 
 const SLEEP_QUALITY_LABEL: Record<SleepQuality, string> = {
   excellent: '优秀',
@@ -89,7 +90,26 @@ export function WeightCard({
         <Text style={styles.heroUnit}> kg</Text>
       </Text>
       <Text style={styles.subHint}>{changeText}</Text>
-      {record.bmi != null && <Text style={styles.subSuccess}>BMI {record.bmi}（正常）</Text>}
+      {record.bmi != null && (
+        <Text style={styles.subSuccess}>
+          BMI {record.bmi}
+          {record.bmiCategory ? `（${BMI_CATEGORY_LABEL[record.bmiCategory]}）` : ''}
+        </Text>
+      )}
+      <View style={styles.compositionRow}>
+        {record.bodyFatRate != null && (
+          <Text style={styles.compositionText}>
+            体脂 {record.bodyFatRate}%
+            {record.bodyFatRateSource ? ` ${METRIC_SOURCE_LABEL[record.bodyFatRateSource]}` : ''}
+          </Text>
+        )}
+        {record.muscleRate != null && (
+          <Text style={styles.compositionText}>
+            肌肉 {record.muscleRate}%
+            {record.muscleRateSource ? ` ${METRIC_SOURCE_LABEL[record.muscleRateSource]}` : ''}
+          </Text>
+        )}
+      </View>
     </Card>
   );
 }
@@ -318,6 +338,16 @@ const styles = StyleSheet.create({
     ...theme.typography.caption,
     color: theme.colors.success,
     marginTop: 2,
+  },
+  compositionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+  },
+  compositionText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
   },
   emptyHint: {
     ...theme.typography.bodySm,

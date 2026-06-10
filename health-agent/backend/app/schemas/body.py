@@ -61,12 +61,16 @@ class BodyCreateBase(BaseModel):
 
 class WeightRecordCreate(BodyCreateBase):
     weight: float = Field(ge=30.0, le=300.0)
+    body_fat_rate: float | None = Field(default=None, ge=3.0, le=70.0)
+    muscle_rate: float | None = Field(default=None, ge=10.0, le=80.0)
     note: str | None = Field(default=None, max_length=200)
 
 
 class WeightRecordUpdate(BaseModel):
     date: date_ | None = None
     weight: float | None = Field(default=None, ge=30.0, le=300.0)
+    body_fat_rate: float | None = Field(default=None, ge=3.0, le=70.0)
+    muscle_rate: float | None = Field(default=None, ge=10.0, le=80.0)
     note: str | None = Field(default=None, max_length=200)
 
     @model_validator(mode="after")
@@ -190,6 +194,11 @@ class WeightRecordResponse(BaseModel):
     date: date_
     weight: float
     bmi: float | None = None
+    bmi_category: str | None = None
+    body_fat_rate: float | None = None
+    body_fat_rate_source: str | None = None
+    muscle_rate: float | None = None
+    muscle_rate_source: str | None = None
     change: float
     note: str | None = None
     anomaly_warning: str | None = None

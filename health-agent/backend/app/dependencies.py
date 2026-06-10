@@ -164,6 +164,8 @@ async def get_body_service(
         repo=BodyRepository(session=session, user_id=user.id),
         height_cm=getattr(profile, "height", None),
         target_weight=getattr(profile, "target_weight", None),
+        gender=getattr(profile, "gender", None),
+        birth_date=getattr(profile, "birth_date", None),
     )
 
 
