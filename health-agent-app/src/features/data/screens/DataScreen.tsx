@@ -100,10 +100,12 @@ export function DataScreen() {
     if (params?.autoOpenSheet && params?.tab) {
       // 先切换到对应的Tab
       setSelectedTab(params.tab);
-      // 再打开对应的浮窗
-      if (params.tab === 'weight') {
-        setWeightSheetVisible(true);
-      }
+      // 延迟打开浮窗,确保Tab切换完成
+      setTimeout(() => {
+        if (params.tab === 'weight') {
+          setWeightSheetVisible(true);
+        }
+      }, 100);
       // 清除参数避免重复触发
       navigation.setParams({ autoOpenSheet: undefined, tab: undefined } as any);
     }
