@@ -37,6 +37,11 @@ import { TrendChart } from '../components/TrendChart';
 import { DataRecordList } from '../components/DataRecordList';
 import { DataCalendarView } from '../components/DataCalendarView';
 import { WeightRecordSheet } from '../components/WeightRecordSheet';
+import { MeasurementRecordSheet } from '../components/MeasurementRecordSheet';
+import { SleepRecordSheet } from '../components/SleepRecordSheet';
+import { ExerciseRecordSheet } from '../components/ExerciseRecordSheet';
+import { WaterRecordSheet } from '../components/WaterRecordSheet';
+import { BowelRecordSheet } from '../components/BowelRecordSheet';
 import {
   BowelCard,
   ExerciseCard,
@@ -45,8 +50,7 @@ import {
   WaterCard,
   WeightCard,
 } from '../components/TodayCards';
-import type { DataTabType } from '../types/data.types';
-import type { WeightRecord } from '../types/data.types';
+import type { DataTabType, WeightRecord, MeasurementRecord, SleepRecord, ExerciseRecord, WaterRecord, BowelRecord } from '../types/data.types';
 import { todayStr } from '@shared/utils/date';
 
 type Nav = CompositeNavigationProp<
@@ -79,6 +83,16 @@ export function DataScreen() {
   });
   const [weightSheetVisible, setWeightSheetVisible] = useState(false);
   const [editingWeightRecord, setEditingWeightRecord] = useState<WeightRecord | null>(null);
+  const [measurementSheetVisible, setMeasurementSheetVisible] = useState(false);
+  const [editingMeasurementRecord, setEditingMeasurementRecord] = useState<MeasurementRecord | null>(null);
+  const [sleepSheetVisible, setSleepSheetVisible] = useState(false);
+  const [editingSleepRecord, setEditingSleepRecord] = useState<SleepRecord | null>(null);
+  const [exerciseSheetVisible, setExerciseSheetVisible] = useState(false);
+  const [editingExerciseRecord, setEditingExerciseRecord] = useState<ExerciseRecord | null>(null);
+  const [waterSheetVisible, setWaterSheetVisible] = useState(false);
+  const [editingWaterRecord, setEditingWaterRecord] = useState<WaterRecord | null>(null);
+  const [bowelSheetVisible, setBowelSheetVisible] = useState(false);
+  const [editingBowelRecord, setEditingBowelRecord] = useState<BowelRecord | null>(null);
 
   // 处理从首页跳转过来自动打开浮窗的情况
   useEffect(() => {
@@ -104,9 +118,33 @@ export function DataScreen() {
         setWeightSheetVisible(true);
         return;
       }
-      navigation.navigate('BodyEdit', { recordType, recordId });
+      if (recordType === 'measurement') {
+        setEditingMeasurementRecord(recordId ? todayQuery.data?.measurement ?? null : null);
+        setMeasurementSheetVisible(true);
+        return;
+      }
+      if (recordType === 'sleep') {
+        setEditingSleepRecord(recordId ? todayQuery.data?.sleep ?? null : null);
+        setSleepSheetVisible(true);
+        return;
+      }
+      if (recordType === 'exercise') {
+        setEditingExerciseRecord(recordId ? todayQuery.data?.exercise ?? null : null);
+        setExerciseSheetVisible(true);
+        return;
+      }
+      if (recordType === 'water') {
+        setEditingWaterRecord(recordId ? todayQuery.data?.water ?? null : null);
+        setWaterSheetVisible(true);
+        return;
+      }
+      if (recordType === 'bowel') {
+        setEditingBowelRecord(recordId ? todayQuery.data?.bowel ?? null : null);
+        setBowelSheetVisible(true);
+        return;
+      }
     },
-    [navigation, todayQuery.data?.weight]
+    [todayQuery.data]
   );
 
   const handleSaveWeight = useCallback(
@@ -116,6 +154,76 @@ export function DataScreen() {
         toast.show({ type: 'success', message: '已保存体重记录' });
         setWeightSheetVisible(false);
         setEditingWeightRecord(null);
+      } catch {
+        toast.show({ type: 'error', message: '保存失败，请稍后重试' });
+      }
+    },
+    [saveBody, toast]
+  );
+
+  const handleSaveMeasurement = useCallback(
+    async (record: Partial<MeasurementRecord>) => {
+      try {
+        await saveBody.mutateAsync({ type: 'measurement', record });
+        toast.show({ type: 'success', message: '已保存围度记录' });
+        setMeasurementSheetVisible(false);
+        setEditingMeasurementRecord(null);
+      } catch {
+        toast.show({ type: 'error', message: '保存失败，请稍后重试' });
+      }
+    },
+    [saveBody, toast]
+  );
+
+  const handleSaveSleep = useCallback(
+    async (record: Partial<SleepRecord>) => {
+      try {
+        await saveBody.mutateAsync({ type: 'sleep', record });
+        toast.show({ type: 'success', message: '已保存睡眠记录' });
+        setSleepSheetVisible(false);
+        setEditingSleepRecord(null);
+      } catch {
+        toast.show({ type: 'error', message: '保存失败，请稍后重试' });
+      }
+    },
+    [saveBody, toast]
+  );
+
+  const handleSaveExercise = useCallback(
+    async (record: Partial<ExerciseRecord>) => {
+      try {
+        await saveBody.mutateAsync({ type: 'exercise', record });
+        toast.show({ type: 'success', message: '已保存运动记录' });
+        setExerciseSheetVisible(false);
+        setEditingExerciseRecord(null);
+      } catch {
+        toast.show({ type: 'error', message: '保存失败，请稍后重试' });
+      }
+    },
+    [saveBody, toast]
+  );
+
+  const handleSaveWater = useCallback(
+    async (record: Partial<WaterRecord>) => {
+      try {
+        await saveBody.mutateAsync({ type: 'water', record });
+        toast.show({ type: 'success', message: '已保存饮水记录' });
+        setWaterSheetVisible(false);
+        setEditingWaterRecord(null);
+      } catch {
+        toast.show({ type: 'error', message: '保存失败，请稍后重试' });
+      }
+    },
+    [saveBody, toast]
+  );
+
+  const handleSaveBowel = useCallback(
+    async (record: Partial<BowelRecord>) => {
+      try {
+        await saveBody.mutateAsync({ type: 'bowel', record });
+        toast.show({ type: 'success', message: '已保存排便记录' });
+        setBowelSheetVisible(false);
+        setEditingBowelRecord(null);
       } catch {
         toast.show({ type: 'error', message: '保存失败，请稍后重试' });
       }
@@ -297,6 +405,56 @@ export function DataScreen() {
           setEditingWeightRecord(null);
         }}
         onSave={handleSaveWeight}
+      />
+      <MeasurementRecordSheet
+        visible={measurementSheetVisible}
+        record={editingMeasurementRecord}
+        isSaving={saveBody.isPending}
+        onClose={() => {
+          setMeasurementSheetVisible(false);
+          setEditingMeasurementRecord(null);
+        }}
+        onSave={handleSaveMeasurement}
+      />
+      <SleepRecordSheet
+        visible={sleepSheetVisible}
+        record={editingSleepRecord}
+        isSaving={saveBody.isPending}
+        onClose={() => {
+          setSleepSheetVisible(false);
+          setEditingSleepRecord(null);
+        }}
+        onSave={handleSaveSleep}
+      />
+      <ExerciseRecordSheet
+        visible={exerciseSheetVisible}
+        record={editingExerciseRecord}
+        isSaving={saveBody.isPending}
+        onClose={() => {
+          setExerciseSheetVisible(false);
+          setEditingExerciseRecord(null);
+        }}
+        onSave={handleSaveExercise}
+      />
+      <WaterRecordSheet
+        visible={waterSheetVisible}
+        record={editingWaterRecord}
+        isSaving={saveBody.isPending}
+        onClose={() => {
+          setWaterSheetVisible(false);
+          setEditingWaterRecord(null);
+        }}
+        onSave={handleSaveWater}
+      />
+      <BowelRecordSheet
+        visible={bowelSheetVisible}
+        record={editingBowelRecord}
+        isSaving={saveBody.isPending}
+        onClose={() => {
+          setBowelSheetVisible(false);
+          setEditingBowelRecord(null);
+        }}
+        onSave={handleSaveBowel}
       />
     </PageContainer>
   );
