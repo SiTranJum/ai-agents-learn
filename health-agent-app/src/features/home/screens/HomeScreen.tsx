@@ -91,10 +91,7 @@ export function HomeScreen() {
   }, [navigation]);
 
   const handleRecordWeight = useCallback(() => {
-    navigation.navigate('DataTab', {
-      screen: 'DataScreen',
-      params: { tab: 'weight', autoOpenSheet: true },
-    });
+    navigation.navigate('DataTab', { tab: 'weight', autoOpenSheet: true });
   }, [navigation]);
 
   const handleMealPress = useCallback(

@@ -16,7 +16,7 @@ export type AuthStackParamList = {
 export type TabParamList = {
   HomeTab: undefined;
   DietTab: undefined;
-  DataTab: undefined;
+  DataTab: { tab?: string; autoOpenSheet?: boolean } | undefined;
   ProfileTab: undefined;
 };
 

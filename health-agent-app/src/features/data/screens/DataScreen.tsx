@@ -96,18 +96,16 @@ export function DataScreen() {
 
   // 处理从首页跳转过来自动打开浮窗的情况
   useEffect(() => {
-    const params = route.params as any;
+    const params = route.params;
     if (params?.autoOpenSheet && params?.tab) {
       // 先切换到对应的Tab
-      setSelectedTab(params.tab);
-      // 延迟打开浮窗,确保Tab切换完成
-      setTimeout(() => {
-        if (params.tab === 'weight') {
-          setWeightSheetVisible(true);
-        }
-      }, 100);
+      setSelectedTab(params.tab as DataTabType);
+      // 打开对应的浮窗
+      if (params.tab === 'weight') {
+        setWeightSheetVisible(true);
+      }
       // 清除参数避免重复触发
-      navigation.setParams({ autoOpenSheet: undefined, tab: undefined } as any);
+      navigation.setParams({ autoOpenSheet: undefined, tab: undefined });
     }
   }, [route.params, navigation, setSelectedTab]);
 
