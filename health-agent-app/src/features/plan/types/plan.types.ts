@@ -120,3 +120,35 @@ export interface PlanProgressRaw {
   completed_task_ids: string[];
   daily_records: DailyExecutionRaw[];
 }
+
+// ===== 每日目标曲线（计划模块输出给数据模块消费）=====
+
+/** 子计划维度，与后端 PlanDimension 对应 */
+export type PlanDimension =
+  | 'exercise'
+  | 'weight'
+  | 'water'
+  | 'sleep'
+  | 'measurement'
+  | 'nutrition';
+
+/** 后端 GET /plans/{id}/daily-targets 单条曲线的原始结构 */
+export interface DailyTargetCurveRaw {
+  plan_id: string;
+  sub_plan_id?: string | null;
+  dimension: PlanDimension;
+  unit: string;
+  points: Array<{
+    date: string;
+    target_value: number;
+    unit: string;
+    dimension: PlanDimension;
+  }>;
+}
+
+/** 前端使用的目标曲线（已展平为 date/value 点序列） */
+export interface TargetCurve {
+  dimension: PlanDimension;
+  unit: string;
+  points: { date: string; value: number }[];
+}

@@ -23,6 +23,8 @@ import { useToast } from '@shared/feedback/Toast';
 import type { MainStackParamList, TabParamList } from '@app/navigation/types';
 
 import { useDataStore } from '../store/dataStore';
+import { useActivePlanTargetCurve } from '@features/plan/hooks/usePlanData';
+import type { PlanDimension } from '@features/plan/types/plan.types';
 import {
   useCalendarRecords,
   useAddWater,
@@ -65,6 +67,16 @@ const TAB_TITLES: Record<DataTabType, string> = {
   exercise: '运动时长',
   water: '饮水',
   bowel: '排便',
+};
+
+// 数据 Tab → 计划维度（用于趋势图叠加目标曲线）；bowel 无对应计划维度，回退到 weight 不展示
+const TAB_TO_PLAN_DIMENSION: Record<DataTabType, PlanDimension> = {
+  weight: 'weight',
+  measurement: 'measurement',
+  sleep: 'sleep',
+  exercise: 'exercise',
+  water: 'water',
+  bowel: 'weight',
 };
 
 export function DataScreen() {
@@ -113,6 +125,9 @@ export function DataScreen() {
   const trendQuery = useTrendData(selectedTab, selectedTimeRange);
   const recentQuery = useRecentRecords(selectedTab, 7);
   const calendarQuery = useCalendarRecords(selectedTab, calendarMonth);
+  // 计划目标曲线：当前 Tab 对应的维度若有 active 计划，则叠加到趋势图
+  const planDimension = TAB_TO_PLAN_DIMENSION[selectedTab];
+  const targetCurveQuery = useActivePlanTargetCurve(planDimension);
   const saveBody = useSaveBodyData();
   const addWater = useAddWater();
 
@@ -301,6 +316,9 @@ export function DataScreen() {
           unit={trendQuery.data?.unit ?? ''}
           points={trendQuery.data?.points ?? []}
           isLoading={trendQuery.isLoading}
+          targetPoints={
+            selectedTab === 'bowel' ? undefined : targetCurveQuery.data?.points
+          }
         />
 
         {/* 时间范围切换 */}

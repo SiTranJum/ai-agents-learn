@@ -2,12 +2,15 @@ import { apiClient } from '@core/api/client';
 
 import type {
   DailyExecutionRaw,
+  DailyTargetCurveRaw,
   PlanDetail,
+  PlanDimension,
   PlanListItem,
   PlanPhase,
   PlanProgressRaw,
   PlanResponseRaw,
   PlanTask,
+  TargetCurve,
 } from '../types/plan.types';
 
 const STATUS_ORDER: Record<PlanListItem['status'], number> = {
@@ -138,6 +141,8 @@ export interface PlanService {
   toggleTask(planId: string, taskId: string): Promise<PlanDetail>;
   terminatePlan(planId: string): Promise<void>;
   resumePlan(planId: string): Promise<void>;
+  /** 获取当前 active 计划在某维度的目标曲线；无 active 计划或无曲线时返回 null。 */
+  getActivePlanTargetCurve(dimension: PlanDimension): Promise<TargetCurve | null>;
 }
 
 export const planService: PlanService = {
@@ -171,5 +176,27 @@ export const planService: PlanService = {
 
   async resumePlan() {
     throw new Error('暂不支持恢复计划。');
+  },
+
+  async getActivePlanTargetCurve(dimension) {
+    // 1. 找当前 active 计划（列表已按状态排序，active 在最前）
+    const listed = await apiClient.getPaginated<PlanResponseRaw>(
+      '/plans?status=active&page=1&page_size=1'
+    );
+    const activePlan = listed.data[0];
+    if (!activePlan) return null;
+
+    // 2. 拉该计划指定维度的目标曲线
+    const curves = await apiClient.get<DailyTargetCurveRaw[]>(
+      `/plans/${activePlan.id}/daily-targets?dimension=${dimension}`
+    );
+    const curve = curves?.find((c) => c.dimension === dimension);
+    if (!curve || curve.points.length === 0) return null;
+
+    return {
+      dimension: curve.dimension,
+      unit: curve.unit,
+      points: curve.points.map((p) => ({ date: p.date, value: p.target_value })),
+    };
   },
 };
