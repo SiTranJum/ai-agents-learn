@@ -17,7 +17,16 @@ from app.db.models.chat import ChatMessage
 from app.db.models.diet import DietItem, DietRecord
 from app.db.models.knowledge import Food, KnowledgeDoc
 from app.db.models.memory import Memory, MemorySummary
-from app.db.models.plan import Plan, PlanCheckIn, PlanExecution, PlanTarget
+from app.db.models.plan import (
+    DailyTarget,
+    Plan,
+    PlanAdjustmentProposal,
+    PlanAnalysis,
+    PlanCheckIn,
+    PlanExecution,
+    PlanTarget,
+    SubPlan,
+)
 from app.db.models.suggestion import Suggestion
 from app.db.models.user import (
     HealthProfile,
@@ -30,6 +39,7 @@ __all__ = [
     "Base",
     "BowelRecord",
     "ChatMessage",
+    "DailyTarget",
     "DietItem",
     "DietRecord",
     "ExerciseRecord",
@@ -40,10 +50,13 @@ __all__ = [
     "Memory",
     "MemorySummary",
     "Plan",
+    "PlanAdjustmentProposal",
+    "PlanAnalysis",
     "PlanCheckIn",
     "PlanExecution",
     "PlanTarget",
     "SleepRecord",
+    "SubPlan",
     "Suggestion",
     "UserHealthInfo",
     "UserPreference",

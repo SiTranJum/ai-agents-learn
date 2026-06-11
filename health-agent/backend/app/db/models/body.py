@@ -68,6 +68,14 @@ class ExerciseRecord(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin)
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     calories: Mapped[int] = mapped_column(Integer, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 计划关联（可空）：标记该记录由哪个计划任务自动生成，便于反向追溯与幂等去重
+    plan_id: Mapped[uuid.UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True, index=True)
+    sub_plan_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), nullable=True, index=True
+    )
+    task_id: Mapped[uuid.UUID | None] = mapped_column(PG_UUID(as_uuid=True), nullable=True, index=True)
+    # 来源：manual（用户手动）/ plan_task（任务自动生成）
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
 
 
 class WaterRecord(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):

@@ -9,8 +9,17 @@ from typing import Any, cast
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models.plan import Plan, PlanCheckIn, PlanExecution, PlanTarget
-from app.schemas.plan import ExecutionStatus, PlanStatus
+from app.db.models.plan import (
+    DailyTarget,
+    Plan,
+    PlanAdjustmentProposal,
+    PlanAnalysis,
+    PlanCheckIn,
+    PlanExecution,
+    PlanTarget,
+    SubPlan,
+)
+from app.schemas.plan import ExecutionStatus, PlanStatus, ProposalStatus
 
 
 class PlanRepository:
@@ -183,6 +192,156 @@ class PlanRepository:
         plan.terminated_at = now
         plan.termination_reason = reason
         plan.deleted_at = now
+        await self.session.flush()
+
+    # ---------- 子计划 ----------
+
+    async def list_sub_plans(self, plan_id: uuid.UUID) -> list[SubPlan]:
+        stmt = select(SubPlan).where(
+            SubPlan.user_id == self.user_id,
+            SubPlan.plan_id == plan_id,
+            SubPlan.deleted_at.is_(None),
+        ).order_by(SubPlan.created_at.asc())
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def get_sub_plan(self, sub_plan_id: uuid.UUID) -> SubPlan | None:
+        stmt = select(SubPlan).where(
+            SubPlan.user_id == self.user_id,
+            SubPlan.id == sub_plan_id,
+            SubPlan.deleted_at.is_(None),
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
+    async def create_sub_plan(self, sub_plan: SubPlan) -> SubPlan:
+        sub_plan.user_id = self.user_id
+        self.session.add(sub_plan)
+        await self.session.flush()
+        return sub_plan
+
+    # ---------- 每日目标曲线 ----------
+
+    async def replace_daily_targets(
+        self, sub_plan_id: uuid.UUID, targets: list[DailyTarget]
+    ) -> None:
+        """重写某子计划的目标曲线（先全部物理删除再批量插入）。"""
+        from sqlalchemy import delete  # noqa: PLC0415 - lazily imported
+
+        await self.session.execute(
+            delete(DailyTarget).where(
+                DailyTarget.user_id == self.user_id,
+                DailyTarget.sub_plan_id == sub_plan_id,
+            )
+        )
+        for target in targets:
+            target.user_id = self.user_id
+            self.session.add(target)
+        await self.session.flush()
+
+    async def list_daily_targets(
+        self,
+        plan_id: uuid.UUID,
+        *,
+        sub_plan_id: uuid.UUID | None = None,
+        dimension: str | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> list[DailyTarget]:
+        stmt = select(DailyTarget).where(
+            DailyTarget.user_id == self.user_id,
+            DailyTarget.plan_id == plan_id,
+        )
+        if sub_plan_id is not None:
+            stmt = stmt.where(DailyTarget.sub_plan_id == sub_plan_id)
+        if dimension is not None:
+            stmt = stmt.where(cast(Any, DailyTarget.dimension) == dimension)
+        if start_date is not None:
+            stmt = stmt.where(DailyTarget.date >= start_date)
+        if end_date is not None:
+            stmt = stmt.where(DailyTarget.date <= end_date)
+        stmt = stmt.order_by(DailyTarget.date.asc())
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    # ---------- AI 分析 ----------
+
+    async def upsert_analysis(self, analysis: PlanAnalysis) -> PlanAnalysis:
+        existing = (
+            await self.session.execute(
+                select(PlanAnalysis).where(
+                    PlanAnalysis.user_id == self.user_id,
+                    PlanAnalysis.plan_id == analysis.plan_id,
+                    PlanAnalysis.analysis_date == analysis.analysis_date,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is None:
+            analysis.user_id = self.user_id
+            self.session.add(analysis)
+            await self.session.flush()
+            return analysis
+        existing.overall_compliance = analysis.overall_compliance
+        existing.dimension_compliance = analysis.dimension_compliance
+        existing.has_anomaly = analysis.has_anomaly
+        existing.summary = analysis.summary
+        await self.session.flush()
+        return existing
+
+    async def list_analyses(
+        self, plan_id: uuid.UUID, *, limit: int = 30
+    ) -> list[PlanAnalysis]:
+        stmt = (
+            select(PlanAnalysis)
+            .where(PlanAnalysis.user_id == self.user_id, PlanAnalysis.plan_id == plan_id)
+            .order_by(PlanAnalysis.analysis_date.desc())
+            .limit(limit)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    # ---------- 调整提议 ----------
+
+    async def create_proposal(self, proposal: PlanAdjustmentProposal) -> PlanAdjustmentProposal:
+        proposal.user_id = self.user_id
+        self.session.add(proposal)
+        await self.session.flush()
+        return proposal
+
+    async def get_proposal(self, proposal_id: uuid.UUID) -> PlanAdjustmentProposal | None:
+        stmt = select(PlanAdjustmentProposal).where(
+            PlanAdjustmentProposal.user_id == self.user_id,
+            PlanAdjustmentProposal.id == proposal_id,
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
+    async def list_proposals(
+        self,
+        plan_id: uuid.UUID,
+        *,
+        status: ProposalStatus | None = None,
+    ) -> list[PlanAdjustmentProposal]:
+        stmt = select(PlanAdjustmentProposal).where(
+            PlanAdjustmentProposal.user_id == self.user_id,
+            PlanAdjustmentProposal.plan_id == plan_id,
+        )
+        if status is not None:
+            stmt = stmt.where(cast(Any, PlanAdjustmentProposal.status) == status.value)
+        stmt = stmt.order_by(PlanAdjustmentProposal.created_at.desc())
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def expire_pending_proposals(
+        self, plan_id: uuid.UUID, *, keep_id: uuid.UUID | None = None
+    ) -> None:
+        """每日检查触发新提议时，把旧的 pending 置为 expired（不留痕）。"""
+        stmt = select(PlanAdjustmentProposal).where(
+            PlanAdjustmentProposal.user_id == self.user_id,
+            PlanAdjustmentProposal.plan_id == plan_id,
+            cast(Any, PlanAdjustmentProposal.status) == ProposalStatus.pending.value,
+        )
+        if keep_id is not None:
+            stmt = stmt.where(PlanAdjustmentProposal.id != keep_id)
+        proposals = (await self.session.execute(stmt)).scalars().all()
+        now = datetime.now(UTC)
+        for proposal in proposals:
+            proposal.status = ProposalStatus.expired.value
+            proposal.resolved_at = now
         await self.session.flush()
 
 

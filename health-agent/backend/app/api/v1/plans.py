@@ -21,21 +21,33 @@ from app.dependencies import (
 )
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.schemas.plan import (
+    AdjustmentProposalResponse,
     CheckInCreate,
     CheckInResponse,
     DailyExecution,
+    DailyTargetCurve,
+    DailyTargetPoint,
     ExecutionStatus,
+    OverallCompliance,
+    PlanAnalysisResponse,
     PlanCreate,
+    PlanDimension,
     PlanProgress,
     PlanResponse,
     PlanStatus,
     PlanStreamRequest,
     PlanTerminateRequest,
     PlanUpdate,
+    ProposalStatus,
+    SubPlanCreate,
+    SubPlanResponse,
+    SubPlanUpdate,
 )
+from app.services.plan_check_in_task import generate_exercise_record_from_check_in
 from app.streaming import StreamEvent, StreamEventType, sse_response
 
 router = APIRouter(prefix="/plans", tags=["plans"])
+_BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
 
 _PLAN_WAIT_STATUS_LABELS = (
     "正在理解你的目标...",
@@ -229,8 +241,14 @@ async def create_check_in(
     user: CurrentUserWithProfileDep,
     service: PlanServiceDep,
 ) -> dict[str, Any]:
-    _ = user
     data = await service.create_check_in(plan_id, payload)
+    # 后台任务：如果是运动任务打卡，自动生成运动记录
+    if payload.completed and payload.task_id is not None:
+        task = asyncio.create_task(
+            generate_exercise_record_from_check_in(user.id, data.id)
+        )
+        _BACKGROUND_TASKS.add(task)
+        task.add_done_callback(_BACKGROUND_TASKS.discard)
     return success(data.model_dump(mode="json"))
 
 
@@ -262,6 +280,141 @@ async def list_execution(
         page_size=page_size,
     )
     return paginated([item.model_dump(mode="json") for item in items], total=total, page=page, page_size=page_size)
+
+
+# ---------- 子计划 ----------
+
+
+@router.get("/{plan_id}/sub-plans", response_model=ApiResponse[list[SubPlanResponse]])
+async def list_sub_plans(
+    plan_id: uuid.UUID,
+    user: CurrentUserWithProfileDep,
+    service: PlanServiceDep,
+) -> dict[str, Any]:
+    """列出计划下的所有子计划。"""
+    _ = user
+    items = await service.list_sub_plans(plan_id)
+    return success([item.model_dump(mode="json") for item in items])
+
+
+@router.post("/{plan_id}/sub-plans", response_model=ApiResponse[SubPlanResponse], status_code=status.HTTP_201_CREATED)
+async def create_sub_plan(
+    plan_id: uuid.UUID,
+    payload: SubPlanCreate,
+    user: CurrentUserWithProfileDep,
+    service: PlanServiceDep,
+) -> dict[str, Any]:
+    """创建子计划并生成目标曲线。"""
+    _ = user
+    data = await service.create_sub_plan(plan_id, payload)
+    return success(data.model_dump(mode="json"))
+
+
+@router.put("/{plan_id}/sub-plans/{sub_plan_id}", response_model=ApiResponse[SubPlanResponse])
+async def update_sub_plan(
+    plan_id: uuid.UUID,
+    sub_plan_id: uuid.UUID,
+    payload: SubPlanUpdate,
+    user: CurrentUserWithProfileDep,
+    service: PlanServiceDep,
+) -> dict[str, Any]:
+    """更新子计划。"""
+    _ = user
+    data = await service.update_sub_plan(plan_id, sub_plan_id, payload)
+    return success(data.model_dump(mode="json"))
+
+
+# ---------- 每日目标曲线 ----------
+
+
+@router.get("/{plan_id}/daily-targets", response_model=ApiResponse[list[DailyTargetCurve]])
+async def get_daily_targets(
+    plan_id: uuid.UUID,
+    user: CurrentUserWithProfileDep,
+    service: PlanServiceDep,
+    dimension: Annotated[PlanDimension | None, Query()] = None,
+    start_date: Annotated[date | None, Query(alias="start_date")] = None,
+    end_date: Annotated[date | None, Query(alias="end_date")] = None,
+) -> dict[str, Any]:
+    """获取目标曲线（供数据模块消费）。按子计划/维度分组返回。"""
+    _ = user
+    curves = await service.get_daily_target_curves(
+        plan_id, dimension=dimension, start_date=start_date, end_date=end_date
+    )
+    return success([curve.model_dump(mode="json") for curve in curves])
+
+
+# ---------- 完成率 ----------
+
+
+@router.get("/{plan_id}/compliance", response_model=ApiResponse[OverallCompliance])
+async def get_compliance(
+    plan_id: uuid.UUID,
+    user: CurrentUserWithProfileDep,
+    service: PlanServiceDep,
+) -> dict[str, Any]:
+    """计算整体完成率（加权聚合各子计划维度）。"""
+    _ = user
+    data = await service.compute_compliance(plan_id)
+    return success(data.model_dump(mode="json"))
+
+
+# ---------- AI 分析 ----------
+
+
+@router.get("/{plan_id}/analyses", response_model=ApiResponse[list[PlanAnalysisResponse]])
+async def list_analyses(
+    plan_id: uuid.UUID,
+    user: CurrentUserWithProfileDep,
+    service: PlanServiceDep,
+    limit: Annotated[int, Query(ge=1, le=90)] = 30,
+) -> dict[str, Any]:
+    """获取 AI 分析历史（最近 N 条）。"""
+    _ = user
+    items = await service.list_analyses(plan_id, limit=limit)
+    return success([item.model_dump(mode="json") for item in items])
+
+
+# ---------- 调整提议 ----------
+
+
+@router.get("/{plan_id}/proposals", response_model=ApiResponse[list[AdjustmentProposalResponse]])
+async def list_proposals(
+    plan_id: uuid.UUID,
+    user: CurrentUserWithProfileDep,
+    service: PlanServiceDep,
+    proposal_status: Annotated[ProposalStatus | None, Query(alias="status")] = None,
+) -> dict[str, Any]:
+    """获取调整提议列表（默认 pending）。"""
+    _ = user
+    items = await service.list_proposals(plan_id, status=proposal_status)
+    return success([item.model_dump(mode="json") for item in items])
+
+
+@router.post("/{plan_id}/proposals/{proposal_id}/accept", response_model=ApiResponse[SubPlanResponse])
+async def accept_proposal(
+    plan_id: uuid.UUID,
+    proposal_id: uuid.UUID,
+    user: CurrentUserWithProfileDep,
+    service: PlanServiceDep,
+) -> dict[str, Any]:
+    """接受调整提议 → 应用修改并重新生成目标曲线。"""
+    _ = user
+    data = await service.accept_proposal(plan_id, proposal_id)
+    return success(data.model_dump(mode="json"))
+
+
+@router.post("/{plan_id}/proposals/{proposal_id}/reject", response_model=ApiResponse[object])
+async def reject_proposal(
+    plan_id: uuid.UUID,
+    proposal_id: uuid.UUID,
+    user: CurrentUserWithProfileDep,
+    service: PlanServiceDep,
+) -> dict[str, Any]:
+    """拒绝调整提议 → 置为 rejected 终态。"""
+    _ = user
+    await service.reject_proposal(plan_id, proposal_id)
+    return success(None, message="Proposal rejected")
 
 
 __all__ = ["router"]
