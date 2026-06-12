@@ -245,14 +245,18 @@ export function useStreamingChat(): UseStreamingChatReturn {
   // 通用流式请求分发
   const _dispatch = useCallback(
     (payload: any) => {
-      // 用户消息
-      const userMsg: ChatMessage = {
-        id: `u_${Date.now()}`,
-        role: 'user',
-        content: payload.message || `[${payload.type}]`,
-        timestamp: new Date().toISOString(),
-      };
-      addMessage(userMsg);
+      // card_action 是用户点击卡片按钮（如"确认创建"），不显示用户消息
+      // 因为卡片本身的状态变化（submitted/cancelled）已经是反馈
+      if (payload.type !== 'card_action') {
+        // 用户消息
+        const userMsg: ChatMessage = {
+          id: `u_${Date.now()}`,
+          role: 'user',
+          content: payload.message || `[${payload.type}]`,
+          timestamp: new Date().toISOString(),
+        };
+        addMessage(userMsg);
+      }
 
       // 占位 AI 消息（流式中）
       const aiMsg: ChatMessage = {

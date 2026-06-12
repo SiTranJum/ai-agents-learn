@@ -123,8 +123,10 @@ function nearestTargetValue(targets: TrendPoint[], date: string): number | null 
   return candidate;
 }
 
-/** 把目标值数组中的 null 用前一个有效值填充；开头为 null 时用实际值兜底，避免曲线断裂。 */
+/** 把目标值数组中的 null 用前一个有效值填充；开头为 null 时用"未来第一个有效目标值"兜底，
+ *  避免目标曲线和实际值曲线在历史区间重叠（不再用实际值 fallback）。 */
 function fillForward(values: Array<number | null>, fallback: number[]): number[] {
+  const firstValid = values.find((v): v is number => v !== null);
   const out: number[] = [];
   let last: number | null = null;
   for (let i = 0; i < values.length; i += 1) {
@@ -132,8 +134,13 @@ function fillForward(values: Array<number | null>, fallback: number[]): number[]
     if (v !== null) {
       last = v;
       out.push(v);
+    } else if (last !== null) {
+      out.push(last);
+    } else if (firstValid !== undefined) {
+      // 开头空缺：用第一个未来有效目标值水平延伸，避免与实际曲线重叠
+      out.push(firstValid);
     } else {
-      out.push(last ?? fallback[i] ?? 0);
+      out.push(fallback[i] ?? 0);
     }
   }
   return out;
