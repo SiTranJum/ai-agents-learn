@@ -30,6 +30,7 @@ from app.dependencies import (
     MemoryServiceDep,
     PlanServiceDep,
     RagServiceDep,
+    UserServiceDep,
 )
 from app.schemas.chat import ChatCard, ChatRole, ChatStreamRequest
 from app.services.pending_action_store import (
@@ -395,6 +396,7 @@ async def send_message(
     memory_service: MemoryServiceDep,
     plan_service: PlanServiceDep,
     rag_service: RagServiceDep,
+    user_service: UserServiceDep,
 ):
     """流式 chat 端点（SSE）。
 
@@ -443,12 +445,16 @@ async def send_message(
     pa_store = get_pending_action_store()
     existing_pa = await pa_store.get(session_id) if payload.type == "choice_response" else None
 
+    # 读取交互模式，注入 graph state，驱动 prompt 与响应结构差异
+    interaction_mode = await user_service.get_interaction_mode()
+
     state: dict[str, Any] = {
         "user_id": str(user.id),
         "session_id": session_id,
         "user_message": user_text,
         "chat_history": [item.model_dump(mode="json") for item in history],
         "context": context,
+        "interaction_mode": interaction_mode,
         "profile": user.profile,
         "plan_service": plan_service,
         "request_type": payload.type,
