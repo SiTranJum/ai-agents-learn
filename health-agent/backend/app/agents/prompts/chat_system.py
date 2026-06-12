@@ -16,6 +16,29 @@ SYSTEM_PROMPT = """你是“健康管家 AI Agent”，一个以对话为核心�
 - 如果上下文中有“用户记忆”或“知识库片段”，优先结合它们做个性化回复。
 """
 
+# 交互模式追加指令：附加到 system prompt，影响回复的详略与风格。
+MODE_INSTRUCTIONS = {
+    "efficiency": (
+        "当前为「效率模式」：回复尽量精简，直接给结论和下一步，不展开科普，"
+        "不追问非必要细节。"
+    ),
+    "confirmation": (
+        "当前为「确认模式」：回复简洁，给出结论即可；涉及记录类操作时，"
+        "提示用户确认后再生效。"
+    ),
+    "learning": (
+        "当前为「学习模式」：在给出结论的同时，附带简短的健康/营养知识讲解，"
+        "帮助用户理解“为什么”，但仍保持条理清晰、不冗长。"
+    ),
+}
+
+
+def _mode_instruction(interaction_mode: str | None) -> str:
+    """返回交互模式对应的 system prompt 追加指令，未知模式回退到确认模式。"""
+    return MODE_INSTRUCTIONS.get(
+        interaction_mode or "confirmation", MODE_INSTRUCTIONS["confirmation"]
+    )
+
 INTENT_PROMPT = """请判断用户这条消息最适合交给哪个健康管理子模块处理。
 
 可选 intent：
@@ -50,6 +73,7 @@ def build_chat_messages(
     history: list[dict[str, Any]],
     memories: list[dict[str, Any]],
     knowledge: list[dict[str, Any]],
+    interaction_mode: str | None = None,
 ) -> list[Any]:
     """Build final chat completion messages.
 
@@ -59,6 +83,7 @@ def build_chat_messages(
       role，最终由 ``ChatOpenAI`` 转成 DashScope OpenAI 兼容请求。
     - 返回值会被 ``get_chat_model(...).ainvoke(messages)`` 调用，响应对象的
       ``content`` 字段就是模型生成的文本。
+    - ``interaction_mode`` 决定 system prompt 追加的风格指令（效率/确认/学习）。
     """
     memory_text = "\n".join(f"- {item.get('content')}" for item in memories if item.get("content"))
     knowledge_text = "\n".join(
@@ -69,7 +94,7 @@ def build_chat_messages(
         context.append(f"用户记忆：\n{memory_text}")
     if knowledge_text:
         context.append(f"知识库片段：\n{knowledge_text}")
-    system_content = SYSTEM_PROMPT
+    system_content = SYSTEM_PROMPT + "\n" + _mode_instruction(interaction_mode)
     if context:
         system_content += "\n\n可用上下文：\n" + "\n\n".join(context)
 
@@ -87,6 +112,6 @@ def build_chat_messages(
     return messages
 
 
-__all__ = ["build_chat_messages", "build_intent_messages"]
+__all__ = ["build_chat_messages", "build_intent_messages", "MODE_INSTRUCTIONS"]
 
 

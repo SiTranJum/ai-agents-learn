@@ -215,11 +215,17 @@ async def infer_meal_type(state: ChatState) -> dict[str, Any]:
 def save_or_end(state: ChatState) -> str:
     """决定是否进入保存节点。
 
-    diet subgraph 的保存由全局 Graph 决定（通常 AI 对话确认后由 Tool 触发）；
-    在 subgraph 内部默认直接结束，返回解析结果给上游。
+    两种情况进入 ``save_record``：
+    1. 显式 ``mode == "create"``（如卡片确认后的 create 调用）。
+    2. 交互模式为「效率模式」：AI 直接执行，无需用户确认，解析后立即落库。
+
+    其它模式（确认/学习）默认结束，把解析结果交给 ``wrap_response`` 出确认卡片。
     """
     mode = cast(Any, state).get("mode")
-    return "save_record" if mode == "create" else "__end__"
+    interaction_mode = state.get("interaction_mode")
+    if mode == "create" or interaction_mode == "efficiency":
+        return "save_record"
+    return "__end__"
 
 
 @log_node

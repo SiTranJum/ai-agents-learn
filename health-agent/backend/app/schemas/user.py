@@ -110,6 +110,8 @@ class OnboardingPayload(BaseModel):
     profile: Optional[UserProfileUpdate] = None
     preferences: Optional[UserPreferencesUpdate] = None
     health_info: Optional[UserHealthInfoUpdate] = None
+    # D1=方案B：注册时强制选择交互模式。缺省回退 confirmation，兼容旧客户端。
+    interaction_mode: InteractionMode = InteractionMode.confirmation
 
 
 # ---------- 响应模型 ----------

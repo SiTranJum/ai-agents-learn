@@ -17,6 +17,10 @@ except ModuleNotFoundError:  # pragma: no cover
 
 Intent = Literal["diet", "body", "plan", "memory", "suggestion", "general"]
 
+# 交互模式：影响 AI 是否要求确认、是否附带知识讲解。
+# 注意与 diet 子图的 ``mode`` 字段（保存开关 "create"/None）区分。
+InteractionMode = Literal["efficiency", "confirmation", "learning"]
+
 
 class ChatState(TypedDict, total=False):
     messages: Annotated[list[BaseMessage], add_messages]
@@ -25,6 +29,7 @@ class ChatState(TypedDict, total=False):
     user_message: str
     chat_history: list[dict[str, Any]]
     context: dict[str, Any]
+    interaction_mode: InteractionMode | None
     prompt_messages: list[Any]
     ai_response: str
     response_cards: list[dict[str, Any]]
@@ -67,4 +72,4 @@ class ChatState(TypedDict, total=False):
     choice_prompts: list[dict[str, Any]]
 
 
-__all__ = ["ChatState", "Intent"]
+__all__ = ["ChatState", "Intent", "InteractionMode"]

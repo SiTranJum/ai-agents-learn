@@ -140,6 +140,12 @@ class UserService:
         profile = await self.repo.get_profile()
         preferences = await self.repo.get_preferences()
         health_info = await self.repo.get_health_info()
+        settings_row = await self.repo.get_settings()
+        interaction_mode = (
+            settings_row.interaction_mode
+            if settings_row is not None
+            else InteractionMode.confirmation.value
+        )
         return {
             "profile": {
                 "nickname": getattr(profile, "nickname", None),
@@ -170,7 +176,18 @@ class UserService:
                     health_info, "medical_restrictions", None
                 ),
             },
+            "interaction_mode": interaction_mode,
         }
+
+    async def get_interaction_mode(self) -> str:
+        """读取当前用户的交互模式（供 chat graph 注入 state 使用）。
+
+        无设置记录时回退到默认 ``confirmation``，保证旧用户也有确定行为。
+        """
+        settings_row = await self.repo.get_settings()
+        if settings_row is None:
+            return InteractionMode.confirmation.value
+        return settings_row.interaction_mode
 
     # ---------- 更新 ----------
 
@@ -242,6 +259,11 @@ class UserService:
             fields = payload.health_info.model_dump(exclude_unset=True)
             await self.repo.update_health_info(fields)
             memory_fields.update({f"health_info.{key}": value for key, value in fields.items()})
+
+        # D1=方案B：注册时选择的交互模式写入 settings（缺省 confirmation）。
+        await self.repo.update_settings(
+            {"interaction_mode": payload.interaction_mode.value}
+        )
 
         # 标记 onboarding 完成（update_profile 的 _apply_updates 会忽略 None，
         # 但 True 会被写入）

@@ -144,6 +144,7 @@ async def assemble_prompt(state: ChatState) -> dict[str, Any]:
         history=state.get("chat_history", []) or [],
         memories=state.get("recalled_memories", []) or [],
         knowledge=state.get("knowledge", []) or [],
+        interaction_mode=state.get("interaction_mode"),
     )
     return {"prompt_messages": prompt_messages}
 
@@ -203,16 +204,40 @@ async def trigger_memory_extract(state: ChatState) -> dict[str, Any]:
     return {}
 
 
-def _parse_result_to_card(parse_result: ParseResult, suggested_date: date | None) -> ChatCard:
+def _diet_knowledge_text(parse_result: ParseResult) -> str:
+    """学习模式：基于解析出的营养汇总，生成简短的营养知识讲解。"""
+    s = parse_result.nutrition_summary
+    return (
+        f"本餐约 {s.total_calories:.0f}kcal，三大营养素：碳水 {s.total_carbs:.0f}g、"
+        f"蛋白质 {s.total_protein:.0f}g、脂肪 {s.total_fat:.0f}g。"
+        "碳水是主要供能来源，蛋白质有助于肌肉合成与饱腹，脂肪需适量控制。"
+    )
+
+
+def _parse_result_to_card(
+    parse_result: ParseResult,
+    suggested_date: date | None,
+    *,
+    requires_confirmation: bool = True,
+    knowledge: str | None = None,
+) -> ChatCard:
     payload = parse_result.model_dump(mode="json")
     payload["suggested_date"] = (suggested_date or date.today()).isoformat()
+    # 效率模式（requires_confirmation=False）已直接落库，卡片仅作结果展示，
+    # 不提供"确认保存"按钮，仅保留"修改食物"作为纠错入口。
+    if requires_confirmation:
+        actions = [
+            ChatCardAction(kind="confirm_create_diet_record", label="确认保存"),
+            ChatCardAction(kind="edit_diet_items", label="修改食物"),
+        ]
+    else:
+        actions = [ChatCardAction(kind="edit_diet_items", label="修改食物")]
     return ChatCard(
         type="diet_parse",
         payload=payload,
-        actions=[
-            ChatCardAction(kind="confirm_create_diet_record", label="确认保存"),
-            ChatCardAction(kind="edit_diet_items", label="修改食物"),
-        ],
+        actions=actions,
+        requires_confirmation=requires_confirmation,
+        knowledge=knowledge,
     )
 
 
@@ -224,7 +249,26 @@ _BODY_TYPE_LABEL = {
 }
 
 
-def _body_result_to_card(parse_result: BodyParseResult, suggested_date: date | None) -> ChatCard:
+def _body_knowledge_text(parse_result: BodyParseResult) -> str:
+    """学习模式：针对身体数据类型给出简短健康知识讲解。"""
+    rt = parse_result.record_type.value
+    if rt == "water":
+        return "成人每日建议饮水约 1500–1700ml，少量多次比一次大量更利于吸收。"
+    if rt == "sleep":
+        return "规律作息和 7–9 小时睡眠有助于代谢和食欲激素平衡，长期睡眠不足易增加进食量。"
+    if rt == "exercise":
+        return "有氧运动帮助消耗热量，力量训练提升基础代谢，两者结合减脂效果更好。"
+    if rt == "bowel":
+        return "排便规律可反映膳食纤维和水分摄入是否充足，布里斯托 3–4 型为理想形态。"
+    return "持续记录身体数据有助于发现趋势，让健康管理更有依据。"
+
+
+def _body_result_to_card(
+    parse_result: BodyParseResult,
+    suggested_date: date | None,
+    *,
+    knowledge: str | None = None,
+) -> ChatCard:
     payload = parse_result.model_dump(mode="json")
     payload["suggested_date"] = (suggested_date or date.today()).isoformat()
     return ChatCard(
@@ -234,6 +278,7 @@ def _body_result_to_card(parse_result: BodyParseResult, suggested_date: date | N
             ChatCardAction(kind="confirm_create_body_record", label="确认保存"),
             ChatCardAction(kind="cancel_body_record", label="取消"),
         ],
+        knowledge=knowledge,
     )
 
 
@@ -261,15 +306,29 @@ def _body_response_text(parse_result: BodyParseResult) -> str:
 async def wrap_response(state: ChatState) -> dict[str, Any]:
     """Normalize branch outputs into ``ai_response`` + ``response_cards``.
 
-    P2 新增逻辑：当饮食意图识别到食物但 meal_type 缺失时，
-    不再猜测 snack，而是产出 choice_prompts 让前端弹选项 chips。
+    按交互模式区分响应结构：
+    - efficiency：diet 子图已自动落库，返回 Toast 风格结果卡片（无需确认）。
+    - confirmation：返回需用户点击确认的结果卡片（默认行为）。
+    - learning：在确认卡片基础上追加 ``knowledge`` 知识讲解字段。
+
+    P2 逻辑：当饮食意图识别到食物但 meal_type 缺失时，
+    产出 choice_prompts 让前端弹选项 chips（仅非效率模式触发，
+    效率模式经 infer_meal_type 已补全餐次）。
     """
+    interaction_mode = state.get("interaction_mode") or "confirmation"
+    is_efficiency = interaction_mode == "efficiency"
+    is_learning = interaction_mode == "learning"
+
     if state.get("intent") == "diet" and state.get("diet_parse_result") is not None:
         parse_result = cast(ParseResult, state["diet_parse_result"])
         food_count = len(parse_result.foods)
 
-        # 如果 meal_type 缺失且没有 pending_action（说明是第一次），emit choice
-        if parse_result.meal_type is None and state.get("pending_action") is None:
+        # 非效率模式且 meal_type 缺失且无 pending_action → 先澄清餐次
+        if (
+            not is_efficiency
+            and parse_result.meal_type is None
+            and state.get("pending_action") is None
+        ):
             import uuid
             prompt_id = f"meal_type_{uuid.uuid4().hex[:8]}"
             choice_prompt = {
@@ -292,16 +351,38 @@ async def wrap_response(state: ChatState) -> dict[str, Any]:
                 "diet_parse_result": parse_result,
             }
 
-        # meal_type 已知（用户选了 / 原文就有 / pending_action 合并后）→ 正常出卡片
-        card = _parse_result_to_card(parse_result, state.get("diet_date"))
         meal_type = parse_result.meal_type.value if parse_result.meal_type else "snack"
-        response = f"我识别到 {food_count} 项食物，餐次为 {meal_type}。请确认后再保存到饮食记录。"
-        return {"ai_response": response, "response_cards": [card.model_dump(mode="json")], "choice_prompts": []}
+        knowledge = _diet_knowledge_text(parse_result) if is_learning else None
+
+        if is_efficiency:
+            # 效率模式：diet 子图已落库，给 Toast 风格的"已记录"反馈，卡片不需确认。
+            card = _parse_result_to_card(
+                parse_result, state.get("diet_date"), requires_confirmation=False
+            )
+            calories = parse_result.nutrition_summary.total_calories
+            response = f"已记录 {meal_type}，{food_count} 项食物，共 {calories:.0f}kcal。"
+        else:
+            # 确认 / 学习模式：出确认卡片，学习模式附带知识讲解。
+            card = _parse_result_to_card(
+                parse_result,
+                state.get("diet_date"),
+                requires_confirmation=True,
+                knowledge=knowledge,
+            )
+            response = f"我识别到 {food_count} 项食物，餐次为 {meal_type}。请确认后再保存到饮食记录。"
+
+        return {
+            "ai_response": response,
+            "response_cards": [card.model_dump(mode="json")],
+            "choice_prompts": [],
+        }
 
     # 身体数据意图：把 body_parse_result 转成 body_parse 卡片
+    # 注：V1 body 子图尚无自动落库能力，效率模式仍走确认卡片（已在文档中标注为限制）。
     if state.get("intent") == "body" and state.get("body_parse_result") is not None:
         body_result = cast(BodyParseResult, state["body_parse_result"])
-        card = _body_result_to_card(body_result, state.get("body_date"))
+        knowledge = _body_knowledge_text(body_result) if is_learning else None
+        card = _body_result_to_card(body_result, state.get("body_date"), knowledge=knowledge)
         response = _body_response_text(body_result)
         return {
             "ai_response": response,
