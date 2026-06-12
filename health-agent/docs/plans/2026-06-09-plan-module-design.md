@@ -512,14 +512,22 @@ status=accepted
 
 ### 验证情况
 - 所有模块可导入，FastAPI app 启动成功（74 路由）
-- 既有计划测试全绿：`test_plans.py` 2/2、`test_plan_service.py` 4/4、`test_plan_agent.py` + `test_plan_conversation.py` 10/10
-- 新增 service 暂无单元测试（待补）
+- 计划相关测试全绿（25 项）：`test_plan_service.py` 6、`test_plan_curve_and_compliance.py` 7、`test_plans.py` 2、`test_plan_agent.py` 2、`test_plan_conversation.py` 8
+- 已端到端在 app 验证：体重趋势图叠加"实际 vs 计划目标"两条线
+
+### 9. AI 创建计划自动派生体重子计划（2026-06-11 补）
+✅ `create_plan_from_draft` 创建减重计划后，自动派生"每日体重目标"子计划 + 线性曲线：
+- 起点 = 档案 `current_weight`，终点 = `weight_target`，线性插值
+- 缺当前体重或目标体重时跳过派生，不影响主计划创建
+- 这样 AI 对话生成减重计划后，数据模块体重 Tab 自动出现目标线，无需手动造数据
+- 测试：`test_create_weight_loss_plan_derives_weight_sub_plan`、`test_create_plan_without_current_weight_skips_derivation`
 
 ### 仍待补的细节
-- 第 7 项整体未实现（每日调度 + AI 分析/调整工作流）
+- 第 7 项工作流整体未实现（每日检查调度器 + AI 分析/调整提议生成）
 - `accept_proposal` 应用 `proposed_changes` 并 `replace_daily_targets` 重算曲线
 - `_actual_values` 中 `measurement` 维度暂以腰围为代表值，需按子计划具体度量细化
-- 新增 service 的单元测试（curve / compliance / check-in task）
+- 派生逻辑目前仅 weight 维度；运动/饮水等其他维度的自动派生待补
+- check-in task 的单元测试
 
 ## 关联文档
 

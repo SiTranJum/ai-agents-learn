@@ -252,39 +252,6 @@ fix(ui): improve home pull-to-refresh — closes optimization #1
 
 
 
-还有这些饮水、睡眠、运动、排便等卡片，我在详情页保存了最新消息，都没有同步到首页，首页需要刷新才能看到更新后的数据。感觉是保存后没有正确更新缓存导致的，麻烦帮看一下，谢谢！
-
-
-ai对话，我说喝水两瓶后端传给前端最终的card数据:
-{"card":{"type":"body_parse","payload":{"record_type":"water","operation":"append","confidence":1.0,"water_amount":1000,"sleep_bed_time":null,"sleep_wake_time":null,"sleep_quality":null,"exercise_type":null,"exercise_duration":null,"bowel_time":null,"bowel_status":null,"suggested_date":"2026-06-03"},"actions":[{"kind":"confirm_create_body_record","label":"确认保存"},{"kind":"cancel_body_record","label":"取消"}]}}
-前端展示的卡片里全是字段名的东西：body_parserecord_typeoperation
-√已确认water
-append
-confidencewater_amountsleep_bed_timesleep_wake_time
-1
-1000
-null
-null
-sleep_qualityexercise_typeexercise_durationbowel_time
-null
-null
-null
-null
-bowel_status
-null
-suggested_date2026-06-03
-这不对，没有具体看到用户喝了多少水，看看后端传给前端的字段是不是有问题，或者前端解析展示的时候出了问题？点击保存后，对话如下：
-[card_action]
-confirm_create_body_record
-暂不支持的操作：
-confirm_create_body_record
-睡眠、运动、排便模块都同理
-
-
-
-饮食页面最上面的日期选择组件，点击后会弹出日期选择框，选择一个日期后，页面会刷新并展示该日期的饮食记录。但是现在的ui做法是没有日期组件的，而是左右有一个箭头，点击箭头会切换日期并刷新数据。感觉用户不太好发现这个功能，建议改成日期组件的形式。
-
-
 首页没有维度记录的卡片，请你思考，按现在市面的产品，是否需要在首页增加一个维度记录的入口卡片？如果需要，应该放在什么位置，点击后应该跳转到哪里？如果不需要，请说明理由。
 
 
