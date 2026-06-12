@@ -44,6 +44,8 @@ class _FakeRepo:
         self.targets: dict[uuid.UUID, PlanTarget] = {}
         self.check_ins: list[PlanCheckIn] = []
         self.executions: list[PlanExecution] = []
+        self.sub_plans: list = []
+        self.daily_targets: dict = {}
 
     async def has_active_plan(self) -> bool:
         return any(plan.status == "active" and plan.deleted_at is None for plan in self.plans)
@@ -65,6 +67,18 @@ class _FakeRepo:
         self.plans.append(plan)
         self.targets[uuid.UUID(str(plan.id))] = target
         return plan
+
+    async def create_sub_plan(self, sub_plan):
+        now = datetime.now(UTC)
+        sub_plan.id = uuid.uuid4()
+        sub_plan.user_id = self.user_id
+        sub_plan.created_at = now
+        sub_plan.updated_at = now
+        self.sub_plans.append(sub_plan)
+        return sub_plan
+
+    async def replace_daily_targets(self, sub_plan_id, targets) -> None:
+        self.daily_targets[sub_plan_id] = list(targets)
 
     async def get_plan(self, plan_id: uuid.UUID) -> Plan | None:
         return next((plan for plan in self.plans if plan.id == plan_id and plan.deleted_at is None), None)
@@ -146,6 +160,40 @@ async def test_create_plan_from_draft_and_prevent_duplicate_active() -> None:
     assert repo.session.commits == 1
     with pytest.raises(ConflictException):
         await service.create_plan_from_draft(_draft())
+
+
+@pytest.mark.asyncio
+async def test_create_weight_loss_plan_derives_weight_sub_plan() -> None:
+    """减重计划应自动派生体重目标子计划 + 线性曲线（current_weight → weight_target）。"""
+    repo = _FakeRepo()
+    profile = SimpleNamespace(current_weight=75, height=175, gender="male", birth_date=date(1990, 1, 1))
+    service = PlanService(repo=repo, profile=profile)  # type: ignore[arg-type]
+
+    created = await service.create_plan_from_draft(_draft())
+
+    # 派生了 1 个 weight 子计划
+    assert len(repo.sub_plans) == 1
+    sub = repo.sub_plans[0]
+    assert sub.dimension == "weight"
+    # 曲线从 75（当前体重）线性降到 70（目标体重）
+    curve = repo.daily_targets[sub.id]
+    assert curve[0].target_value == 75.0
+    assert curve[-1].target_value == 70.0
+    assert curve[0].plan_id == created.id
+
+
+@pytest.mark.asyncio
+async def test_create_plan_without_current_weight_skips_derivation() -> None:
+    """档案缺当前体重时跳过派生，但主计划仍正常创建。"""
+    repo = _FakeRepo()
+    # profile 无 current_weight
+    profile = SimpleNamespace(height=175, gender="male", birth_date=date(1990, 1, 1))
+    service = PlanService(repo=repo, profile=profile)  # type: ignore[arg-type]
+
+    created = await service.create_plan_from_draft(_draft())
+
+    assert created.status.value == "active"
+    assert len(repo.sub_plans) == 0  # 未派生子计划
 
 
 @pytest.mark.asyncio

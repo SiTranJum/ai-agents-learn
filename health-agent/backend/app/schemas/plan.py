@@ -61,6 +61,20 @@ class PlanPhaseDraft(BaseModel):
     tasks: list[PlanTaskUpdate] = Field(default_factory=list)
 
 
+class WeightAnchor(BaseModel):
+    """方案 C：LLM 为减重计划给出少量关键锚点，后端在锚点间线性插值成逐日曲线。
+
+    - day_offset：相对于 start_date 的第几天（0 起算）
+    - target_weight：该锚点的目标体重 (kg)
+
+    LLM 只需给 3-5 个锚点（含首尾），大幅降低 token 与生成时间；
+    后端分段线性插值后再做单调性/速率校验，失败则退回整段线性。
+    """
+
+    day_offset: int = Field(ge=0, le=200, description="相对于 start_date 的第几天，0=第一天")
+    target_weight: float = Field(gt=0, le=300, description="该锚点的目标体重 kg")
+
+
 class PlanTargets(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -69,6 +83,14 @@ class PlanTargets(BaseModel):
     fat_target: float | None = Field(default=None, gt=0)
     carbs_target: float | None = Field(default=None, gt=0)
     weight_target: float | None = Field(default=None, gt=0)
+    # 方案 C：减重计划专用，LLM 给 3-5 个关键锚点，后端插值成逐日曲线
+    weight_anchors: list[WeightAnchor] | None = Field(
+        default=None,
+        description=(
+            "减重计划专用。给 3-5 个关键锚点（含 day_offset=0 起点和最后一天终点），"
+            "体现阶段速率；后端会在锚点间线性插值。校验失败将被丢弃，退回整段线性。"
+        ),
+    )
 
 
 class PlanCreate(BaseModel):
@@ -160,7 +182,7 @@ class PlanResponse(BaseModel):
 
 class PlanConversationMessage(BaseModel):
     role: Literal["user", "assistant", "system"] = "user"
-    content: str = Field(min_length=1, max_length=4000)
+    content: str = Field(min_length=1, max_length=16000)
 
 
 class PlanStreamRequest(BaseModel):
@@ -383,4 +405,5 @@ __all__ = [
     "SubPlanTaskDraft",
     "SubPlanUpdate",
     "TargetCurveStrategy",
+    "WeightAnchor",
 ]

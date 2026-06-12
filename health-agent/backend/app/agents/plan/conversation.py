@@ -429,10 +429,38 @@ async def _generate_draft(
                     memories=_memory_lines(memories),
                 )
             )
-        return draft
+        # LLM 的"当前日期"认知可能停留在训练期（如 2024 年），
+        # start_date/target_date 不可信。强制以今天为起点，保留 LLM 给出的周期长度。
+        return _normalize_draft_dates(draft)
     except Exception as exc:  # pragma: no cover - dev fallback without model access
         logger.info("plan conversation fallback draft used: %s", exc)
         return fallback
+
+
+def _normalize_draft_dates(draft: PlanDraft) -> PlanDraft:
+    """把 draft 的日期重锚到今天，保留周期长度，同步平移 phases。"""
+    today = date.today()
+    duration = (draft.target_date - draft.start_date).days
+    if duration < 0:
+        duration = 0
+    new_start = today
+    new_target = today + timedelta(days=duration)
+    # 平移每个 phase（保持各阶段相对偏移与时长）
+    new_phases: list[PlanPhaseDraft] = []
+    for phase in draft.phases:
+        ps_offset = (phase.start_date - draft.start_date).days
+        pe_offset = (phase.end_date - draft.start_date).days
+        new_phases.append(
+            phase.model_copy(
+                update={
+                    "start_date": new_start + timedelta(days=max(ps_offset, 0)),
+                    "end_date": new_start + timedelta(days=max(pe_offset, 0)),
+                }
+            )
+        )
+    return draft.model_copy(
+        update={"start_date": new_start, "target_date": new_target, "phases": new_phases}
+    )
 
 
 def _violation_message(violations: list[str], adjusted: PlanDraft, profile: object | None) -> str:
@@ -462,6 +490,11 @@ def _violation_message(violations: list[str], adjusted: PlanDraft, profile: obje
                 )
     if "WEIGHT_LOSS_TOO_FAST" in violations:
         explanations.append("你设定的减重速度过快，我已把周期放宽到更安全的范围。")
+    if "WEIGHT_ANCHOR_PACE_TOO_FAST" in violations:
+        explanations.append(
+            "你的目标里有某个阶段减得太快了（超过每周 1kg 的安全速度，容易反弹也伤身体），"
+            "我已经把它调成更平稳的匀速下降。建议每周控制在 0.5–1kg 更健康。"
+        )
     if "PLAN_DURATION_INVALID" in violations:
         explanations.append("你设定的周期不在安全支持范围内，我已调整到 1 到 24 周的合理区间。")
     if not explanations:

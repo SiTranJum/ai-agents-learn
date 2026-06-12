@@ -72,10 +72,82 @@ class PlanService:
             tasks=[self._task_to_json(task) for task in normalized.tasks],
             phases=[self._phase_to_json(phase) for phase in normalized.phases],
         )
-        target = PlanTarget(**normalized.targets.model_dump())
+        target = PlanTarget(**normalized.targets.model_dump(exclude={"weight_anchors"}))
         created = await self.repo.create_plan(plan, target)
+        # 减重计划：自动派生"每日体重目标"子计划 + 线性目标曲线，供数据模块叠加
+        await self._derive_weight_sub_plan(created, normalized)
         await self.repo.session.commit()
         return await self._response(created)
+
+    async def _derive_weight_sub_plan(self, plan: Plan, draft: PlanDraft) -> None:
+        """从主计划的 weight_target 派生体重目标子计划与曲线。
+
+        优先级：
+        1. LLM 直出 weight_anchors（方案 C，3-5个锚点，校验通过则插值用）
+        2. 校验失败 / 未提供 → 退回线性插值（current_weight → target_weight）
+        3. current_weight 或 target_weight 缺失 → 跳过派生
+        """
+        if draft.plan_type != PlanType.weight_loss:
+            return
+        target_weight = draft.targets.weight_target
+        current_weight = self._profile_number(self.profile, "current_weight")
+        if target_weight is None or current_weight is None:
+            return
+        from app.core.exceptions import ValidationException as _CurveValidation  # noqa: PLC0415
+        from app.db.models.plan import SubPlan  # noqa: PLC0415
+        from app.schemas.plan import TargetCurveStrategy  # noqa: PLC0415
+        from app.services.plan_curve_service import (  # noqa: PLC0415
+            build_curve_from_anchors,
+            generate_curve,
+        )
+
+        sub_plan = SubPlan(
+            plan_id=plan.id,
+            dimension="weight",
+            name="每日体重目标",
+            goal_description=f"从 {current_weight}kg 渐进到 {target_weight}kg",
+            status=PlanStatus.active.value,
+            weight=1.0,
+            tasks=[],
+        )
+        created_sub = await self.repo.create_sub_plan(sub_plan)
+
+        # 优先用 LLM 直出 weight_anchors（3-5个锚点）
+        curve = None
+        llm_anchors = draft.targets.weight_anchors
+        if llm_anchors:
+            try:
+                anchors = [(a.day_offset, a.target_weight) for a in llm_anchors]
+                curve = build_curve_from_anchors(
+                    plan=plan,
+                    sub_plan=created_sub,
+                    anchors=anchors,
+                    unit="kg",
+                    expected_current_weight=float(current_weight),
+                    expected_target_weight=float(target_weight),
+                )
+            except _CurveValidation as exc:
+                # 校验失败：记录原因，退回线性
+                import logging  # noqa: PLC0415
+
+                logging.getLogger("plan_service").warning(
+                    "LLM weight_anchors invalid (%s): %s; fallback to linear",
+                    getattr(exc, "code", None),
+                    exc,
+                )
+                curve = None
+
+        # 回退：起点→终点线性插值
+        if curve is None:
+            curve = generate_curve(
+                plan=plan,
+                sub_plan=created_sub,
+                strategy=TargetCurveStrategy.linear,
+                unit="kg",
+                start_value=float(current_weight),
+                end_value=float(target_weight),
+            )
+        await self.repo.replace_daily_targets(created_sub.id, curve)
 
     async def get_plan(self, plan_id: uuid.UUID) -> PlanResponse:
         plan = await self._get_plan_or_404(plan_id)
@@ -305,7 +377,25 @@ class PlanService:
             loss_per_week = (current_weight - draft.targets.weight_target) / (days / 7)
             if loss_per_week > 1:
                 violations.append("WEIGHT_LOSS_TOO_FAST")
+        # 锚点分段速率检查：即使总速率合规，某一阶段也可能过快
+        if draft.plan_type == PlanType.weight_loss and draft.targets.weight_anchors:
+            if self._anchor_pace_too_fast(draft.targets.weight_anchors):
+                violations.append("WEIGHT_ANCHOR_PACE_TOO_FAST")
         return violations
+
+    @staticmethod
+    def _anchor_pace_too_fast(anchors: list) -> bool:
+        """检查相邻锚点间是否有某段速率超过 1kg/周。"""
+        sorted_anchors = sorted(anchors, key=lambda a: a.day_offset)
+        for i in range(1, len(sorted_anchors)):
+            prev, cur = sorted_anchors[i - 1], sorted_anchors[i]
+            delta_days = cur.day_offset - prev.day_offset
+            if delta_days <= 0:
+                continue
+            weekly_drop = (prev.target_weight - cur.target_weight) / (delta_days / 7)
+            if weekly_drop > 1.0 + 1e-6:
+                return True
+        return False
 
     async def _get_plan_or_404(self, plan_id: uuid.UUID) -> Plan:
         plan = await self.repo.get_plan(plan_id)
@@ -482,6 +572,9 @@ class PlanService:
                 total_loss = max(current_weight - target_weight, 1)
                 safe_days = int(math.ceil(total_loss) * 7)
                 end_date = max(end_date, adjusted.start_date + timedelta(days=safe_days - 1))
+        if "WEIGHT_ANCHOR_PACE_TOO_FAST" in violations:
+            # 某阶段速率过快：清空锚点，后续派生改用匀速线性下降
+            targets = targets.model_copy(update={"weight_anchors": None})
         phases = self._stretch_phases(adjusted.phases, adjusted.start_date, end_date)
         return adjusted.model_copy(update={"targets": targets, "target_date": end_date, "phases": phases})
 
