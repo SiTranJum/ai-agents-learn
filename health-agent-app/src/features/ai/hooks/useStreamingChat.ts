@@ -268,9 +268,9 @@ export function useStreamingChat(): UseStreamingChatReturn {
   // 通用流式请求分发
   const _dispatch = useCallback(
     (payload: any) => {
-      // card_action 是用户点击卡片按钮（如"确认创建"），不显示用户消息
-      // 因为卡片本身的状态变化（submitted/cancelled）已经是反馈
-      if (payload.type !== 'card_action') {
+      // card_action / choice_response 都是用户对前一条 AI 消息的"作答"，
+      // 卡片状态切换 / chip 高亮已经是足够的反馈，不再额外显示用户气泡。
+      if (payload.type !== 'card_action' && payload.type !== 'choice_response') {
         // 用户消息
         const userMsg: ChatMessage = {
           id: `u_${Date.now()}`,

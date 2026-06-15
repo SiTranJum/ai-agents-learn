@@ -291,7 +291,9 @@ async def wrap_response(state: ChatState) -> dict[str, Any]:
     因此本节点只在子图**自然结束**（已落库 / 已取消）后运行，职责仅剩"给一句
     结果反馈"，绝不能再重发确认卡——否则保存成功后又弹确认卡会造成死循环。
     """
-    # diet：根据落库 / 取消结果给终态反馈（不再重发确认卡）。
+    # diet：根据落库 / 取消结果给终态反馈（不再重发确认卡——确认卡已由 interrupt
+    # 发出，前端会把它从 pending 切到 submitted 作为回执；这里只补一句文本即可，
+    # 再发卡会与之前的确认卡重复）。
     if state.get("intent") == "diet" and state.get("diet_parse_result") is not None:
         parse_result = cast(ParseResult, state["diet_parse_result"])
         food_count = len(parse_result.foods)
@@ -302,17 +304,9 @@ async def wrap_response(state: ChatState) -> dict[str, Any]:
         if state.get("diet_saved_record") is not None:
             meal_type = parse_result.meal_type.value if parse_result.meal_type else "snack"
             meal_label = _MEAL_LABELS.get(meal_type, meal_type)
-            # 结果回执卡（requires_confirmation=False）：仅展示，无"确认保存"按钮。
-            card = _parse_result_to_card(
-                parse_result, state.get("diet_date"), requires_confirmation=False
-            )
             calories = parse_result.nutrition_summary.total_calories
             response = f"已记录{meal_label}，{food_count} 项食物，共 {calories:.0f}kcal。"
-            return {
-                "ai_response": response,
-                "response_cards": [card.model_dump(mode="json")],
-                "choice_prompts": [],
-            }
+            return {"ai_response": response, "response_cards": [], "choice_prompts": []}
 
         # 既没保存也没取消（子图理论上要么 interrupt 要么落库/取消，兜底）。
         return {"ai_response": "我已经收到你的饮食信息。", "response_cards": [], "choice_prompts": []}

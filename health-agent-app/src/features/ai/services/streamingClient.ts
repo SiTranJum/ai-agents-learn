@@ -112,6 +112,16 @@ export function createSSEStream(
       const code = (data as { code?: string }).code ?? 'UNKNOWN_ERROR';
       metrics.finalizeError(code);
     }
+    // 终态 / 暂停事件后停止 idle 计时（done/error 表示流结束，
+    // paused 表示后端 interrupt 暂停且本轮 SSE 不会再有数据）。
+    // 不再 reset，否则即使流已结束 120s 后还会误报 IDLE_TIMEOUT。
+    if (type === 'done' || type === 'error' || type === 'paused') {
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
+      }
+      return;
+    }
     resetIdleTimer();
   }
 
@@ -201,8 +211,11 @@ export function createSSEStream(
         try {
           const parsed = JSON.parse(raw);
           emit(evtName as StreamEventType, parsed);
-          // done 事件后主动关闭
-          if (evtName === 'done') {
+          // done / paused 事件后主动关闭 SSE：
+          // - done：流正常结束
+          // - paused：后端 interrupt 暂停，本轮 SSE 不会再有数据，
+          //   连接挂着也没意义；用户作答后会发新的 /chat 请求恢复
+          if (evtName === 'done' || evtName === 'paused') {
             cleanup();
           }
         } catch (err) {

@@ -85,8 +85,9 @@ def _parse_result() -> ParseResult:
 
 @pytest.mark.asyncio
 async def test_wrap_response_receipt_after_save() -> None:
-    """落库后（确认模式）：wrap_response 给结果回执卡（requires_confirmation=False），
-    不再出'确认保存'按钮——确认卡已由子图 interrupt 发出，这里只给终态反馈。"""
+    """落库后（确认模式）：wrap_response 只发文本反馈，不再发卡——
+    确认卡已由子图 interrupt 发出，前端把它从 pending 切到 submitted 即是回执，
+    再发一张相同卡会重复显示。"""
     result = await wrap_response(
         {
             "intent": "diet",
@@ -96,11 +97,7 @@ async def test_wrap_response_receipt_after_save() -> None:
             "diet_date": date(2026, 6, 12),
         }
     )
-    card = result["response_cards"][0]
-    assert card["requires_confirmation"] is False
-    assert "knowledge" not in card, "knowledge 字段已下线"
-    kinds = {a["kind"] for a in card["actions"]}
-    assert "confirm_create_diet_record" not in kinds
+    assert result["response_cards"] == []
     assert "已记录" in result["ai_response"]
 
 
@@ -121,7 +118,7 @@ async def test_wrap_response_cancel_text() -> None:
 
 @pytest.mark.asyncio
 async def test_efficiency_mode_no_confirm_card() -> None:
-    """效率模式（已落库）：回执卡 requires_confirmation=False，不含'确认保存'按钮，文案'已记录'。"""
+    """效率模式（已落库）：wrap_response 给纯文本'已记录'反馈，不发卡。"""
     result = await wrap_response(
         {
             "intent": "diet",
@@ -131,10 +128,7 @@ async def test_efficiency_mode_no_confirm_card() -> None:
             "diet_date": date(2026, 6, 12),
         }
     )
-    card = result["response_cards"][0]
-    assert card["requires_confirmation"] is False
-    kinds = {a["kind"] for a in card["actions"]}
-    assert "confirm_create_diet_record" not in kinds
+    assert result["response_cards"] == []
     assert "已记录" in result["ai_response"]
 
 
@@ -151,7 +145,8 @@ def test_build_chat_messages_mode_changes_system_prompt() -> None:
 
 @pytest.mark.asyncio
 async def test_efficiency_mode_auto_saves_via_graph() -> None:
-    """效率模式跑完整 graph：diet 子图应自动落库（create_record_from_parsed 被调用）。"""
+    """效率模式跑完整 graph：diet 子图应自动落库（create_record_from_parsed 被调用），
+    wrap_response 给纯文本'已记录'反馈，不发回执卡（确认卡场景才有交互卡）。"""
     service = _FakeDietService()
     graph = build_chat_agent()
     state = await graph.ainvoke(
@@ -168,4 +163,5 @@ async def test_efficiency_mode_auto_saves_via_graph() -> None:
     )
     assert state["intent"] == "diet"
     assert service.saved is True
-    assert state["response_cards"][0]["requires_confirmation"] is False
+    assert state["response_cards"] == []
+    assert "已记录" in state["ai_response"]
