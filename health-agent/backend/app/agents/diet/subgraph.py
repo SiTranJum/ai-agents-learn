@@ -22,12 +22,14 @@ from langgraph.graph import END, StateGraph
 
 from app.agents.chat.state import ChatState
 from app.agents.diet.nodes import (
+    confirm_or_clarify,
+    confirm_save,
     enrich_nutrition,
     infer_meal_type,
+    narrate_learning,
     parse_photo_mock,
     parse_text,
     route_input,
-    save_or_end,
     save_record,
     standardize_units,
     trigger_memory,
@@ -38,6 +40,12 @@ def build_diet_subgraph():
     """构建 diet subgraph。
 
     返回值是 compiled ``StateGraph``，供 ``chat_graph`` 作为子节点挂载。
+
+    交互流：解析 → 标准化 → 营养 → 推断餐次 → confirm_or_clarify
+    （可能 interrupt 暂停问餐次）→
+      ├ efficiency: → save_record
+      ├ confirmation: → confirm_save（interrupt 出确认卡）→ save_record
+      └ learning: → narrate_learning（流式讲解）→ confirm_save → save_record
     """
     graph = StateGraph(cast(Any, ChatState))
     graph.add_node("parse_text", cast(Any, parse_text))
@@ -45,6 +53,9 @@ def build_diet_subgraph():
     graph.add_node("standardize_units", cast(Any, standardize_units))
     graph.add_node("enrich_nutrition", cast(Any, enrich_nutrition))
     graph.add_node("infer_meal_type", cast(Any, infer_meal_type))
+    graph.add_node("confirm_or_clarify", cast(Any, confirm_or_clarify))
+    graph.add_node("narrate_learning", cast(Any, narrate_learning))
+    graph.add_node("confirm_save", cast(Any, confirm_save))
     graph.add_node("save_record", cast(Any, save_record))
     graph.add_node("trigger_memory", cast(Any, trigger_memory))
 
@@ -60,11 +71,11 @@ def build_diet_subgraph():
     graph.add_edge("parse_photo_mock", "standardize_units")
     graph.add_edge("standardize_units", "enrich_nutrition")
     graph.add_edge("enrich_nutrition", "infer_meal_type")
-    graph.add_conditional_edges(
-        "infer_meal_type",
-        save_or_end,
-        {"save_record": "save_record", "__end__": END},
-    )
+    graph.add_edge("infer_meal_type", "confirm_or_clarify")
+    # confirm_or_clarify 返回 Command(goto="save_record" | "narrate_learning" |
+    # "confirm_save" | "__end__")，目标节点都需在图中可达：上面均已声明。
+    graph.add_edge("narrate_learning", "confirm_save")
+    # confirm_save 通过 Command 走 save_record / __end__。
     graph.add_edge("save_record", "trigger_memory")
     graph.add_edge("trigger_memory", END)
     return graph.compile()

@@ -204,22 +204,11 @@ async def trigger_memory_extract(state: ChatState) -> dict[str, Any]:
     return {}
 
 
-def _diet_knowledge_text(parse_result: ParseResult) -> str:
-    """学习模式：基于解析出的营养汇总，生成简短的营养知识讲解。"""
-    s = parse_result.nutrition_summary
-    return (
-        f"本餐约 {s.total_calories:.0f}kcal，三大营养素：碳水 {s.total_carbs:.0f}g、"
-        f"蛋白质 {s.total_protein:.0f}g、脂肪 {s.total_fat:.0f}g。"
-        "碳水是主要供能来源，蛋白质有助于肌肉合成与饱腹，脂肪需适量控制。"
-    )
-
-
 def _parse_result_to_card(
     parse_result: ParseResult,
     suggested_date: date | None,
     *,
     requires_confirmation: bool = True,
-    knowledge: str | None = None,
 ) -> ChatCard:
     payload = parse_result.model_dump(mode="json")
     payload["suggested_date"] = (suggested_date or date.today()).isoformat()
@@ -237,7 +226,6 @@ def _parse_result_to_card(
         payload=payload,
         actions=actions,
         requires_confirmation=requires_confirmation,
-        knowledge=knowledge,
     )
 
 
@@ -248,26 +236,17 @@ _BODY_TYPE_LABEL = {
     "bowel": "排便",
 }
 
-
-def _body_knowledge_text(parse_result: BodyParseResult) -> str:
-    """学习模式：针对身体数据类型给出简短健康知识讲解。"""
-    rt = parse_result.record_type.value
-    if rt == "water":
-        return "成人每日建议饮水约 1500–1700ml，少量多次比一次大量更利于吸收。"
-    if rt == "sleep":
-        return "规律作息和 7–9 小时睡眠有助于代谢和食欲激素平衡，长期睡眠不足易增加进食量。"
-    if rt == "exercise":
-        return "有氧运动帮助消耗热量，力量训练提升基础代谢，两者结合减脂效果更好。"
-    if rt == "bowel":
-        return "排便规律可反映膳食纤维和水分摄入是否充足，布里斯托 3–4 型为理想形态。"
-    return "持续记录身体数据有助于发现趋势，让健康管理更有依据。"
+_MEAL_LABELS = {
+    "breakfast": "早餐",
+    "lunch": "午餐",
+    "dinner": "晚餐",
+    "snack": "加餐",
+}
 
 
 def _body_result_to_card(
     parse_result: BodyParseResult,
     suggested_date: date | None,
-    *,
-    knowledge: str | None = None,
 ) -> ChatCard:
     payload = parse_result.model_dump(mode="json")
     payload["suggested_date"] = (suggested_date or date.today()).isoformat()
@@ -278,7 +257,6 @@ def _body_result_to_card(
             ChatCardAction(kind="confirm_create_body_record", label="确认保存"),
             ChatCardAction(kind="cancel_body_record", label="取消"),
         ],
-        knowledge=knowledge,
     )
 
 
@@ -304,91 +282,50 @@ def _body_response_text(parse_result: BodyParseResult) -> str:
 
 @log_node
 async def wrap_response(state: ChatState) -> dict[str, Any]:
-    """Normalize branch outputs into ``ai_response`` + ``response_cards``.
+    """把各分支输出归一化为 ``ai_response`` + ``response_cards``（终态反馈）。
 
-    按交互模式区分响应结构：
-    - efficiency：diet 子图已自动落库，返回 Toast 风格结果卡片（无需确认）。
-    - confirmation：返回需用户点击确认的结果卡片（默认行为）。
-    - learning：在确认卡片基础上追加 ``knowledge`` 知识讲解字段。
+    interrupt 模型下，diet/body 子图通过 ``interrupt()`` 自己完成"问餐次 / 出确认卡"
+    的交互，且 **interrupt 暂停时本节点根本不会运行**（graph 在子图内就暂停了，
+    卡片由 ``emit_interrupt_events`` 从 interrupt 载荷发出）。
 
-    P2 逻辑：当饮食意图识别到食物但 meal_type 缺失时，
-    产出 choice_prompts 让前端弹选项 chips（仅非效率模式触发，
-    效率模式经 infer_meal_type 已补全餐次）。
+    因此本节点只在子图**自然结束**（已落库 / 已取消）后运行，职责仅剩"给一句
+    结果反馈"，绝不能再重发确认卡——否则保存成功后又弹确认卡会造成死循环。
     """
-    interaction_mode = state.get("interaction_mode") or "confirmation"
-    is_efficiency = interaction_mode == "efficiency"
-    is_learning = interaction_mode == "learning"
-
+    # diet：根据落库 / 取消结果给终态反馈（不再重发确认卡）。
     if state.get("intent") == "diet" and state.get("diet_parse_result") is not None:
         parse_result = cast(ParseResult, state["diet_parse_result"])
         food_count = len(parse_result.foods)
 
-        # 非效率模式且 meal_type 缺失且无 pending_action → 先澄清餐次
-        if (
-            not is_efficiency
-            and parse_result.meal_type is None
-            and state.get("pending_action") is None
-        ):
-            import uuid
-            prompt_id = f"meal_type_{uuid.uuid4().hex[:8]}"
-            choice_prompt = {
-                "prompt_id": prompt_id,
-                "question": "请选择餐次",
-                "options": [
-                    {"value": "breakfast", "label": "早餐"},
-                    {"value": "lunch", "label": "午餐"},
-                    {"value": "dinner", "label": "晚餐"},
-                    {"value": "snack", "label": "加餐"},
-                ],
-                "allow_free_text": True,
-            }
-            response = f"我识别到 {food_count} 项食物。请问是哪一餐？"
-            return {
-                "ai_response": response,
-                "response_cards": [],
-                "choice_prompts": [choice_prompt],
-                # 把部分解析结果存到 state，供 API 层写入 pending_action
-                "diet_parse_result": parse_result,
-            }
+        if state.get("diet_cancelled"):
+            return {"ai_response": "好的，已取消，这条记录没有保存。", "response_cards": [], "choice_prompts": []}
 
-        meal_type = parse_result.meal_type.value if parse_result.meal_type else "snack"
-        knowledge = _diet_knowledge_text(parse_result) if is_learning else None
-
-        if is_efficiency:
-            # 效率模式：diet 子图已落库，给 Toast 风格的"已记录"反馈，卡片不需确认。
+        if state.get("diet_saved_record") is not None:
+            meal_type = parse_result.meal_type.value if parse_result.meal_type else "snack"
+            meal_label = _MEAL_LABELS.get(meal_type, meal_type)
+            # 结果回执卡（requires_confirmation=False）：仅展示，无"确认保存"按钮。
             card = _parse_result_to_card(
                 parse_result, state.get("diet_date"), requires_confirmation=False
             )
             calories = parse_result.nutrition_summary.total_calories
-            response = f"已记录 {meal_type}，{food_count} 项食物，共 {calories:.0f}kcal。"
-        else:
-            # 确认 / 学习模式：出确认卡片，学习模式附带知识讲解。
-            card = _parse_result_to_card(
-                parse_result,
-                state.get("diet_date"),
-                requires_confirmation=True,
-                knowledge=knowledge,
-            )
-            response = f"我识别到 {food_count} 项食物，餐次为 {meal_type}。请确认后再保存到饮食记录。"
+            response = f"已记录{meal_label}，{food_count} 项食物，共 {calories:.0f}kcal。"
+            return {
+                "ai_response": response,
+                "response_cards": [card.model_dump(mode="json")],
+                "choice_prompts": [],
+            }
 
-        return {
-            "ai_response": response,
-            "response_cards": [card.model_dump(mode="json")],
-            "choice_prompts": [],
-        }
+        # 既没保存也没取消（子图理论上要么 interrupt 要么落库/取消，兜底）。
+        return {"ai_response": "我已经收到你的饮食信息。", "response_cards": [], "choice_prompts": []}
 
-    # 身体数据意图：把 body_parse_result 转成 body_parse 卡片
-    # 注：V1 body 子图尚无自动落库能力，效率模式仍走确认卡片（已在文档中标注为限制）。
+    # body：同理，子图已通过 interrupt 完成确认，这里只给结果反馈。
     if state.get("intent") == "body" and state.get("body_parse_result") is not None:
         body_result = cast(BodyParseResult, state["body_parse_result"])
-        knowledge = _body_knowledge_text(body_result) if is_learning else None
-        card = _body_result_to_card(body_result, state.get("body_date"), knowledge=knowledge)
-        response = _body_response_text(body_result)
-        return {
-            "ai_response": response,
-            "response_cards": [card.model_dump(mode="json")],
-            "choice_prompts": [],
-        }
+        if state.get("body_cancelled"):
+            return {"ai_response": "好的，已取消，这条记录没有保存。", "response_cards": [], "choice_prompts": []}
+        if state.get("body_saved"):
+            label = _BODY_TYPE_LABEL.get(body_result.record_type.value, "数据")
+            return {"ai_response": f"已记录{label}。", "response_cards": [], "choice_prompts": []}
+        return {"ai_response": "我已经收到你的身体数据。", "response_cards": [], "choice_prompts": []}
 
     return {
         "ai_response": state.get("ai_response") or "我已经收到你的消息。",

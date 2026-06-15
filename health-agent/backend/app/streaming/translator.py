@@ -18,6 +18,8 @@ CHAT_NODE_LABELS: Mapping[str, str] = {
     "standardize_units": "正在标准化食物单位...",
     "enrich_nutrition": "正在计算营养信息...",
     "infer_meal_type": "正在判断餐次...",
+    "narrate_learning": "正在为你讲解...",
+    "confirm_save": "请确认饮食记录...",
     "save_record": "正在保存记录...",
     "parse_body_text": "正在分析身体数据...",
     "handle_plan_turn": "正在为你准备计划...",
@@ -50,7 +52,7 @@ async def translate_langgraph_events(
 ) -> AsyncIterator[StreamEvent]:
     labels = node_labels if node_labels is not None else CHAT_NODE_LABELS
     cfg = config or {}
-    text_visible_nodes = {"call_llm"}
+    text_visible_nodes = {"call_llm", "narrate_learning"}
     saw_text_delta = False
 
     async for ev in agent.astream_events(state, version="v2", config=cfg):
@@ -149,4 +151,80 @@ def _maybe_dump(value: Any) -> dict[str, Any]:
     return {"value": str(value)}
 
 
-__all__ = ["CHAT_NODE_LABELS", "PLAN_NODE_LABELS", "SUGGESTION_NODE_LABELS", "translate_langgraph_events"]
+def _interrupt_values(snapshot: Any) -> list[dict[str, Any]]:
+    """从 graph state 快照里提取所有挂起的 interrupt 载荷（HumanPrompt dict）。
+
+    LangGraph 把待恢复的 interrupt 挂在 ``snapshot.tasks[].interrupts[].value``。
+    用 ``aget_state(config)`` 拿到 snapshot 后调用本函数最稳，跨版本兼容。
+    """
+    values: list[dict[str, Any]] = []
+    tasks = getattr(snapshot, "tasks", None) or []
+    for task in tasks:
+        for intr in getattr(task, "interrupts", None) or []:
+            val = getattr(intr, "value", None)
+            if isinstance(val, dict):
+                values.append(val)
+    return values
+
+
+def snapshot_has_pending_interrupt(snapshot: Any) -> bool:
+    """判断 graph snapshot 是否处于中断态。
+
+    LangGraph 跨版本 / 不同节点拓扑下，``snapshot.next`` 表达"暂停"并不可靠
+    （会出现空 tuple 等情况），唯一可靠的信号是 ``snapshot.tasks[].interrupts``
+    里有挂起的 interrupt。两者任一非空都视为暂停态。
+    """
+    if getattr(snapshot, "next", None):
+        return True
+    return bool(_interrupt_values(snapshot))
+
+
+async def emit_interrupt_events(agent: Any, config: dict[str, Any]) -> AsyncIterator[StreamEvent]:
+    """流跑完后检查是否被 interrupt 暂停，若是则发 CHOICE/CARD + PAUSED 事件。
+
+    用法（在业务端点流末尾）::
+
+        async for ev in translate_langgraph_events(agent, graph_input, config=cfg):
+            yield ev
+        paused = False
+        async for ev in emit_interrupt_events(agent, cfg):
+            paused = True
+            yield ev
+        if not paused:
+            yield StreamEvent(type=DONE, ...)
+    """
+    snapshot = await agent.aget_state(config)
+    if not snapshot_has_pending_interrupt(snapshot):
+        return  # 未处于中断态
+    for hp in _interrupt_values(snapshot):
+        kind = hp.get("kind")
+        prompt_id = hp.get("prompt_id", "")
+        domain = hp.get("domain")
+        if kind == "choice":
+            yield StreamEvent(
+                type=StreamEventType.CHOICE,
+                data={
+                    "prompt_id": prompt_id,
+                    "question": hp.get("question"),
+                    "options": hp.get("options", []),
+                    "allow_free_text": hp.get("allow_free_text", False),
+                },
+            )
+        elif kind == "card":
+            card = hp.get("card")
+            if card:
+                yield StreamEvent(type=StreamEventType.CARD, data={"card": card})
+        yield StreamEvent(
+            type=StreamEventType.PAUSED,
+            data={"prompt_id": prompt_id, "kind": kind or "choice", "domain": domain},
+        )
+
+
+__all__ = [
+    "CHAT_NODE_LABELS",
+    "PLAN_NODE_LABELS",
+    "SUGGESTION_NODE_LABELS",
+    "emit_interrupt_events",
+    "snapshot_has_pending_interrupt",
+    "translate_langgraph_events",
+]

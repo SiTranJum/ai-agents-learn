@@ -27,6 +27,7 @@ export type StreamEvent =
   | { type: 'text_delta'; data: { content: string } }
   | { type: 'choice'; data: ChoicePrompt }
   | { type: 'card'; data: { card: ChatCard } }
+  | { type: 'paused'; data: { prompt_id: string; kind: 'choice' | 'card'; domain?: string | null } }
   | { type: 'done'; data: { message_id: string } }
   | { type: 'error'; data: { code: string; message: string } }
   | { type: 'heartbeat'; data: Record<string, never> };

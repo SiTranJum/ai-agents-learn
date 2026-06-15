@@ -2,8 +2,9 @@
 
 验证同一输入在不同 ``interaction_mode`` 下，``wrap_response`` 产出不同的响应结构：
 - efficiency：diet 子图自动落库，卡片 ``requires_confirmation=False`` 且无"确认保存"按钮。
-- confirmation：出确认卡片（``requires_confirmation=True``），不自动落库。
-- learning：在确认卡片基础上附带 ``knowledge`` 知识讲解。
+- confirmation / learning：出确认卡片（``requires_confirmation=True``），不自动落库；
+  学习讲解由独立的 ``narrate_learning`` 节点流式输出，不再以卡内字段携带（详见
+  ``test_diet_agent.py::test_diet_subgraph_learning_mode_routes_through_narrate_node``）。
 """
 # ruff: noqa: RUF001
 
@@ -83,31 +84,50 @@ def _parse_result() -> ParseResult:
 
 
 @pytest.mark.asyncio
-async def test_confirmation_mode_emits_confirm_card() -> None:
-    """确认模式：出带'确认保存'按钮的卡片，requires_confirmation=True，无知识讲解。"""
+async def test_wrap_response_receipt_after_save() -> None:
+    """落库后（确认模式）：wrap_response 给结果回执卡（requires_confirmation=False），
+    不再出'确认保存'按钮——确认卡已由子图 interrupt 发出，这里只给终态反馈。"""
     result = await wrap_response(
         {
             "intent": "diet",
             "interaction_mode": "confirmation",
             "diet_parse_result": _parse_result(),
+            "diet_saved_record": object(),
             "diet_date": date(2026, 6, 12),
         }
     )
     card = result["response_cards"][0]
-    assert card["requires_confirmation"] is True
-    assert card["knowledge"] is None
+    assert card["requires_confirmation"] is False
+    assert "knowledge" not in card, "knowledge 字段已下线"
     kinds = {a["kind"] for a in card["actions"]}
-    assert "confirm_create_diet_record" in kinds
+    assert "confirm_create_diet_record" not in kinds
+    assert "已记录" in result["ai_response"]
+
+
+@pytest.mark.asyncio
+async def test_wrap_response_cancel_text() -> None:
+    """取消后：wrap_response 给取消文案，无卡片（避免取消后又弹卡造成循环）。"""
+    result = await wrap_response(
+        {
+            "intent": "diet",
+            "interaction_mode": "confirmation",
+            "diet_parse_result": _parse_result(),
+            "diet_cancelled": True,
+        }
+    )
+    assert result["response_cards"] == []
+    assert "取消" in result["ai_response"]
 
 
 @pytest.mark.asyncio
 async def test_efficiency_mode_no_confirm_card() -> None:
-    """效率模式：卡片 requires_confirmation=False，不含'确认保存'按钮，文案为'已记录'。"""
+    """效率模式（已落库）：回执卡 requires_confirmation=False，不含'确认保存'按钮，文案'已记录'。"""
     result = await wrap_response(
         {
             "intent": "diet",
             "interaction_mode": "efficiency",
             "diet_parse_result": _parse_result(),
+            "diet_saved_record": object(),
             "diet_date": date(2026, 6, 12),
         }
     )
@@ -116,23 +136,6 @@ async def test_efficiency_mode_no_confirm_card() -> None:
     kinds = {a["kind"] for a in card["actions"]}
     assert "confirm_create_diet_record" not in kinds
     assert "已记录" in result["ai_response"]
-
-
-@pytest.mark.asyncio
-async def test_learning_mode_attaches_knowledge() -> None:
-    """学习模式：确认卡片 + 非空 knowledge 知识讲解字段。"""
-    result = await wrap_response(
-        {
-            "intent": "diet",
-            "interaction_mode": "learning",
-            "diet_parse_result": _parse_result(),
-            "diet_date": date(2026, 6, 12),
-        }
-    )
-    card = result["response_cards"][0]
-    assert card["requires_confirmation"] is True
-    assert card["knowledge"]
-    assert "kcal" in card["knowledge"]
 
 
 def test_build_chat_messages_mode_changes_system_prompt() -> None:

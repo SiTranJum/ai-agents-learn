@@ -30,8 +30,7 @@ import { useStreamingChat } from '../hooks/useStreamingChat';
 import { useAIStore } from '../store/aiStore';
 import { useDietStore } from '@features/diet/store/dietStore';
 import { useBodyPendingStore } from '@features/data/store/bodyPendingStore';
-import { dietService } from '@features/diet/services/dietService';
-import { dataService } from '@features/data/services/dataService';
+import type { MealType } from '@features/diet/types/diet.types';
 import type { ChatAction, ChatCard, ChatMessage, ChoicePrompt, DietParseCard, BodyParseCard } from '../types/ai.types';
 import { getCardId } from '../utils/cardId';
 
@@ -51,7 +50,7 @@ export function AIDialogScreen() {
 
   // T6: 流式 hook 替换老 useAIChat
   const {
-    messages, isStreaming, send, sendChoice, sendCardAction, cancel, cardStatus,
+    messages, isStreaming, send, sendChoice, sendCardAction, cancel, cardStatus, pendingPrompt,
   } = useStreamingChat();
 
   const nutritionResult = useAIStore((s) => s.nutritionResult);
@@ -123,13 +122,17 @@ export function AIDialogScreen() {
     [nutritionResult, toast, navigation]
   );
 
-  // T6: 卡片 action（确认保存 / 编辑 / 跳过 / 取消）
+  // 卡片 action（确认保存 / 编辑 / 取消）。
+  //
+  // interrupt 模型下：后端 graph 暂停在确认节点，前端点按钮只发"决定"
+  // （confirm/edit/cancel），由后端节点落库（checkpoint 是真相源）。
+  // 前端不再本地写库，只做乐观 UI：清本地待确认队列 + 失效首页查询。
   const handleCardAction = useCallback(
     async (card: ChatCard, actionId: string, _label: string) => {
       const cardId = getCardId(card);
       const date = todayStr();
 
-      // 编辑：跳转到编辑页
+      // 编辑：跳转到编辑页（不恢复 graph，用户改完再确认）
       if (actionId === 'edit_diet_items') {
         navigation.navigate('DietEdit', {});
         return;
@@ -140,47 +143,8 @@ export function AIDialogScreen() {
         return;
       }
 
-      // 饮食确认：本地静默保存，不走 SSE
-      if (actionId === 'confirm_create_diet_record') {
-        const dietCard = card as DietParseCard;
-        const { meal_type, suggested_date } = dietCard.payload;
-        const pending = useDietStore.getState().getPending(
-          suggested_date ?? date,
-          meal_type ?? ('breakfast' as MealType)
-        );
-        if (!pending) {
-          toast.show({ type: 'error', message: '未找到待保存数据' });
-          return;
-        }
-        try {
-          await dietService.saveDietRecord(
-            {
-              mealType: pending.mealType,
-              status: 'recorded',
-              foods: pending.foods,
-              totalCalories: pending.foods.reduce((sum, f) => sum + f.calories, 0),
-              nutrients: {
-                carbs: pending.foods.reduce((sum, f) => sum + f.carbs, 0),
-                protein: pending.foods.reduce((sum, f) => sum + f.protein, 0),
-                fat: pending.foods.reduce((sum, f) => sum + f.fat, 0),
-              },
-            },
-            pending.date,
-            pending.operation
-          );
-          useDietStore.getState().clearPending(pending.date, pending.mealType);
-          setCardStatus(cardId, 'submitted');
-          queryClient.invalidateQueries({ queryKey: ['diet'] });
-          queryClient.invalidateQueries({ queryKey: ['home/diet', date] });
-          toast.show({ type: 'success', message: '饮食记录已保存' });
-        } catch {
-          toast.show({ type: 'error', message: '保存失败，请重试' });
-        }
-        return;
-      }
-
-      // 饮食取消：本地静默清除
-      if (actionId === 'cancel_diet_record') {
+      // 饮食确认/取消：清本地待确认队列（乐观），失效首页查询，恢复后端 graph 落库
+      if (actionId === 'confirm_create_diet_record' || actionId === 'cancel_diet_record') {
         const dietCard = card as DietParseCard;
         const { meal_type, suggested_date } = dietCard.payload;
         const pending = useDietStore.getState().getPending(
@@ -189,72 +153,28 @@ export function AIDialogScreen() {
         );
         if (pending) {
           useDietStore.getState().clearPending(pending.date, pending.mealType);
-          queryClient.invalidateQueries({ queryKey: ['home/diet', date] });
         }
-        setCardStatus(cardId, 'cancelled');
-        toast.show({ type: 'info', message: '已取消' });
+        queryClient.invalidateQueries({ queryKey: ['diet'] });
+        queryClient.invalidateQueries({ queryKey: ['home/diet', date] });
+        sendCardAction(card, actionId);
         return;
       }
 
-      // 身体数据确认：本地静默保存，不走 SSE
-      if (actionId === 'confirm_create_body_record') {
-        const bodyCard = card as BodyParseCard;
-        const recordType = bodyCard.payload.record_type;
-        const recordDate = bodyCard.payload.suggested_date ?? date;
-        const pending = useBodyPendingStore.getState().getPending(recordDate, recordType);
-        if (!pending) {
-          toast.show({ type: 'error', message: '未找到待保存数据' });
-          return;
-        }
-        try {
-          if (recordType === 'water') {
-            await dataService.addWaterAmount(recordDate, pending.waterAmount ?? 0);
-          } else if (recordType === 'sleep') {
-            await dataService.saveBodyData('sleep', {
-              date: recordDate,
-              bedTime: pending.sleepBedTime ?? '23:00',
-              wakeTime: pending.sleepWakeTime ?? '07:00',
-              quality: pending.sleepQuality ?? 'good',
-            } as any);
-          } else if (recordType === 'exercise') {
-            await dataService.saveBodyData('exercise', {
-              date: recordDate,
-              type: pending.exerciseType ?? '运动',
-              duration: pending.exerciseDuration ?? 30,
-            } as any);
-          } else if (recordType === 'bowel') {
-            await dataService.saveBodyData('bowel', {
-              date: recordDate,
-              time: pending.bowelTime ?? '08:00',
-              status: pending.bowelStatus ?? 'normal',
-            } as any);
-          }
-          useBodyPendingStore.getState().clearPending(recordDate, recordType);
-          setCardStatus(cardId, 'submitted');
-          queryClient.invalidateQueries({ queryKey: ['home/body', date] });
-          toast.show({ type: 'success', message: '已保存' });
-        } catch {
-          toast.show({ type: 'error', message: '保存失败，请重试' });
-        }
-        return;
-      }
-
-      // 身体数据取消：本地静默清除
-      if (actionId === 'cancel_body_record') {
+      // 身体数据确认/取消：同上，恢复后端 graph 落库
+      if (actionId === 'confirm_create_body_record' || actionId === 'cancel_body_record') {
         const bodyCard = card as BodyParseCard;
         const recordType = bodyCard.payload.record_type;
         const recordDate = bodyCard.payload.suggested_date ?? date;
         useBodyPendingStore.getState().clearPending(recordDate, recordType);
-        setCardStatus(cardId, 'cancelled');
         queryClient.invalidateQueries({ queryKey: ['home/body', date] });
-        toast.show({ type: 'info', message: '已取消' });
+        sendCardAction(card, actionId);
         return;
       }
 
-      // 其他 action：走原有 SSE 流程
+      // 其他 action：走 SSE 恢复流程
       sendCardAction(card, actionId);
     },
-    [navigation, sendCardAction, setCardStatus, queryClient, toast]
+    [navigation, sendCardAction, queryClient]
   );
 
   // T6: 选项 choice 回调
@@ -270,6 +190,18 @@ export function AIDialogScreen() {
     setNutritionResult(null);
     navigation.navigate('DietEdit', {});
   }, [navigation, setNutritionResult]);
+
+  // 边界 UX（§7.4）：会话被 interrupt 暂停时用户直接打字，
+  // 提示"还没回答上一个问题"。确认后照常发 text，后端会先 cancel 旧中断再起新一轮。
+  const handleSend = useCallback(
+    (text: string, ctx?: { image_url?: string; referenced_date?: string }) => {
+      if (pendingPrompt) {
+        toast.show({ type: 'info', message: '已跳过上一个待确认项' });
+      }
+      send(text, ctx);
+    },
+    [pendingPrompt, send, toast]
+  );
 
   const handleBack = useCallback(() => navigation.goBack(), [navigation]);
 
@@ -303,8 +235,8 @@ export function AIDialogScreen() {
         {/* 底部输入栏：键盘弹起时通过 marginBottom 上推 */}
         <View style={[styles.inputBarWrap, { marginBottom: keyboardHeight }]}>
           <AIInputBar
-            onSend={send}
-            placeholder="问我任何健康问题..."
+            onSend={handleSend}
+            placeholder={pendingPrompt ? '请在上方作答，或直接输入新问题...' : '问我任何健康问题...'}
           />
         </View>
       </View>

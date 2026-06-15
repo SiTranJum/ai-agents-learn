@@ -52,6 +52,7 @@ const CUSTOM_EVENT_TYPES = [
   'text_delta',
   'choice',
   'card',
+  'paused',
   'done',
   'error',
   'heartbeat',

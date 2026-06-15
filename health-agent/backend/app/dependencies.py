@@ -227,11 +227,18 @@ _plan_agent_singleton = None
 _suggestion_agent_singleton = None
 
 
-def get_chat_agent():
-    """构造并复用全局 chat_agent 编译产物。"""
+async def get_chat_agent():
+    """构造并复用全局 chat_agent 编译产物（带 Postgres checkpointer）。
+
+    异步构造的原因：checkpointer 需要异步打开连接池并建表（``setup()``）。
+    单例确保连接池与 saver 在进程内复用。
+    """
     global _chat_agent_singleton
     if _chat_agent_singleton is None:
-        _chat_agent_singleton = build_chat_agent()
+        from app.agents.checkpointer import get_checkpointer
+
+        checkpointer = await get_checkpointer()
+        _chat_agent_singleton = build_chat_agent(checkpointer=checkpointer)
     return _chat_agent_singleton
 
 

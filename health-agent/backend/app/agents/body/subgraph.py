@@ -13,16 +13,21 @@ from typing import Any, cast
 
 from langgraph.graph import END, StateGraph
 
-from app.agents.body.nodes import parse_body_text
+from app.agents.body.nodes import confirm_body_record, parse_body_text
 from app.agents.chat.state import ChatState
 
 
 def build_body_subgraph():
-    """构建 body subgraph，返回 compiled ``StateGraph``。"""
+    """构建 body subgraph，返回 compiled ``StateGraph``。
+
+    流：parse_body_text → confirm_body_record（interrupt 出确认卡片，确认后落库）。
+    """
     graph = StateGraph(cast(Any, ChatState))
     graph.add_node("parse_body_text", cast(Any, parse_body_text))
+    graph.add_node("confirm_body_record", cast(Any, confirm_body_record))
     graph.set_entry_point("parse_body_text")
-    graph.add_edge("parse_body_text", END)
+    graph.add_edge("parse_body_text", "confirm_body_record")
+    graph.add_edge("confirm_body_record", END)
     return graph.compile()
 
 

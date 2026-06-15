@@ -31,6 +31,7 @@ class StreamEventType(str, Enum):
     TEXT_DELTA = "text_delta"
     CHOICE = "choice"
     CARD = "card"
+    PAUSED = "paused"
     DONE = "done"
     ERROR = "error"
     HEARTBEAT = "heartbeat"
@@ -118,6 +119,18 @@ class DonePayload(BaseModel):
     message_id: str
 
 
+class PausedPayload(BaseModel):
+    """graph 被 interrupt 暂停，等待用户对 ``prompt_id`` 作答。
+
+    前端收到 ``paused`` 后进入 WAITING_INPUT 态：下一条用户输入要走"恢复"通道，
+    带上 ``prompt_id``（choice_response / card_action）。
+    """
+
+    prompt_id: str
+    kind: str  # "choice" | "card"
+    domain: str | None = None
+
+
 class ErrorPayload(BaseModel):
     """流被异常终止。"""
 
@@ -133,6 +146,7 @@ __all__ = [
     "DonePayload",
     "ErrorPayload",
     "MetaPayload",
+    "PausedPayload",
     "StatusPayload",
     "StreamEvent",
     "StreamEventType",

@@ -34,6 +34,15 @@ export interface ChatCardActionRaw {
   label?: string | null;
 }
 
+/**
+ * 卡片交互模式协议字段（后端 ChatCard 注入，见 backend/app/schemas/chat.py）。
+ * - requires_confirmation=false：效率模式，后端已直接执行，卡片仅作结果展示，不显示确认按钮。
+ * 学习模式的讲解走流式 text_delta（与普通 AI 对话一致），不再作为卡内字段。
+ */
+export interface ChatCardModeFields {
+  requires_confirmation?: boolean;
+}
+
 export interface ParsedFoodPayload {
   name: string;
   amount: number;
@@ -66,7 +75,7 @@ export interface DietParseCardPayload {
   suggested_date?: string;
 }
 
-export interface DietParseCard {
+export interface DietParseCard extends ChatCardModeFields {
   type: 'diet_parse';
   payload: DietParseCardPayload;
   actions: ChatCardActionRaw[];
@@ -89,7 +98,7 @@ export interface BodyParseCardPayload {
   suggested_date?: string;
 }
 
-export interface BodyParseCard {
+export interface BodyParseCard extends ChatCardModeFields {
   type: 'body_parse';
   payload: BodyParseCardPayload;
   actions: ChatCardActionRaw[];
@@ -131,13 +140,13 @@ export interface PlanDraftCardPayload {
   violations?: string[];
 }
 
-export interface PlanDraftCard {
+export interface PlanDraftCard extends ChatCardModeFields {
   type: 'plan_draft';
   payload: PlanDraftCardPayload;
   actions: ChatCardActionRaw[];
 }
 
-export interface PlanSavedCard {
+export interface PlanSavedCard extends ChatCardModeFields {
   type: 'plan_saved';
   payload: {
     plan_id: string;
@@ -146,7 +155,7 @@ export interface PlanSavedCard {
   actions: ChatCardActionRaw[];
 }
 
-export interface PlanProgressCard {
+export interface PlanProgressCard extends ChatCardModeFields {
   type: 'plan_progress';
   payload: {
     plan_id: string;
@@ -171,6 +180,7 @@ export type ChatCard =
       type: string;
       payload: Record<string, unknown>;
       actions: ChatCardActionRaw[];
+      requires_confirmation?: boolean;
     };
 
 export type MessageSegment =

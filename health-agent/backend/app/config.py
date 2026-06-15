@@ -58,6 +58,15 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-v3"
     embedding_dimensions: int = 1024
 
+    # ---------- LangGraph Checkpointer ----------
+    # 控制 chat graph 是否挂 Postgres checkpointer（支持 interrupt 暂停/恢复）。
+    # - 为空时：从 database_url 自动推导 psycopg DSN（去掉 +asyncpg）。
+    # - 显式设置时：用该 DSN（例如 Supabase 走 5432 session-mode 直连端口）。
+    checkpointer_dsn: str = ""
+    # 关闭后 graph 用 MemorySaver（进程内，重启即丢），适合本地无 Postgres 的快速测试。
+    checkpointer_enabled: bool = True
+    checkpointer_pool_max_size: int = 3
+
     # ---------- 日志 ----------
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 

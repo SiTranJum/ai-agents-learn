@@ -32,24 +32,38 @@ class _FakeDietService:
 
 
 @pytest.mark.asyncio
-async def test_chat_agent_routes_diet_to_parse_card_without_saving() -> None:
-    graph = build_chat_agent()
+async def test_chat_agent_routes_diet_to_parse_card_then_interrupts() -> None:
+    """diet 意图：解析后 interrupt 出确认卡片，未确认前不落库。"""
+    from langgraph.checkpoint.memory import MemorySaver
 
+    graph = build_chat_agent(checkpointer=MemorySaver())
+
+    config = {
+        "configurable": {
+            "thread_id": "s1",
+            "diet_service": _FakeDietService(),
+        }
+    }
     state = await graph.ainvoke(
         {
             "user_id": str(uuid.uuid4()),
             "session_id": "s1",
             "user_message": "午饭吃了一碗米饭",
+            "interaction_mode": "confirmation",
             "diet_input_text": "午饭吃了一碗米饭",
+            "diet_meal_type": "lunch",
             "diet_date": date(2026, 5, 12),
             "foods": [FoodItemInput(name="米饭", amount=1, unit="碗", amount_grams=200)],
-            "diet_service": _FakeDietService(),
-        }
+        },
+        config=config,
     )
 
     assert state["intent"] == "diet"
-    assert state["response_cards"][0]["type"] == "diet_parse"
-    assert state["response_cards"][0]["payload"]["foods"][0]["name"] == "米饭"
+    interrupts = state.get("__interrupt__")
+    assert interrupts, "expected a confirm interrupt"
+    card = interrupts[0].value["card"]
+    assert card["type"] == "diet_parse"
+    assert card["payload"]["foods"][0]["name"] == "米饭"
     assert state.get("diet_saved_record") is None
 
 

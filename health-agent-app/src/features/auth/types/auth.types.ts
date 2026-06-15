@@ -31,6 +31,8 @@ export type DietType =
   | 'keto'
   | 'low_fat'
   | 'mediterranean';
+// AI 交互模式（与 globalStore.InteractionMode 对齐）
+export type InteractionMode = 'efficiency' | 'confirmation' | 'learning';
 
 export interface OnboardingData {
   // Step 1
@@ -57,6 +59,9 @@ export interface OnboardingData {
   diseases?: string[];
   medications?: string;
   medicalAdvice?: string;
+
+  // Step 6：AI 交互模式（必填，注册时选择）
+  interactionMode: InteractionMode;
 }
 
 // ============ API 响应类型 ============

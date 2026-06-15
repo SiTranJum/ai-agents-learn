@@ -37,12 +37,13 @@ import type {
   DietType,
   Gender,
   GoalType,
+  InteractionMode,
   OnboardingData,
 } from '../types/auth.types';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Onboarding'>;
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 const GENDER_OPTIONS = [
   { value: 'male' as Gender, label: '男' },
@@ -96,6 +97,30 @@ const DISEASE_OPTIONS = [
   { value: '其他', label: '其他' },
 ];
 
+const INTERACTION_MODE_OPTIONS = [
+  {
+    value: 'efficiency' as InteractionMode,
+    label: '效率模式',
+    description: 'AI 直接执行并记录，结果以提示告知，无需逐条确认',
+  },
+  {
+    value: 'confirmation' as InteractionMode,
+    label: '确认模式（推荐）',
+    description: 'AI 解析后展示结果，你确认后才保存',
+  },
+  {
+    value: 'learning' as InteractionMode,
+    label: '学习模式',
+    description: '在确认的基础上，附带营养与健康知识讲解',
+  },
+];
+
+const INTERACTION_MODE_LABELS: Record<InteractionMode, string> = {
+  efficiency: '效率模式',
+  confirmation: '确认模式',
+  learning: '学习模式',
+};
+
 const GOAL_LABELS: Record<GoalType, string> = {
   lose_fat: '减脂',
   gain_muscle: '增肌',
@@ -140,6 +165,7 @@ export function OnboardingScreen() {
     activityLevel: 'moderate',
     height: 170,
     weight: 65,
+    interactionMode: 'confirmation',
     ...onboardingData,
   };
 
@@ -163,12 +189,14 @@ export function OnboardingScreen() {
       case 4:
       case 5:
         return true; // 选填
+      case 6:
+        return !!data.interactionMode; // 交互模式必填
       default:
         return false;
     }
   };
 
-  const canSkip = onboardingStep >= 4; // 仅 4/5 步可跳过
+  const canSkip = onboardingStep >= 4 && onboardingStep <= 5; // 仅 4/5 步可跳过
 
   const handleBack = () => {
     if (previewMode) {
@@ -222,6 +250,7 @@ export function OnboardingScreen() {
       diseases: data.diseases,
       medications: data.medications,
       medicalAdvice: data.medicalAdvice,
+      interactionMode: data.interactionMode ?? 'confirmation',
     };
     const ok = await submitOnboarding(payload);
     if (ok) {
@@ -424,6 +453,21 @@ export function OnboardingScreen() {
               />
             </OnboardingStep>
           )}
+
+          {onboardingStep === 6 && (
+            <OnboardingStep
+              title="选择 AI 交互模式"
+              subtitle="决定 AI 记录数据时的交互方式，之后可在设置中随时调整"
+            >
+              <SelectionCards<InteractionMode>
+                label="交互模式"
+                value={data.interactionMode}
+                onChange={(v) => update({ interactionMode: v })}
+                options={INTERACTION_MODE_OPTIONS}
+                columns={1}
+              />
+            </OnboardingStep>
+          )}
         </ScrollView>
 
         {/* 底部操作栏 */}
@@ -570,6 +614,14 @@ function PreviewView({ data, skippedSteps, isLoading, onBack, onFinish }: Previe
               {renderRow('服用药物', data.medications || NA)}
               {renderRow('医嘱限制', data.medicalAdvice || NA)}
             </>
+          )}
+        </View>
+
+        <View style={styles.previewCard}>
+          <Text style={styles.previewSection}>AI 交互模式</Text>
+          {renderRow(
+            '模式',
+            data.interactionMode ? INTERACTION_MODE_LABELS[data.interactionMode] : NA,
           )}
         </View>
 

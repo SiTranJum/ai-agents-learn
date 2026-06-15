@@ -8,10 +8,39 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
+
+
+class ProfileSnapshot(BaseModel):
+    """可序列化的档案快照，注入 graph state 前从 ORM HealthProfile 转换而来。
+
+    使用 Pydantic BaseModel 而非 ORM 对象，确保 checkpointer msgpack 序列化正常。
+    graph 内部节点通过 ``getattr(profile, field, None)`` 访问，与此兼容。
+    """
+
+    gender: str | None = None
+    birth_date: date | None = None
+    height: float | None = None
+    current_weight: float | None = None
+    target_weight: float | None = None
+    daily_calorie_target: int | None = None
+
+    @classmethod
+    def from_orm(cls, profile: Any) -> ProfileSnapshot | None:
+        if profile is None:
+            return None
+        return cls(
+            gender=getattr(profile, "gender", None),
+            birth_date=getattr(profile, "birth_date", None),
+            height=getattr(profile, "height", None),
+            current_weight=getattr(profile, "current_weight", None),
+            target_weight=getattr(profile, "target_weight", None),
+            daily_calorie_target=getattr(profile, "daily_calorie_target", None),
+        )
 
 
 class CurrentUser(BaseModel):
@@ -30,4 +59,4 @@ class CurrentUser(BaseModel):
     profile: Any | None = None
 
 
-__all__ = ["CurrentUser"]
+__all__ = ["CurrentUser", "ProfileSnapshot"]

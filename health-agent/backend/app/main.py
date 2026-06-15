@@ -15,6 +15,18 @@ from __future__ import annotations
 from dotenv import load_dotenv
 load_dotenv()
 
+# Windows + psycopg 异步连接兼容：psycopg 的 AsyncConnection 无法在
+# ProactorEventLoop（Win 上 Python 3.8+ 的默认循环）下运行，会抛
+# "Psycopg cannot use the 'ProactorEventLoop'"。checkpointer 用 psycopg
+# 连 Postgres，因此在创建事件循环前切到 SelectorEventLoop。
+# 必须在 uvicorn 建循环前执行（即本模块 import 时）。asyncpg 业务 ORM
+# 在 Selector 循环下同样正常。
+import sys
+if sys.platform == "win32":
+    import asyncio
+
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -52,8 +64,20 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         settings.app_debug,
     )
     try:
+        # 预热 checkpointer：把 Postgres 连池 + 建表 DDL 放到启动期跑一次，
+        # 避免落到首个 /chat 请求路径里（建表慢会拖垮请求甚至 500）。
+        # get_checkpointer 内部已对失败降级到 MemorySaver，这里不会抛。
+        try:
+            from app.agents.checkpointer import get_checkpointer
+
+            await get_checkpointer()
+        except Exception as exc:  # noqa: BLE001
+            logger.error("checkpointer 预热失败（已降级）：%s", exc)
         yield
     finally:
+        from app.agents.checkpointer import close_checkpointer
+
+        await close_checkpointer()
         await dispose_engine()
         logger.info("数据库引擎已释放，应用关闭完成")
 
@@ -187,9 +211,16 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        "app.main:app",
-        host=settings.app_host,
-        port=settings.app_port,
-        reload=settings.app_debug,
-    )
+    # 仅 Windows 强制 loop="asyncio"：避免 uvicorn 用 Windows 默认的
+    # ProactorEventLoop（psycopg 异步连接不兼容）。配合模块顶部的
+    # SelectorEventLoopPolicy，事件循环为 Selector，checkpointer 才能连 Postgres。
+    # Linux 不传 loop，让 uvicorn 自由选用 uvloop（更快）。
+    run_kwargs: dict = {
+        "host": settings.app_host,
+        "port": settings.app_port,
+        "reload": settings.app_debug,
+    }
+    if sys.platform == "win32":
+        run_kwargs["loop"] = "asyncio"
+
+    uvicorn.run("app.main:app", **run_kwargs)

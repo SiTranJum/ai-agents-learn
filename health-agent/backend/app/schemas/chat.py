@@ -76,10 +76,10 @@ class ChatCard(BaseModel):
     payload: dict[str, Any]
     actions: list[ChatCardAction] = Field(default_factory=list)
     # 交互模式协议字段：
-    # - requires_confirmation=False 表示后端已直接执行（效率模式），卡片仅作结果展示，前端用 Toast 风格呈现，不显示确认按钮。
-    # - knowledge 为学习模式附带的知识讲解文本，其它模式为 None。
+    # requires_confirmation=False 表示后端已直接执行（效率模式），卡片仅作结果展示，
+    # 前端用 Toast 风格呈现，不显示确认按钮。学习模式的讲解走 text_delta 流式输出，
+    # 不再以卡内字段携带，因此卡片只剩 requires_confirmation 一个交互模式协议字段。
     requires_confirmation: bool = True
-    knowledge: str | None = None
 
 
 class ChatMessageResponse(BaseModel):

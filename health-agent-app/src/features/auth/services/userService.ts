@@ -103,6 +103,8 @@ function toOnboardingPayload(data: OnboardingData): Record<string, unknown> {
       medications: data.medications,
       medical_restrictions: data.medicalAdvice,
     },
+    // Step 6：注册时选择的 AI 交互模式（后端 OnboardingPayload.interaction_mode）
+    interaction_mode: data.interactionMode,
   };
 }
 

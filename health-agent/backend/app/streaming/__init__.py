@@ -30,6 +30,7 @@ from app.streaming.events import (
     DonePayload,
     ErrorPayload,
     MetaPayload,
+    PausedPayload,
     StatusPayload,
     StreamEvent,
     StreamEventType,
@@ -45,7 +46,7 @@ from app.streaming.metrics import (
     record_started,
 )
 from app.streaming.sse import format_sse, sse_response
-from app.streaming.translator import translate_langgraph_events
+from app.streaming.translator import emit_interrupt_events, translate_langgraph_events
 
 __all__ = [
     "CardPayload",
@@ -54,12 +55,14 @@ __all__ = [
     "DonePayload",
     "ErrorPayload",
     "MetaPayload",
+    "PausedPayload",
     "StatusPayload",
     "StreamEvent",
     "StreamEventType",
     "TextDeltaPayload",
     "ToolCallPayload",
     "ToolResultPayload",
+    "emit_interrupt_events",
     "format_sse",
     "record_cancelled",
     "record_done",

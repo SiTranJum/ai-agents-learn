@@ -15,6 +15,7 @@ import type {
 import { createSSEStream } from '../services/streamingClient';
 import type { MockStreamHandle } from '../demo/types';
 import { useAIStore } from '../store/aiStore';
+import type { PendingPrompt } from '../store/aiStore';
 import { getCardId } from '../utils/cardId';
 import { useDietStore } from '@features/diet/store/dietStore';
 import { useBodyPendingStore } from '@features/data/store/bodyPendingStore';
@@ -56,6 +57,8 @@ function parsedFoodsToItems(foods: DietParseCard['payload']['foods']): FoodItem[
 /** AI 解析饮食卡片 → 写入 dietStore.pendingRecords，首页餐次卡片即可显示待确认态 */
 function syncDietParseToPending(card: ChatCard, sessionId: string | null): void {
   if (card.type !== 'diet_parse') return;
+  // 效率模式：后端已直接落库（requires_confirmation=false），无需再写入待确认队列
+  if (card.requires_confirmation === false) return;
   const { foods, meal_type, suggested_date, operation } = (card as DietParseCard).payload;
   if (!foods || foods.length === 0) return;
   const resolvedMealType: MealType = meal_type ?? inferMealTypeByTime();
@@ -73,6 +76,8 @@ function syncDietParseToPending(card: ChatCard, sessionId: string | null): void 
 /** AI 解析身体数据卡片 → 写入 bodyPendingStore，首页辅助卡片显示待确认态 */
 function syncBodyParseToPending(card: ChatCard, sessionId: string | null): void {
   if (card.type !== 'body_parse') return;
+  // 效率模式：后端已直接落库（requires_confirmation=false），无需再写入待确认队列
+  if (card.requires_confirmation === false) return;
   const p = (card as BodyParseCard).payload;
   if (!p.record_type) return;
   useBodyPendingStore.getState().setPending({
@@ -124,6 +129,8 @@ interface UseStreamingChatReturn {
   cancel: () => void;
   cardStatus: Map<string, 'pending' | 'submitted' | 'cancelled'>;
   sessionId: string | null;
+  /** 会话被 interrupt 暂停时的挂起 prompt；null 表示空闲/未暂停 */
+  pendingPrompt: PendingPrompt | null;
 }
 
 export function useStreamingChat(): UseStreamingChatReturn {
@@ -138,6 +145,8 @@ export function useStreamingChat(): UseStreamingChatReturn {
   const setCurrentSessionId = useAIStore((s) => s.setCurrentSessionId);
   const setCardStatus = useAIStore((s) => s.setCardStatus);
   const setAIThinking = useAIStore((s) => s.setAIThinking);
+  const setPendingPrompt = useAIStore((s) => s.setPendingPrompt);
+  const pendingPrompt = useAIStore((s) => s.pendingPrompt);
 
   // 卸载时关闭活动流
   useEffect(() => {
@@ -205,7 +214,10 @@ export function useStreamingChat(): UseStreamingChatReturn {
 
       handle.on('card', ({ card }) => {
         const cardId = getCardId(card);
-        setCardStatus(cardId, 'pending');
+        // 效率模式：后端已直接执行（requires_confirmation=false），卡片直接置为已完成态，
+        // 不再显示确认按钮，避免用户重复确认已落库的记录。
+        const initialStatus = card.requires_confirmation === false ? 'submitted' : 'pending';
+        setCardStatus(cardId, initialStatus);
         // AI 解析饮食卡片 → 同步写入 dietStore.pendingRecords，
         // 让首页对应餐次卡片显示"待确认"态（确认/修改/取消）
         syncDietParseToPending(card, sessionIdRef.current);
@@ -222,8 +234,18 @@ export function useStreamingChat(): UseStreamingChatReturn {
         }));
       });
 
+      handle.on('paused', ({ prompt_id, kind, domain }) => {
+        // 后端 interrupt 暂停：记录挂起 prompt，结束本轮流（但不算 done）。
+        // 用户下一步通过 sendChoice / sendCardAction 携带 prompt_id 恢复。
+        setPendingPrompt({ promptId: prompt_id, kind, domain });
+        updateLastAIMessage((msg) => ({ ...msg, isStreaming: false, status: null }));
+        setAIThinking(false);
+        streamRef.current = null;
+      });
+
       handle.on('done', () => {
         updateLastAIMessage((msg) => ({ ...msg, isStreaming: false, status: null }));
+        setPendingPrompt(null);
         setAIThinking(false);
         streamRef.current = null;
       });
@@ -235,11 +257,12 @@ export function useStreamingChat(): UseStreamingChatReturn {
           status: null,
           error: { code, message },
         }));
+        setPendingPrompt(null);
         setAIThinking(false);
         streamRef.current = null;
       });
     },
-    [updateLastAIMessage, setCurrentSessionId, setCardStatus, setAIThinking]
+    [updateLastAIMessage, setCurrentSessionId, setCardStatus, setAIThinking, setPendingPrompt]
   );
 
   // 通用流式请求分发
@@ -282,6 +305,8 @@ export function useStreamingChat(): UseStreamingChatReturn {
 
   const send = useCallback(
     (text: string, ctx?: { image_url?: string; referenced_date?: string }) => {
+      // 新文本轮：清空任何挂起 prompt（后端会丢弃旧中断按新一轮处理）
+      setPendingPrompt(null);
       const pendingPlanDraft = findPendingPlanDraft(messages, cardStatus);
       _dispatch({
         type: 'text',
@@ -290,21 +315,24 @@ export function useStreamingChat(): UseStreamingChatReturn {
         session_id: sessionId,
       });
     },
-    [_dispatch, cardStatus, messages, sessionId]
+    [_dispatch, cardStatus, messages, sessionId, setPendingPrompt]
   );
 
   const sendChoice = useCallback(
     (promptId: string, value: string, freeText?: string) => {
+      // 优先用当前挂起 prompt 的 id（确保与后端 interrupt 对齐）；回退到传入值
+      const resolvedPromptId = pendingPrompt?.promptId ?? promptId;
+      setPendingPrompt(null);
       _dispatch({
         type: 'choice_response',
-        prompt_id: promptId,
+        prompt_id: resolvedPromptId,
         selected_value: value,
         free_text: freeText,
         session_id: sessionId,
         message: value || freeText || '已选择',
       });
     },
-    [_dispatch, sessionId]
+    [_dispatch, sessionId, pendingPrompt, setPendingPrompt]
   );
 
   const sendCardAction = useCallback(
@@ -313,16 +341,20 @@ export function useStreamingChat(): UseStreamingChatReturn {
       // 取消类操作标记为 cancelled，其余（确认）标记为 submitted
       const isCancel = actionId.startsWith('cancel_');
       setCardStatus(cardId, isCancel ? 'cancelled' : 'submitted');
+      // 携带挂起 prompt_id，让后端 build_resume_payload 能从中断点恢复
+      const resolvedPromptId = pendingPrompt?.promptId;
+      setPendingPrompt(null);
       _dispatch({
         type: 'card_action',
         card_id: cardId,
         action_id: actionId,
         action_payload: card.payload,
+        prompt_id: resolvedPromptId,
         session_id: sessionId,
         message: `[card_action] ${actionId}`,
       });
     },
-    [_dispatch, sessionId, setCardStatus]
+    [_dispatch, sessionId, setCardStatus, pendingPrompt, setPendingPrompt]
   );
 
   const cancel = useCallback(() => {
@@ -345,5 +377,6 @@ export function useStreamingChat(): UseStreamingChatReturn {
     cancel,
     cardStatus,
     sessionId,
+    pendingPrompt,
   };
 }

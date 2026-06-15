@@ -1,10 +1,15 @@
 """AI chat API endpoints.
 
-设计参考: docs/plans/2026-05-21-streaming-chat-design.md
-任务规格: docs/plans/2026-05-22-streaming-chat-impl-tasks.md §T4
-
 ``POST /chat`` 是 SSE 流式端点，``Content-Type: text/event-stream``。
 事件协议见 :module:`app.streaming.events`。
+
+interrupt 暂停/恢复模型（替代旧 pending_action + card_action 快速路径）：
+- 每个会话用 ``thread_id = session_id`` 绑定 checkpointer 存档。
+- 新一轮输入：若会话未处于中断态 → 传完整 graph 输入跑一遍。
+- 恢复输入：若会话处于中断态且本次是 choice_response / card_action →
+  用 ``Command(resume=<答案>)`` 从中断点继续。
+- 跑完后检查是否再次被 interrupt 暂停：是→发 paused 事件（不发 done），
+  否→发 done。
 """
 # ruff: noqa: RUF001,RUF002,RUF003
 
@@ -16,6 +21,7 @@ from datetime import date, datetime, timezone
 from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, Query
+from langgraph.types import Command
 
 from app.core.exceptions import ValidationException
 from app.core.responses import paginated, success
@@ -32,18 +38,16 @@ from app.dependencies import (
     RagServiceDep,
     UserServiceDep,
 )
+from app.schemas.auth import ProfileSnapshot
 from app.schemas.chat import ChatCard, ChatRole, ChatStreamRequest
-from app.services.pending_action_store import (
-    create_pending_action,
-    get_pending_action_store,
-)
 from app.streaming import (
     StreamEvent,
     StreamEventType,
+    emit_interrupt_events,
     sse_response,
     translate_langgraph_events,
 )
-from app.streaming.translator import CHAT_NODE_LABELS
+from app.streaming.translator import CHAT_NODE_LABELS, snapshot_has_pending_interrupt
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -68,13 +72,11 @@ def _parse_referenced_date(context: dict[str, Any]) -> date | None:
 
 
 def _resolve_input_message(payload: ChatStreamRequest) -> str:
-    """根据 ``type`` 字段统一归一化用户输入文本。
+    """根据 ``type`` 字段统一归一化用户输入文本（用于持久化 chat history）。
 
     - text             → ``payload.message``
     - choice_response  → ``free_text`` 优先，否则用 ``selected_value`` 字面量
-    - card_action      → 由后端拼出"用户点击 <action> 按钮"的可读文本
-
-    保持文本形式才能让 chat history 阅读连贯（参考 §15.4 设计）。
+    - card_action      → 拼出"[卡片操作] <action>"的可读文本
     """
     if payload.type == "text":
         if not payload.message:
@@ -95,294 +97,96 @@ def _resolve_input_message(payload: ChatStreamRequest) -> str:
     raise ValidationException(f"不支持的请求类型: {payload.type}", code="CHAT_TYPE_INVALID")
 
 
-# ============ T9: card_action 处理 ============
+def build_resume_payload(payload: ChatStreamRequest) -> dict[str, Any]:
+    """把恢复类请求转成 ``ask_human`` 约定的答案 dict。
 
+    - choice_response → {"prompt_id", "value"} 或 {"prompt_id", "free_text"}
+    - card_action     → {"prompt_id", "action", "patch"?}
 
-def _coerce_meal_type(value: Any) -> str:
-    """把 enum / 字符串 / None 统一为字符串。"""
-    if value is None:
-        return "snack"
-    if hasattr(value, "value"):
-        return str(value.value)
-    return str(value)
-
-
-async def _handle_confirm_create_diet_record(
-    payload: ChatStreamRequest,
-    diet_service: Any,
-) -> tuple[str, list[dict[str, Any]]]:
-    """处理饮食卡片"确认保存"按钮。
-
-    返回 ``(ai_response_text, response_cards)``，由调用方写入 SSE 流。
-
-    action_payload 期望结构（由前端从原卡片 payload 复制过来）::
-
-        {
-            "foods": [{"name": ..., "amount": ..., "unit": ..., ...}, ...],
-            "meal_type": "lunch",
-            "date": "2026-05-26"   # 可选，缺失用今天
-        }
+    ``action_id`` 到语义动作的映射：
+    - confirm_create_diet_record / confirm_create_body_record → "confirm"
+    - edit_diet_items                                          → "edit"
+    - cancel_body_record / 任意 cancel_*                        → "cancel"
+    - accept_plan / confirm_plan                               → "accept"
+    - revise_plan                                              → "revise"
     """
-    from datetime import date as date_cls
+    if payload.type == "choice_response":
+        answer: dict[str, Any] = {"prompt_id": payload.prompt_id or ""}
+        if payload.free_text:
+            answer["free_text"] = payload.free_text
+        if payload.selected_value:
+            answer["value"] = payload.selected_value
+        return answer
 
-    from app.schemas.diet import FoodItemInput, MealType
-
-    ap = payload.action_payload or {}
-    raw_foods = ap.get("foods") or []
-    if not raw_foods:
-        raise ValidationException(
-            "卡片操作缺少食物数据", code="CARD_ACTION_PAYLOAD_INVALID"
-        )
-
-    meal_type_raw = _coerce_meal_type(ap.get("meal_type"))
-    try:
-        meal_type = MealType(meal_type_raw)
-    except ValueError:
-        meal_type = MealType.snack
-
-    date_raw = ap.get("date")
-    record_date = (
-        date_cls.fromisoformat(str(date_raw)) if date_raw else date_cls.today()
-    )
-
-    foods = [FoodItemInput.model_validate(f) for f in raw_foods]
-    record = await diet_service.create_record(
-        meal_type=meal_type,
-        foods=foods,
-        record_date=record_date,
-    )
-    text = f"已保存到{meal_type.value}记录，共 {len(foods)} 项食物。"
-    # 回一张"已确认"状态的卡片让前端把原卡片标记为 submitted
-    confirmed_card = {
-        "type": "diet_saved",
-        "payload": {
-            "record_id": str(record.id) if hasattr(record, "id") else None,
-            "meal_type": meal_type.value,
-            "date": record_date.isoformat(),
-        },
-        "actions": [],
-    }
-    return text, [confirmed_card]
-
-
-async def _handle_confirm_create_body_record(
-    payload: ChatStreamRequest,
-    body_service: Any,
-) -> tuple[str, list[dict[str, Any]]]:
-    """处理身体数据卡片"确认保存"按钮（饮水/睡眠/运动/排便）。
-
-    返回 ``(ai_response_text, response_cards)``，由调用方写入 SSE 流。
-
-    action_payload 期望结构（前端从原 body_parse 卡片 payload 复制）::
-
-        {
-            "record_type": "water" | "sleep" | "exercise" | "bowel",
-            "operation": "append" | "replace",   # 仅 water 用
-            "water_amount": 1000,
-            "sleep_bed_time": "23:00", "sleep_wake_time": "07:00", "sleep_quality": "good",
-            "exercise_type": "跑步", "exercise_duration": 30,
-            "bowel_time": "08:00", "bowel_status": "normal",
-            "suggested_date": "2026-06-03"   # 可选，缺失用今天
-        }
-    """
-    from datetime import date as date_cls
-
-    from app.schemas.body import (
-        BowelRecordCreate,
-        BowelStatus,
-        ExerciseRecordCreate,
-        SleepQuality,
-        SleepRecordCreate,
-        WaterRecordCreate,
-    )
-
-    ap = payload.action_payload or {}
-    record_type = ap.get("record_type")
-    if not record_type:
-        raise ValidationException(
-            "卡片操作缺少 record_type", code="CARD_ACTION_PAYLOAD_INVALID"
-        )
-
-    date_raw = ap.get("suggested_date")
-    record_date = (
-        date_cls.fromisoformat(str(date_raw)) if date_raw else date_cls.today()
-    )
-
-    if record_type == "water":
-        amount = ap.get("water_amount")
-        if not amount:
-            raise ValidationException("缺少饮水量", code="CARD_ACTION_PAYLOAD_INVALID")
-        await body_service.create_water(
-            WaterRecordCreate(
-                date=record_date,
-                amount=int(amount),
-                operation=ap.get("operation") or "append",
-            )
-        )
-        text = f"已记录饮水 {int(amount)}ml。"
-    elif record_type == "sleep":
-        bed = ap.get("sleep_bed_time")
-        wake = ap.get("sleep_wake_time")
-        if not bed or not wake:
-            raise ValidationException(
-                "缺少睡眠起止时间", code="CARD_ACTION_PAYLOAD_INVALID"
-            )
-        quality_raw = ap.get("sleep_quality") or "good"
-        try:
-            quality = SleepQuality(quality_raw)
-        except ValueError:
-            quality = SleepQuality.good
-        await body_service.create_sleep(
-            SleepRecordCreate(
-                date=record_date,
-                bed_time=str(bed),
-                wake_time=str(wake),
-                quality=quality,
-            )
-        )
-        text = "已记录睡眠数据。"
-    elif record_type == "exercise":
-        ex_type = ap.get("exercise_type") or "运动"
-        duration = ap.get("exercise_duration")
-        if not duration:
-            raise ValidationException("缺少运动时长", code="CARD_ACTION_PAYLOAD_INVALID")
-        await body_service.create_exercise(
-            ExerciseRecordCreate(
-                date=record_date,
-                type=str(ex_type),
-                duration=int(duration),
-            )
-        )
-        text = f"已记录{ex_type} {int(duration)} 分钟。"
-    elif record_type == "bowel":
-        status_raw = ap.get("bowel_status") or "normal"
-        try:
-            status = BowelStatus(status_raw)
-        except ValueError:
-            status = BowelStatus.normal
-        bowel_time = ap.get("bowel_time") or "08:00"
-        await body_service.create_bowel(
-            BowelRecordCreate(
-                date=record_date,
-                time=str(bowel_time),
-                status=status,
-            )
-        )
-        text = "已记录排便数据。"
-    else:
-        raise ValidationException(
-            f"不支持的身体数据类型: {record_type}", code="CARD_ACTION_PAYLOAD_INVALID"
-        )
-
-    # 回一张"已确认"状态卡片，让前端把原卡片标记为 submitted
-    confirmed_card = {
-        "type": "body_saved",
-        "payload": {
-            "record_type": record_type,
-            "date": record_date.isoformat(),
-        },
-        "actions": [],
-    }
-    return text, [confirmed_card]
-
-
-async def _stream_card_action(
-    payload: ChatStreamRequest,
-    session_id: str,
-    chat_service: Any,
-    diet_service: Any,
-    body_service: Any,
-):
-    """把 card_action 结果包装成最小 SSE 流（meta → text → card → done）。
-
-    不走 LangGraph，避免无意义的 LLM 调用浪费 token。
-    """
-    message_id = uuid.uuid4().hex
+    # card_action
     action_id = payload.action_id or ""
+    action_map = {
+        "confirm_create_diet_record": "confirm",
+        "confirm_create_body_record": "confirm",
+        "edit_diet_items": "edit",
+        "cancel_body_record": "cancel",
+        "accept_plan": "accept",
+        "confirm_plan": "accept",
+        "revise_plan": "revise",
+    }
+    action = action_map.get(action_id)
+    if action is None:
+        action = "cancel" if action_id.startswith("cancel") else (action_id or "confirm")
+    answer = {"prompt_id": payload.prompt_id or action_id, "action": action}
+    if payload.action_payload:
+        # 编辑/修改时附带的 patch 直接透传给节点。
+        answer["patch"] = payload.action_payload
+    if payload.free_text:
+        answer["free_text"] = payload.free_text
+    return answer
 
-    async def gen() -> AsyncIterator[StreamEvent]:
-        yield StreamEvent(
-            type=StreamEventType.META,
-            data={
-                "message_id": message_id,
-                "session_id": session_id,
-                "started_at": datetime.now(timezone.utc).isoformat(),
-            },
-        )
 
-        try:
-            if action_id == "confirm_create_diet_record":
-                text, cards = await _handle_confirm_create_diet_record(
-                    payload, diet_service
-                )
-            elif action_id == "edit_diet_items":
-                # 编辑动作纯前端跳转，后端只回一个 ack
-                text = "好的，去编辑食物。"
-                cards = []
-            elif action_id == "confirm_create_body_record":
-                text, cards = await _handle_confirm_create_body_record(
-                    payload, body_service
-                )
-            elif action_id == "cancel_body_record":
-                # 取消动作：不落库，仅回一个 ack 让前端把卡片标记为 cancelled
-                text = "好的，已取消。"
-                cards = []
-            else:
-                # 未识别的 action，回一条提示
-                text = f"暂不支持的操作：{action_id}"
-                cards = []
-        except ValidationException as exc:
-            yield StreamEvent(
-                type=StreamEventType.ERROR,
-                data={
-                    "code": exc.code or "CARD_ACTION_FAILED",
-                    "message": exc.message,
-                    "retriable": False,
-                },
-            )
-            return
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("card_action failed: %s", exc)
-            yield StreamEvent(
-                type=StreamEventType.ERROR,
-                data={
-                    "code": "CARD_ACTION_FAILED",
-                    "message": "卡片操作失败，请稍后重试",
-                    "retriable": True,
-                },
-            )
-            return
+def _build_graph_input(
+    payload: ChatStreamRequest,
+    *,
+    user_id: str,
+    session_id: str,
+    user_text: str,
+    history: list[Any],
+    context: dict[str, Any],
+    interaction_mode: str,
+    profile: Any,
+) -> dict[str, Any]:
+    """新一轮请求的完整 graph 输入（不含 service，service 走 config.configurable）。"""
+    return {
+        "user_id": user_id,
+        "session_id": session_id,
+        "user_message": user_text,
+        "chat_history": [item.model_dump(mode="json") for item in history],
+        "context": context,
+        "interaction_mode": interaction_mode,
+        "profile": profile,
+        "request_type": payload.type,
+        "diet_input_text": user_text,
+        "diet_image_url": context.get("image_url"),
+        "diet_date": _parse_referenced_date(context),
+        "body_input_text": user_text,
+        "body_date": _parse_referenced_date(context),
+    }
 
-        # 一次性 yield 完整文本（短文本不需要逐 token，保持一致协议即可）
-        if text:
-            yield StreamEvent(
-                type=StreamEventType.TEXT_DELTA,
-                data={"content": text},
-            )
 
-        for card in cards:
-            yield StreamEvent(
-                type=StreamEventType.CARD,
-                data={"card": card},
-            )
-
-        # 持久化助手消息
-        try:
-            await chat_service.save_message(
-                session_id=session_id,
-                role=ChatRole.assistant,
-                content=text,
-                cards=[ChatCard(**c) for c in cards],
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("failed to persist card_action response: %s", exc)
-
-        yield StreamEvent(
-            type=StreamEventType.DONE,
-            data={"message_id": message_id, "session_id": session_id},
-        )
-
-    return await sse_response(gen(), endpoint="ai/chat:card_action")
+def _build_configurable(
+    *,
+    diet_service: Any,
+    body_service: Any,
+    memory_service: Any,
+    plan_service: Any,
+    rag_service: Any,
+) -> dict[str, Any]:
+    """运行时依赖通道：service 放这里，不进 checkpoint（不可序列化）。"""
+    return {
+        "diet_service": diet_service,
+        "body_service": body_service,
+        "memory_service": memory_service,
+        "plan_service": plan_service,
+        "rag_service": rag_service,
+        "embedding_client": memory_service.embedding_client,
+    }
 
 
 @router.post("/chat")
@@ -398,19 +202,7 @@ async def send_message(
     rag_service: RagServiceDep,
     user_service: UserServiceDep,
 ):
-    """流式 chat 端点（SSE）。
-
-    流程：
-    1. 接收用户消息（text / card_action / choice_response 三种）
-    2. 持久化用户消息
-    3. 用 LangGraph ``astream_events(version="v2")`` 跑 chat agent
-    4. 通过 ``translator`` 把节点事件翻译为业务事件
-    5. 流结束时持久化助手消息 + emit done
-
-    错误：
-    - 客户端断开 → ``CancelledError`` 自然向上传播，sse_response 会清理 producer
-    - 业务异常 → sse_response 包装为 ``error`` 事件再关闭
-    """
+    """流式 chat 端点（SSE），支持 interrupt 暂停/恢复。"""
     user_text = _resolve_input_message(payload)
     session_id = await chat_service.get_or_create_session(payload.session_id)
     await chat_service.save_message(
@@ -419,81 +211,78 @@ async def send_message(
         content=user_text,
     )
 
-    # ============ T9: card_action 快速路径 ============
-    # 卡片确认/取消等明确操作不需要走 LangGraph，
-    # 直接调对应 service，把结果包装成最小流式响应。
-    if payload.type == "card_action" and (payload.action_id or "") in {
-        "confirm_create_diet_record",
-        "edit_diet_items",
-        "confirm_create_body_record",
-        "cancel_body_record",
-    }:
-        return await _stream_card_action(
-            payload=payload,
-            session_id=session_id,
-            chat_service=chat_service,
-            diet_service=diet_service,
-            body_service=body_service,
-        )
-
-    history, _, _ = await chat_service.get_history(
-        session_id=session_id, page=1, page_size=10
-    )
     context = _context_dict(payload)
-
-    # P2: 读取 pending_action（如果是 choice_response 类型）
-    pa_store = get_pending_action_store()
-    existing_pa = await pa_store.get(session_id) if payload.type == "choice_response" else None
-
-    # 读取交互模式，注入 graph state，驱动 prompt 与响应结构差异
     interaction_mode = await user_service.get_interaction_mode()
 
-    state: dict[str, Any] = {
-        "user_id": str(user.id),
-        "session_id": session_id,
-        "user_message": user_text,
-        "chat_history": [item.model_dump(mode="json") for item in history],
-        "context": context,
-        "interaction_mode": interaction_mode,
-        "profile": user.profile,
-        "plan_service": plan_service,
-        "request_type": payload.type,
-        "card_action_id": payload.action_id,
-        "card_action_payload": payload.action_payload,
-        "diet_input_text": user_text,
-        "diet_image_url": context.get("image_url"),
-        "diet_date": _parse_referenced_date(context),
-        "diet_service": diet_service,
-        "body_input_text": user_text,
-        "body_date": _parse_referenced_date(context),
-        "body_service": body_service,
-        "memory_service": memory_service,
-        "rag_service": rag_service,
-        "embedding_client": memory_service.embedding_client,
-        # P2: 注入 pending_action 供节点使用
-        "pending_action": existing_pa,
+    langsmith_config = build_langsmith_config(
+        user_id=str(user.id),
+        endpoint="/api/v1/chat/stream",
+        extra_tags=["chat", payload.type],
+        extra_metadata={"session_id": session_id},
+    )
+    # thread_id 绑定会话，checkpointer 据此读写存档；service 走 configurable 不进 checkpoint。
+    run_config: dict[str, Any] = {
+        **langsmith_config,
+        "configurable": {
+            **langsmith_config.get("configurable", {}),
+            "thread_id": session_id,
+            **_build_configurable(
+                diet_service=diet_service,
+                body_service=body_service,
+                memory_service=memory_service,
+                plan_service=plan_service,
+                rag_service=rag_service,
+            ),
+        },
     }
 
-    # P2: 如果是 choice_response 且有 pending_action 带 diet_partial，
-    # 把用户选择的 meal_type 合并进去，让 agent 跳过重新解析直接出卡片
-    if existing_pa and existing_pa.diet_partial and payload.type == "choice_response":
-        meal_value = payload.selected_value or payload.free_text or "snack"
-        state["intent"] = "diet"
-        state["diet_parse_result"] = existing_pa.diet_partial
-        # 把 meal_type 注入到 parse_result 里
-        if hasattr(existing_pa.diet_partial, "meal_type"):
-            existing_pa.diet_partial.meal_type = meal_value
-        elif isinstance(existing_pa.diet_partial, dict):
-            existing_pa.diet_partial["meal_type"] = meal_value
-        # 删除 pending_action（已消费）
-        await pa_store.delete(session_id)
+    # 判断会话是否处于中断态，决定走"恢复"还是"新一轮"。
+    # 用 snapshot_has_pending_interrupt 同时检查 snapshot.next 与 tasks.interrupts，
+    # 避免 LangGraph 跨版本下 next 为空 tuple 时误判为"未暂停"导致从头重跑。
+    snapshot = await chat_agent.aget_state(run_config)
+    is_paused = snapshot_has_pending_interrupt(snapshot)
+    is_resume_request = payload.type in ("choice_response", "card_action")
+
+    # 路由诊断（debug 级，生产默认不输出）：定位暂停/恢复问题时打开。
+    # 关注 session_id 是否一致、is_paused 是否为 True、resume 请求是否带 prompt_id/action_id。
+    logger.debug(
+        "chat routing: type=%s req_session=%s resolved_session=%s is_paused=%s "
+        "is_resume=%s prompt_id=%s action_id=%s next=%s",
+        payload.type,
+        payload.session_id,
+        session_id,
+        is_paused,
+        is_resume_request,
+        payload.prompt_id,
+        payload.action_id,
+        getattr(snapshot, "next", None),
+    )
+
+    graph_input: Any
+    if is_paused and is_resume_request:
+        graph_input = Command(resume=build_resume_payload(payload))
+    else:
+        if is_paused:
+            logger.info("session %s was paused but got new text; restarting turn", session_id)
+        history, _, _ = await chat_service.get_history(
+            session_id=session_id, page=1, page_size=10
+        )
+        graph_input = _build_graph_input(
+            payload,
+            user_id=str(user.id),
+            session_id=session_id,
+            user_text=user_text,
+            history=history,
+            context=context,
+            interaction_mode=interaction_mode,
+            # 转换 ORM profile 为可序列化快照（checkpointer msgpack 兼容）
+            profile=ProfileSnapshot.from_orm(user.profile),
+        )
 
     message_id = uuid.uuid4().hex
-    # 边吐边累积，流结束时一次性持久化
-    pending: dict[str, Any] = {"text_parts": [], "cards": [], "choice_prompts": []}
+    pending: dict[str, Any] = {"text_parts": [], "cards": []}
 
     async def gen() -> AsyncIterator[StreamEvent]:
-        # 1. meta：告知客户端会话标识
         yield StreamEvent(
             type=StreamEventType.META,
             data={
@@ -503,18 +292,8 @@ async def send_message(
             },
         )
 
-        # 2. 翻译 LangGraph 事件，注入 LangSmith 追踪配置
-        langsmith_config = build_langsmith_config(
-            user_id=str(user.id),
-            endpoint="/api/v1/chat/stream",
-            extra_tags=["chat", payload.type],
-            extra_metadata={
-                "session_id": session_id,
-                "message_id": message_id,
-            },
-        )
         async for ev in translate_langgraph_events(
-            chat_agent, state, node_labels=CHAT_NODE_LABELS, config=langsmith_config
+            chat_agent, graph_input, node_labels=CHAT_NODE_LABELS, config=run_config
         ):
             if ev.type == StreamEventType.TEXT_DELTA:
                 content = ev.data.get("content", "")
@@ -524,40 +303,67 @@ async def send_message(
                 card = ev.data.get("card")
                 if card:
                     pending["cards"].append(card)
-            elif ev.type == StreamEventType.CHOICE:
-                pending["choice_prompts"].append(ev.data)
             yield ev
 
-        # 3. P2: 如果有 choice_prompts，存 pending_action 供下次请求使用
-        if pending["choice_prompts"]:
-            for cp in pending["choice_prompts"]:
-                pa = create_pending_action(
-                    prompt_id=cp.get("prompt_id", ""),
-                    options=cp.get("options", []),
-                    diet_partial=state.get("diet_parse_result"),
-                )
-                await pa_store.set(session_id, pa)
+        # 检查是否被 interrupt 暂停（发 choice/card + paused 事件）。
+        paused = False
+        async for ev in emit_interrupt_events(chat_agent, run_config):
+            paused = True
+            if ev.type == StreamEventType.CARD:
+                card = ev.data.get("card")
+                if card:
+                    pending["cards"].append(card)
+            yield ev
 
-        # 4. 持久化助手消息
-        full_text = "".join(pending["text_parts"]) or "我已经收到你的消息。"
+        # 持久化助手消息（暂停态也存，便于历史回看卡片）。
+        full_text = "".join(pending["text_parts"]) or ("" if paused else "我已经收到你的消息。")
         cards: list[ChatCard] = [ChatCard(**c) for c in pending["cards"]]
-        try:
-            await chat_service.save_message(
-                session_id=session_id,
-                role=ChatRole.assistant,
-                content=full_text,
-                cards=cards,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("failed to persist assistant message: %s", exc)
+        if full_text or cards:
+            try:
+                await chat_service.save_message(
+                    session_id=session_id,
+                    role=ChatRole.assistant,
+                    content=full_text,
+                    cards=cards,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("failed to persist assistant message: %s", exc)
 
-        # 5. done
-        yield StreamEvent(
-            type=StreamEventType.DONE,
-            data={"message_id": message_id, "session_id": session_id},
-        )
+        # 暂停态不发 done：前端据 paused 进入 WAITING_INPUT。
+        if not paused:
+            yield StreamEvent(
+                type=StreamEventType.DONE,
+                data={"message_id": message_id, "session_id": session_id},
+            )
 
     return await sse_response(gen(), endpoint="ai/chat")
+
+
+@router.get("/chat/sessions/{session_id}/state", response_model=dict)
+async def get_session_state(
+    session_id: str,
+    user: CurrentUserDep,
+    chat_agent: ChatAgentDep,
+) -> dict[str, Any]:
+    """返回会话当前是否处于中断态及挂起的 prompt（前端重连/刷新后恢复 UI 用）。"""
+    _ = user
+    config = {"configurable": {"thread_id": session_id}}
+    snapshot = await chat_agent.aget_state(config)
+    paused = bool(getattr(snapshot, "next", None))
+    prompts: list[dict[str, Any]] = []
+    if paused:
+        for task in getattr(snapshot, "tasks", None) or []:
+            for intr in getattr(task, "interrupts", None) or []:
+                val = getattr(intr, "value", None)
+                if isinstance(val, dict):
+                    prompts.append(val)
+    return success(
+        {
+            "session_id": session_id,
+            "status": "paused" if paused else "idle",
+            "prompts": prompts,
+        }
+    )
 
 
 @router.get("/chat/history", response_model=dict)
@@ -595,4 +401,4 @@ async def delete_chat_session(
     return success(None, message="删除成功")
 
 
-__all__ = ["router"]
+__all__ = ["build_resume_payload", "router"]

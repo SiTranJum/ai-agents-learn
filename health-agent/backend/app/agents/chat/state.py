@@ -47,6 +47,7 @@ class ChatState(TypedDict, total=False):
     diet_confidence: float
     diet_parse_result: Any
     diet_saved_record: Any
+    diet_cancelled: bool
     foods: list[Any]
     mode: str | None
     diet_service: Any
@@ -54,6 +55,8 @@ class ChatState(TypedDict, total=False):
     body_input_text: str | None
     body_date: date | None
     body_parse_result: Any
+    body_saved: bool
+    body_cancelled: bool
     body_service: Any
 
     profile: Any

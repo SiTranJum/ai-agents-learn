@@ -7,11 +7,24 @@ import type { ChatMessage, NutritionData } from '../types/ai.types';
 export type OverlayState = 'collapsed' | 'floating' | 'fullscreen';
 export type CardStatusValue = 'pending' | 'submitted' | 'cancelled';
 
+/**
+ * 会话被后端 interrupt 暂停时挂起的 prompt。
+ * 收到 `paused` 事件时写入，用户作答（sendChoice/sendCardAction）后清空。
+ * 用来标识"等待用户作答"态，并让 resume 请求带上正确的 prompt_id。
+ */
+export interface PendingPrompt {
+  promptId: string;
+  kind: 'choice' | 'card';
+  domain?: string | null;
+}
+
 interface AIStore {
   chatMessages: ChatMessage[];
   isAIThinking: boolean;
   /** 后端 chat session_id；首条消息返回后保存，后续消息复用同一会话 */
   currentSessionId: string | null;
+  /** 会话当前被 interrupt 暂停时挂起的 prompt；null 表示空闲 */
+  pendingPrompt: PendingPrompt | null;
   /** 当前展示的营养查询结果（用于触发 BottomSheet） */
   nutritionResult: NutritionData | null;
   /** AI 浮层状态：collapsed → floating → fullscreen */
@@ -28,6 +41,7 @@ interface AIStore {
   updateLastAIMessage: (updater: (msg: ChatMessage) => ChatMessage) => void;
   setAIThinking: (thinking: boolean) => void;
   setCurrentSessionId: (sessionId: string | null) => void;
+  setPendingPrompt: (prompt: PendingPrompt | null) => void;
   setNutritionResult: (data: NutritionData | null) => void;
   setOverlayState: (state: OverlayState) => void;
   setCardStatus: (cardId: string, status: CardStatusValue) => void;
@@ -42,6 +56,7 @@ export const useAIStore = create<AIStore>((set) => ({
   chatMessages: [],
   isAIThinking: false,
   currentSessionId: null,
+  pendingPrompt: null,
   nutritionResult: null,
   overlayState: 'collapsed',
   cardStatus: new Map(),
@@ -65,6 +80,7 @@ export const useAIStore = create<AIStore>((set) => ({
 
   setAIThinking: (thinking) => set({ isAIThinking: thinking }),
   setCurrentSessionId: (sessionId) => set({ currentSessionId: sessionId }),
+  setPendingPrompt: (prompt) => set({ pendingPrompt: prompt }),
   setNutritionResult: (data) => set({ nutritionResult: data }),
   setOverlayState: (overlayState) => set({ overlayState }),
 
@@ -85,6 +101,7 @@ export const useAIStore = create<AIStore>((set) => ({
       chatMessages: [],
       isAIThinking: false,
       currentSessionId: null,
+      pendingPrompt: null,
       nutritionResult: null,
       overlayState: 'collapsed',
       cardStatus: new Map(),

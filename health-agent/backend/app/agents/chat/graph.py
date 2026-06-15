@@ -23,13 +23,17 @@ from app.agents.diet.subgraph import build_diet_subgraph
 from app.agents.plan.subgraph import build_plan_subgraph
 
 
-def build_chat_agent():
+def build_chat_agent(checkpointer: Any = None):
     """Build the only externally exposed AI graph.
 
     ``StateGraph(ChatState)`` 类似把多个可测试节点串成一个工作流：
     - 节点函数只返回要更新的 state 字段；
     - 条件边根据 ``intent`` 决定进入 diet/body subgraph 还是 general chat；
     - 编译后的 graph 可被 FastAPI 依赖以单例方式复用。
+
+    ``checkpointer`` 非空时，graph 支持 ``interrupt()`` 暂停/恢复：每个 super-step
+    后把 state 快照存档，子图内的 interrupt 会冒泡到父图层面暂停。子图自身
+    ``compile()`` 不需要 checkpointer，会继承父图的。
     """
     graph = StateGraph(cast(Any, ChatState))
     graph.add_node("identify_intent", cast(Any, identify_intent))
@@ -58,7 +62,7 @@ def build_chat_agent():
     graph.add_edge("call_llm", "trigger_memory_extract")
     graph.add_edge("trigger_memory_extract", "wrap_response")
     graph.add_edge("wrap_response", END)
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
 __all__ = ["build_chat_agent"]
