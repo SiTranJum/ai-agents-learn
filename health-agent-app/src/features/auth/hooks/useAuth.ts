@@ -131,6 +131,26 @@ export function useAuth() {
     }
   };
 
+  // 在密码恢复 session 下设置新密码。成功后退出恢复模式并登出临时 session，
+  // 让用户用新密码重新登录。
+  const resetPassword = async (newPassword: string): Promise<boolean> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await authService.resetPassword(newPassword);
+      await authService.logout();
+      useGlobalStore.getState().setRecoveringPassword(false);
+      useGlobalStore.getState().setToken(null);
+      return true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '重置失败，请重试';
+      setError(msg);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const submitOnboarding = async (data: OnboardingData): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
@@ -167,6 +187,7 @@ export function useAuth() {
     login,
     register,
     forgotPassword,
+    resetPassword,
     submitOnboarding,
     logout,
   };

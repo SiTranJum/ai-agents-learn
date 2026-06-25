@@ -1,8 +1,9 @@
 {
   "expo": {
     "name": "health-agent-app",
-    "slug": "health-agent-app",
+    "slug": "ai-agent-learn",
     "version": "1.0.0",
+    "scheme": "healthagent",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -21,7 +22,8 @@
         "backgroundColor": "#ffffff"
       },
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "adjustResize"
+      "softwareKeyboardLayoutMode": "adjustResize",
+      "package": "com.sitransteam.aiagentlearn"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -29,6 +31,12 @@
     "plugins": [
       "expo-secure-store",
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "77bf23eb-939a-4dcd-9b8f-a0e55bc4bf08"
+      }
+    },
+    "owner": "sitrans-team"
   }
 }
